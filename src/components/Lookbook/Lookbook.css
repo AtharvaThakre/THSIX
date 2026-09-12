@@ -1,0 +1,180 @@
+/* ================================================
+   LOOKBOOK — HOW THSIX IS WORN
+   Section 04A
+   ================================================ */
+
+.lookbook {
+  width: 100%;
+  background-color: var(--white);
+  padding: clamp(55px, 6vw, 80px) 0 clamp(50px, 6vw, 80px);
+}
+
+.lookbook__container {
+  width: min(100% - clamp(48px, 10vw, 160px), 1600px);
+  margin-inline: auto;
+}
+
+/* ---- Header ---- */
+.lookbook__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: clamp(24px, 3vw, 36px);
+}
+
+.lookbook__header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lookbook__heading {
+  font-family: var(--font-primary);
+  font-size: clamp(1.8rem, 3.2vw, 2.75rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.0;
+  color: var(--black);
+  text-transform: uppercase;
+}
+
+.lookbook__subtitle {
+  font-size: clamp(8px, 0.75vw, 11px);
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  color: var(--gray);
+  text-transform: uppercase;
+}
+
+/* ---- View Lookbook Link ---- */
+.lookbook__view-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--black);
+  text-transform: uppercase;
+  text-decoration: none;
+  white-space: nowrap;
+  padding-bottom: 2px;
+  transition: opacity 0.3s ease;
+}
+
+.lookbook__view-link:hover {
+  opacity: 0.65;
+}
+
+.lookbook__view-link:hover .lookbook-link-arrow {
+  transform: translateX(4px);
+}
+
+.lookbook-link-arrow {
+  transition: transform 0.35s ease;
+}
+
+/* ---- Grid ---- */
+.lookbook__grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: clamp(10px, 1.2vw, 16px);
+}
+
+/* ---- Card ---- */
+.lookbook-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.lookbook-card__image-wrapper {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background-color: #e0e0de;
+}
+
+.lookbook-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  display: block;
+  filter: grayscale(100%);
+  transition: transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.lookbook-card:hover .lookbook-card__image {
+  transform: scale(1.025);
+}
+
+/* ---- Label row ---- */
+.lookbook-card__label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 10px;
+}
+
+.lookbook-card__title {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  color: var(--black);
+  text-transform: uppercase;
+}
+
+.lookbook-card__number {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  color: var(--gray);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .lookbook__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+
+  .lookbook__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .lookbook__view-link {
+    align-self: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .lookbook__grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .lookbook-card__image-wrapper {
+    aspect-ratio: 3 / 4;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .lookbook-card__image {
+    transition: none;
+  }
+
+  .lookbook-link-arrow {
+    transition: none;
+  }
+
+  .lookbook__heading,
+  .lookbook__subtitle,
+  .lookbook__view-link,
+  .lookbook-card {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

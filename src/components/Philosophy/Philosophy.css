@@ -1,0 +1,148 @@
+.philosophy {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 600px;
+  background-color: var(--white);
+}
+
+/* Left Image Panel */
+.philosophy__image-panel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 500px;
+  background-color: #1a1a1a;
+  overflow: hidden;
+}
+
+.philosophy__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+}
+
+.philosophy__image-placeholder {
+  width: 100%;
+  height: 100%;
+  background-color: #1a1a1a;
+}
+
+.philosophy__image-overlay {
+  position: absolute;
+  top: 36px;
+  left: 36px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: var(--white);
+  line-height: 1.6;
+  text-transform: uppercase;
+  z-index: 10;
+  opacity: 0.85;
+}
+
+/* Right Text Panel */
+.philosophy__text-panel {
+  position: relative;
+  background-color: #f7f7f5;
+  padding: clamp(48px, 6vw, 96px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.philosophy__content {
+  max-width: 480px;
+}
+
+.philosophy__eyebrow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: var(--gray);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+}
+
+.philosophy__title {
+  font-family: var(--font-primary);
+  font-size: clamp(2.2rem, 3.8vw, 4rem);
+  font-weight: 900;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  color: var(--black);
+  text-transform: uppercase;
+  margin-bottom: clamp(24px, 3vw, 36px);
+}
+
+.philosophy__title-line {
+  display: block;
+}
+
+.philosophy__description {
+  font-size: clamp(13px, 1.1vw, 15px);
+  line-height: 1.55;
+  color: var(--black);
+  margin-bottom: clamp(32px, 3vw, 44px);
+  opacity: 0.9;
+}
+
+.philosophy__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background-color: var(--black);
+  color: var(--white);
+  padding: 0 28px;
+  height: 48px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  transition: background-color 0.4s ease;
+  width: fit-content;
+}
+
+.philosophy__cta:hover {
+  background-color: #222;
+}
+
+.philosophy__cta:hover .philosophy-cta-arrow {
+  transform: translateX(4px);
+}
+
+.philosophy-cta-arrow {
+  transition: transform 0.4s ease;
+}
+
+.philosophy__corner-text {
+  position: absolute;
+  right: clamp(36px, 5vw, 64px);
+  bottom: clamp(36px, 5vw, 64px);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.25em;
+  color: var(--black);
+  line-height: 1.6;
+  text-align: right;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+@media (max-width: 900px) {
+  .philosophy {
+    grid-template-columns: 1fr;
+  }
+
+  .philosophy__image-panel {
+    min-height: 60vh;
+  }
+
+  .philosophy__corner-text {
+    display: none;
+  }
+}
