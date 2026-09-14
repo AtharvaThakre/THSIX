@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { CartEnhancer } from '../CartEnhancer/CartEnhancer';
+import { ShopifyGuard } from '../ShopifyGuard';
 import ScrollVelocity from '../ScrollVelocity/ScrollVelocity';
 import './ProductShowcase.css';
 
@@ -65,16 +66,10 @@ export const ProductShowcase = () => {
   return (
     <section className="product-showcase">
       <CartEnhancer />
-      {/* Shopify store config */}
-      <shopify-store
-        store-domain={import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com"}
-        public-access-token={import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866"}
-        country="US"
-        language="EN"
-      />
 
-      {/* Global cart (home page) */}
-      <shopify-cart id="home-cart" />
+      <ShopifyGuard>
+        {/* Global cart (home page) */}
+        <shopify-cart id="home-cart" />
 
       {/* "1st drop is now live." Announcement Section */}
       <div className="product-showcase__announcement">
@@ -200,6 +195,7 @@ export const ProductShowcase = () => {
           </div>
         </div>
       </div>
+      </ShopifyGuard>
     </section>
   );
 };

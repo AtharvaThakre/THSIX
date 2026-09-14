@@ -250,14 +250,6 @@ export const ProductDetailPage = () => {
       <AnnouncementBar />
       <Header />
 
-      <shopify-store
-        store-domain={import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com"}
-        public-access-token={import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866"}
-        country="US"
-        language="EN"
-        include-all-variants="true"
-      />
-
       <shopify-cart id="product-cart" />
 
       <main className="product-detail__main">
