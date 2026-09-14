@@ -67,37 +67,186 @@
   transition: transform 0.3s ease;
 }
 
-/* Grid */
-.product-showcase__grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: clamp(12px, 2vw, 20px);
-}
-
-/* Product Card */
-.product-card {
-  display: flex;
-  flex-direction: column;
-}
-
-.product-card__image-link {
-  display: block;
-  width: 100%;
-}
-
-.product-card__image-container {
-  width: 100%;
-  aspect-ratio: 1.35 / 1;
-  background-color: #f2f2f0;
-  overflow: hidden;
+/* ─── Horizontal Scroll Layout ─────────────────────────────── */
+.product-showcase__scroll-wrapper {
   position: relative;
 }
 
-.product-card__image {
+.product-showcase__scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding-bottom: 12px; /* Space for scrollbar */
+}
+
+/* ─── Minimal Scrollbar Styling ──────────────────────────── */
+
+/* Firefox */
+.product-showcase__scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc #ffffff;
+}
+
+/* Chrome, Edge, Safari */
+.product-showcase__scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.product-showcase__scroll-container::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 3px;
+}
+
+.product-showcase__scroll-container::-webkit-scrollbar-thumb {
+  background: #d0d0cc;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.product-showcase__scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.product-showcase__scroll-content {
+  display: flex;
+  gap: clamp(12px, 2vw, 20px);
+  padding: 0 2px; /* Prevent content clipping */
+}
+
+/* ─── Minimal Scroll Buttons ──────────────────────────────── */
+.product-showcase__scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: none;
+  border: none;
+  color: var(--black);
+  cursor: pointer;
+  padding: 8px;
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.product-showcase__scroll-btn:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.product-showcase__scroll-btn--left {
+  left: -40px;
+}
+
+.product-showcase__scroll-btn--right {
+  right: -40px;
+}
+
+.product-showcase__scroll-btn--disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile scroll buttons - position inside container */
+@media (max-width: 768px) {
+  .product-showcase__scroll-btn--left {
+    left: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    backdrop-filter: blur(4px);
+  }
+  
+  .product-showcase__scroll-btn--right {
+    right: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* ─── Product Card (Maintained Original Design) ──────────── */
+.product-card {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 300px; /* Fixed width for horizontal scroll */
+}
+
+@media (max-width: 768px) {
+  .product-card {
+    width: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-card {
+    width: 220px;
+  }
+}
+
+
+/* ─── Product Card Link Styles ───────────────────────────── */
+.product-card__link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
   width: 100%;
   height: 100%;
+  transition: transform 0.2s ease;
+}
+
+.product-card__link:hover {
+  transform: translateY(-4px);
+}
+
+.product-card__link:hover .product-card__image {
+  transform: scale(1.05);
+}
+
+.product-card__link:hover .product-card__placeholder {
+  background-color: #ebebe8;
+}
+
+
+/* ─── RESPONSIVE IMAGE CONTAINER - NO CROPPING ──────────── */
+.product-card__image-container {
+  width: 100%;
+  background-color: #f2f2f0;
+  overflow: visible;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  padding: 16px 8px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 768px) {
+  .product-card__image-container {
+    min-height: 220px;
+    padding: 12px 6px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-card__image-container {
+    min-height: 200px;
+    padding: 10px 4px;
+  }
+}
+
+.product-card__image {
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   transition: transform 0.5s ease;
+  display: block;
 }
 
 .product-card__placeholder {
@@ -159,17 +308,297 @@
   transform: translateY(-1px);
 }
 
-@media (max-width: 900px) {
-  .product-showcase__grid {
-    grid-template-columns: repeat(2, 1fr);
-    row-gap: 32px;
-  }
+.product-card__action:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
+/* ─── Legacy Grid Styles (Hidden) ─────────────────────────── */
+.product-showcase__grid {
+  display: none; /* Hide old grid layout */
+}
+
+/* ─── Mobile Responsive ───────────────────────────────────── */
 @media (max-width: 480px) {
   .product-showcase__header {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
   }
+}
+
+/* ─── Shopify Integration Styles ──────────────────────────── */
+.product-showcase__scroll-content shopify-list-context {
+  display: contents;
+}
+
+/* ─── SHOPIFY IMAGE RESPONSIVE FIX ──────────────────────── */
+.product-card__image-container shopify-media,
+.product-card__image-container img {
+  width: auto !important;
+  height: auto !important;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  transition: transform 0.5s ease;
+}
+
+.product-card:hover .product-card__image-container shopify-media img {
+  transform: scale(1.03);
+}
+
+.product-card:hover .product-card__image-container img {
+  transform: scale(1.03);
+}
+
+/* ─── Home Page Product Modal (Unchanged) ─────────────────── */
+.home-modal {
+  border: none;
+  border-radius: 16px;
+  padding: 0;
+  width: min(90vw, 900px);
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.home-modal::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.home-modal__container {
+  position: relative;
+  padding: 32px;
+}
+
+.home-modal__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e0e0dc;
+  background: #f8f8f6;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  z-index: 10;
+}
+
+.home-modal__close:hover {
+  background: #111;
+  color: #fff;
+  border-color: #111;
+}
+
+.home-modal__layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 36px;
+  align-items: start;
+}
+
+@media (max-width: 640px) {
+  .home-modal__layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.home-modal__media img,
+.home-modal__media unpic-img {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}
+
+.home-modal__details {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 8px;
+}
+
+.home-modal__header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.home-modal__vendor {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #999;
+}
+
+.home-modal__title {
+  font-size: clamp(18px, 2.5vw, 28px);
+  font-weight: 800;
+  color: #111;
+  line-height: 1.15;
+  margin: 0;
+}
+
+.home-modal__price {
+  font-size: 16px;
+  font-weight: 700;
+  color: #111;
+  margin: 0;
+}
+
+/* Modal variant selector */
+.home-modal shopify-variant-selector::part(form) {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.home-modal shopify-variant-selector::part(label) {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #777;
+  width: 100%;
+}
+
+.home-modal shopify-variant-selector::part(radio) {
+  padding: 6px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #e0e0dc;
+  border-radius: 7px;
+  cursor: pointer;
+  background: #f8f8f6;
+  color: #111;
+  transition: all 0.2s ease;
+}
+
+.home-modal shopify-variant-selector::part(radio-selected) {
+  border-color: #111;
+  background: #111;
+  color: #fff;
+}
+
+.home-modal shopify-variant-selector::part(radio-disabled) {
+  opacity: 0.3;
+  cursor: not-allowed;
+  text-decoration: line-through;
+}
+
+.home-modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-modal__add-btn {
+  width: 100%;
+  padding: 13px;
+  background: #111;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1.5px solid #111;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.home-modal__add-btn:hover:not(:disabled) {
+  background: #fff;
+  color: #111;
+}
+
+.home-modal__add-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.home-modal__buy-btn {
+  width: 100%;
+  padding: 13px;
+  background: #fff;
+  color: #111;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1.5px solid #e0e0dc;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.home-modal__buy-btn:hover:not(:disabled) {
+  border-color: #111;
+}
+
+.home-modal__buy-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.home-modal__description {
+  font-size: 12px;
+  line-height: 1.7;
+  color: #777;
+  border-top: 1px solid #f0f0ed;
+  padding-top: 16px;
+}
+
+/* Home cart styling */
+shopify-cart::part(dialog) {
+  border-radius: 16px 0 0 16px;
+}
+
+shopify-cart::part(primary-button) {
+  background-color: #111;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+shopify-cart::part(secondary-button) {
+  background-color: #fff;
+  color: #111;
+  fill: #111;
+  border: 1.5px solid #e0e0dc;
+  border-radius: 6px;
+}
+
+
+/* ─── Product Card Link Styles ───────────────────────────── */
+.product-card__link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.2s ease;
+}
+
+.product-card__link:hover {
+  transform: translateY(-4px);
+}
+
+.product-card__link:hover .product-card__image {
+  transform: scale(1.05);
+}
+
+.product-card__link:hover .product-card__placeholder {
+  background-color: #ebebe8;
 }

@@ -21,7 +21,14 @@ export const Header = () => {
         <button className="icon-btn desktop-only" aria-label="Account">
           <UserRound size={20} strokeWidth={1.5} />
         </button>
-        <button className="icon-btn" aria-label="Cart">
+        <button
+          className="icon-btn"
+          aria-label="Cart"
+          onClick={() => {
+            const cart = (document.getElementById('global-cart') || document.getElementById('home-cart')) as any;
+            if (cart?.showModal) cart.showModal();
+          }}
+        >
           <ShoppingBag size={20} strokeWidth={1.5} />
         </button>
         <button className="icon-btn mobile-only" aria-label="Menu">

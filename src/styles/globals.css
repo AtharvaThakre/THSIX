@@ -67,3 +67,185 @@ html.lenis, html.lenis body {
 .lenis.lenis-scrolling iframe {
   pointer-events: none;
 }
+
+/* Web Components Base & Responsive Rules */
+shopify-store,
+shopify-context,
+shopify-list-context,
+shopify-cart {
+  display: block;
+  max-width: 100%;
+}
+
+shopify-media {
+  max-width: 100% !important;
+  display: block;
+}
+
+shopify-media img,
+shopify-media video {
+  max-width: 100% !important;
+  height: auto;
+  object-fit: contain;
+}
+
+/* ─── Global Shopify Cart - Clean Sharp Minimal Sidebar Drawer ─────────── */
+shopify-cart {
+  display: block;
+}
+
+shopify-cart::part(dialog) {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: auto !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  width: 440px !important;
+  max-width: 100vw !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  border-left: 1px solid #e0e0dc !important;
+  box-shadow: -12px 0 48px rgba(0, 0, 0, 0.2) !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 99999 !important;
+}
+
+shopify-cart::part(dialog)::backdrop {
+  background: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+@media (max-width: 640px) {
+  shopify-cart::part(dialog) {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    border-left: none !important;
+  }
+}
+
+shopify-cart::part(line-image) {
+  width: 80px !important;
+  height: 80px !important;
+  min-width: 80px !important;
+  max-width: 80px !important;
+  border-radius: 0 !important;
+  object-fit: contain !important;
+  background: #f5f5f3 !important;
+  padding: 4px !important;
+  flex-shrink: 0 !important;
+  display: block !important;
+}
+
+shopify-cart::part(line-heading) {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+  word-break: break-word !important;
+  letter-spacing: -0.01em !important;
+}
+
+shopify-cart::part(line-price) {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  color: #111111 !important;
+}
+
+shopify-cart::part(primary-button) {
+  background-color: var(--black, #111111) !important;
+  color: var(--white, #ffffff) !important;
+  border: 1px solid var(--black, #111111) !important;
+  border-radius: 0 !important;
+  padding: 16px 24px !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.12em !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+  margin-top: 10px !important;
+  display: block !important;
+}
+
+shopify-cart::part(primary-button):hover {
+  background-color: var(--white, #ffffff) !important;
+  color: var(--black, #111111) !important;
+}
+
+shopify-cart::part(secondary-button) {
+  background-color: #ffffff !important;
+  color: var(--black, #111111) !important;
+  fill: var(--black, #111111) !important;
+  border: 1px solid #111111 !important;
+  border-radius: 0 !important;
+  padding: 6px 10px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+shopify-cart::part(secondary-button):hover {
+  background-color: #f5f5f3 !important;
+}
+
+/* ─── Cart Slots (Empty & Extension) ───────────────────────── */
+.cart-empty-slot {
+  padding: 60px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.cart-empty-title {
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #111111;
+  text-transform: uppercase;
+}
+
+.cart-empty-subtitle {
+  font-size: 13px;
+  color: #777777;
+}
+
+.cart-extension-slot {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0ed;
+}
+
+.cart-perks {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cart-perk-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #555555;
+  text-transform: uppercase;
+}
+
+.cart-perk-item svg {
+  color: #111111;
+  flex-shrink: 0;
+}
+
+
+
