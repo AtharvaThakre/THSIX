@@ -86,7 +86,7 @@ export const CartEnhancer = () => {
       });
     };
 
-    const extractProductDataAsync = async (button: HTMLButtonElement) => {
+    const extractProductDataAsync = async (_button: HTMLButtonElement) => {
       // Try to get product data from the page context
       let productTitle = document.querySelector('[shopify-data*="product.title"]')?.textContent || 
                           document.querySelector('h1')?.textContent || 
@@ -167,135 +167,6 @@ export const CartEnhancer = () => {
             .replace(/^-|-$/g, '')
         : 'default';
       
-      const productId = selectedVariant ? 
-        `${productHandle}-${cleanTitle}-${cleanVariant}` : 
-        `${productHandle}-${cleanTitle}`;
-      
-      console.log('Extracted product data:', {
-        id: productId,
-        title: productTitle,
-        price: price,
-        image: image,
-        handle: productHandle,
-        variantId: selectedVariant,
-      });
-      
-      return {
-        id: productId,
-        title: productTitle,
-        price: price,
-        image: image,
-        handle: productHandle,
-        variantId: selectedVariant,
-      };
-    };
-
-    const extractProductData = (button: HTMLButtonElement) => {
-      // Try to get product data from the page context
-      const productTitle = document.querySelector('[shopify-data*="product.title"]')?.textContent || 
-                          document.querySelector('h1')?.textContent || 
-                          document.querySelector('.product-detail__title')?.textContent ||
-                          'Product';
-      
-      // Enhanced price extraction with multiple fallbacks
-      let price = 0;
-      
-      // Try to get price from Shopify money element
-      const shopifyMoneyElement = document.querySelector('shopify-money');
-      if (shopifyMoneyElement) {
-        const moneyText = shopifyMoneyElement.textContent || shopifyMoneyElement.innerHTML;
-        if (moneyText) {
-          // Extract numbers from various currency formats
-          const priceMatch = moneyText.match(/[\d,]+\.?\d*/);
-          if (priceMatch) {
-            price = parseFloat(priceMatch[0].replace(/,/g, ''));
-          }
-        }
-      }
-      
-      // Fallback: try other price selectors
-      if (!price) {
-        const priceSelectors = [
-          '.product-detail__price',
-          '[class*="price"]',
-          '[data-price]',
-          '.price',
-          '.product-price'
-        ];
-        
-        for (const selector of priceSelectors) {
-          const priceElement = document.querySelector(selector);
-          if (priceElement) {
-            const priceText = priceElement.textContent || priceElement.getAttribute('data-price');
-            if (priceText) {
-              // Extract price from text like "₹11,000", "$99.99", "11000", etc.
-              const priceMatch = priceText.match(/[\d,]+\.?\d*/);
-              if (priceMatch) {
-                const extractedPrice = parseFloat(priceMatch[0].replace(/,/g, ''));
-                if (extractedPrice > 0) {
-                  price = extractedPrice;
-                  break;
-                }
-              }
-            }
-          }
-        }
-      }
-      
-      // Final fallback: try to get from any element containing currency symbols
-      if (!price) {
-        const allElements = document.querySelectorAll('*');
-        for (const element of allElements) {
-          const text = element.textContent;
-          if (text && (text.includes('₹') || text.includes('$') || text.includes('INR'))) {
-            const priceMatch = text.match(/[₹$]?[\d,]+\.?\d*/);
-            if (priceMatch) {
-              const extractedPrice = parseFloat(priceMatch[0].replace(/[₹$,]/g, ''));
-              if (extractedPrice > 50 && extractedPrice < 100000) { // Reasonable price range
-                price = extractedPrice;
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      const imageElement = document.querySelector('#main-shopify-media img') as HTMLImageElement;
-      const image = imageElement?.src || imageElement?.currentSrc || '/placeholder.jpg';
-      
-      // Get selected variant/size information
-      const variantSelector = document.querySelector('shopify-variant-selector');
-      let selectedVariant = '';
-      
-      if (variantSelector) {
-        // Try to get selected variant from Shopify's variant selector
-        const selectedRadio = variantSelector.shadowRoot?.querySelector('input[type="radio"]:checked') ||
-                             variantSelector.querySelector('input[type="radio"]:checked') ||
-                             variantSelector.shadowRoot?.querySelector('button[aria-checked="true"]') ||
-                             variantSelector.querySelector('button[aria-checked="true"]');
-        
-        if (selectedRadio) {
-          selectedVariant = (selectedRadio as HTMLInputElement).value || 
-                           (selectedRadio as HTMLInputElement).getAttribute('data-variant-title') ||
-                           (selectedRadio as HTMLElement).textContent?.trim() || 
-                           (selectedRadio as HTMLElement).getAttribute('title') ||
-                           '';
-        }
-        
-        // Alternative: check for select elements
-        if (!selectedVariant) {
-          const selectedOption = variantSelector.shadowRoot?.querySelector('select option:checked') ||
-                                variantSelector.querySelector('select option:checked');
-          if (selectedOption) {
-            selectedVariant = (selectedOption as HTMLOptionElement).textContent?.trim() || '';
-          }
-        }
-      }
-      
-      // Generate a consistent ID that doesn't change based on timestamp
-      const productHandle = window.location.pathname.split('/').pop() || '';
-      const cleanTitle = productTitle.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-      const cleanVariant = selectedVariant ? selectedVariant.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase() : 'default';
       const productId = selectedVariant ? 
         `${productHandle}-${cleanTitle}-${cleanVariant}` : 
         `${productHandle}-${cleanTitle}`;

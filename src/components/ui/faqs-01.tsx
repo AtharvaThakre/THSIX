@@ -1,4 +1,4 @@
-import { MessageCircle, HelpCircle } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
