@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Search } from 'lucide-react';
+import { CartEnhancer } from '../components/CartEnhancer/CartEnhancer';
 import './ShopPage.css';
 
 const BRANDS = [
@@ -27,10 +28,11 @@ export const ShopPage = () => {
 
   return (
     <div className="shop-page">
+      <CartEnhancer />
       {/* Shopify Store Configuration */}
       <shopify-store
-        store-domain="https://19sjnp-gx.myshopify.com"
-        public-access-token="be59fa0cf086500d7b6456e64f233866"
+        store-domain={import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com"}
+        public-access-token={import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866"}
         country="US"
         language="EN"
       />

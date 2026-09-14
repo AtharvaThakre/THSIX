@@ -1,8 +1,11 @@
 import { Search, UserRound, ShoppingBag, Menu } from 'lucide-react';
+import { useCart } from '../../contexts/CartContext';
 import { Logo } from './Logo';
 import './Header.css';
 
 export const Header = () => {
+  const { totalItems } = useCart();
+
   return (
     <header className="header">
       <div className="header-left">
@@ -22,14 +25,21 @@ export const Header = () => {
           <UserRound size={20} strokeWidth={1.5} />
         </button>
         <button
-          className="icon-btn"
-          aria-label="Cart"
+          className={`icon-btn cart-btn ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
+          aria-label={`Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
           onClick={() => {
             const cart = (document.getElementById('global-cart') || document.getElementById('home-cart')) as any;
             if (cart?.showModal) cart.showModal();
           }}
         >
-          <ShoppingBag size={20} strokeWidth={1.5} />
+          <div className="cart-btn__icon-wrapper">
+            <ShoppingBag size={20} strokeWidth={1.5} />
+            {totalItems > 0 && (
+              <span className="cart-btn__badge">
+                {totalItems}
+              </span>
+            )}
+          </div>
         </button>
         <button className="icon-btn mobile-only" aria-label="Menu">
           <Menu size={20} strokeWidth={1.5} />

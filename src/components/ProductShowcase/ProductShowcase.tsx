@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { CartEnhancer } from '../CartEnhancer/CartEnhancer';
+import ScrollVelocity from '../ScrollVelocity/ScrollVelocity';
 import './ProductShowcase.css';
 
 export const ProductShowcase = () => {
@@ -62,16 +64,29 @@ export const ProductShowcase = () => {
 
   return (
     <section className="product-showcase">
+      <CartEnhancer />
       {/* Shopify store config */}
       <shopify-store
-        store-domain="https://19sjnp-gx.myshopify.com"
-        public-access-token="be59fa0cf086500d7b6456e64f233866"
+        store-domain={import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com"}
+        public-access-token={import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866"}
         country="US"
         language="EN"
       />
 
       {/* Global cart (home page) */}
       <shopify-cart id="home-cart" />
+
+      {/* "1st drop is now live." Announcement Section */}
+      <div className="product-showcase__announcement">
+        <ScrollVelocity
+          texts={['1ˢᵗ drop is now live.']}
+          velocity={50}
+          className="announcement-text"
+          numCopies={8}
+          parallaxClassName="announcement-parallax"
+          scrollerClassName="announcement-scroller"
+        />
+      </div>
 
       {/* Section header */}
       <div className="product-showcase__header">

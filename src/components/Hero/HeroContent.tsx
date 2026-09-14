@@ -1,15 +1,19 @@
 import { ArrowRight } from 'lucide-react';
+import BlurText from './BlurText';
 
 export const HeroContent = ({ data }: { data: any }) => {
   return (
     <div className="hero-content">
       <div className="hero-eyebrow">{data.eyebrow}</div>
       <h1 className="hero-title">
-        {data.title.map((line: string, i: number) => (
-          <div key={i} className="hero-title-line-wrapper" style={{ overflow: 'hidden' }}>
-            <div className="hero-title-line">{line}</div>
-          </div>
-        ))}
+        <BlurText
+          text="THE FIRST STEP. THE SAMBA."
+          animateBy="words"
+          direction="top"
+          delay={150}
+          stepDuration={0.35}
+          className="hero-title-blur"
+        />
       </h1>
       <p className="hero-description">{data.description}</p>
       

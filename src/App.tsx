@@ -1,11 +1,13 @@
 import { useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
+import { CartProvider } from './contexts/CartContext';
 import Lenis from 'lenis';
 import gsap from 'gsap';
 import { Preloader } from './components/Preloader/Preloader';
 import { AnnouncementBar } from './components/Header/AnnouncementBar';
 import { Header } from './components/Header/Header';
 import { Hero } from './components/Hero/Hero';
+import { BlankSection } from './components/BlankSection/BlankSection';
 import { ProductShowcase } from './components/ProductShowcase/ProductShowcase';
 import { Philosophy } from './components/Philosophy/Philosophy';
 import { BrandsShowcase } from './components/BrandsShowcase/BrandsShowcase';
@@ -13,6 +15,7 @@ import { NextDrop } from './components/NextDrop/NextDrop';
 import { Lookbook } from './components/Lookbook/Lookbook';
 import { WhyThsix } from './components/WhyThsix/WhyThsix';
 import { Newsletter } from './components/Newsletter/Newsletter';
+import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
 import { ShopPage } from './pages/ShopPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -50,6 +53,7 @@ function HomePage() {
       <Header />
       <main>
         <Hero />
+        <BlankSection />
         <ProductShowcase />
         <Philosophy />
         <BrandsShowcase />
@@ -58,12 +62,13 @@ function HomePage() {
         <WhyThsix />
         <Newsletter />
       </main>
+      <AboutStrip />
       <Footer />
     </>
   );
 }
 
-import { FloatingCartButton } from './components/Cart/FloatingCartButton';
+import { CartManager } from './components/Cart/CartManager';
 
 // Scroll to top on route change
 function ScrollToTop() {
@@ -78,7 +83,7 @@ function ScrollToTop() {
 
 function App() {
   return (
-    <>
+    <CartProvider>
       {/* Preloader - shown on initial page load */}
       <Preloader />
 
@@ -87,21 +92,22 @@ function App() {
 
       {/* Global Shopify Store Configuration */}
       <shopify-store
-        store-domain="https://19sjnp-gx.myshopify.com"
-        public-access-token="be59fa0cf086500d7b6456e64f233866"
+        store-domain={import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com"}
+        public-access-token={import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866"}
         country="US"
         language="EN"
+        cache-policy="cache-first-network-fallback"
       />
 
-      {/* Floating Bottom-Right Cart Button */}
-      <FloatingCartButton />
+      {/* Cart System */}
+      <CartManager />
 
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopPage />} />
         <Route path="/product/:handle" element={<ProductDetailPage />} />
       </Routes>
-    </>
+    </CartProvider>
   );
 }
 

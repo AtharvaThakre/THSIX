@@ -57,6 +57,12 @@
   display: block;
 }
 
+.hero-title-blur {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
 .hero-description {
   font-size: clamp(15px, 1.2vw, 17px);
   color: var(--black);

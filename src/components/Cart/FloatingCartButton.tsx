@@ -1,68 +1,44 @@
 import { useState, useEffect } from 'react';
 import { ShoppingBag } from 'lucide-react';
+import { useCart } from '../../contexts/CartContext';
 import './FloatingCartButton.css';
 
-export const FloatingCartButton = () => {
-  const [hasNotification, setHasNotification] = useState(false);
+interface FloatingCartButtonProps {
+  onOpenCart: () => void;
+}
+
+export const FloatingCartButton = ({ onOpenCart }: FloatingCartButtonProps) => {
+  const { totalItems } = useCart();
   const [isPulsing, setIsPulsing] = useState(false);
 
+  // Trigger animation when items are added
   useEffect(() => {
-    // Intercept clicks on any Add to Cart buttons across the site
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (!target) return;
-
-      const btn = target.closest('button, [role="button"]') as HTMLElement | null;
-      if (!btn) return;
-
-      const onclickAttr = btn.getAttribute('onclick') || '';
-      const isAddBtn = 
-        onclickAttr.includes('addLine') ||
-        btn.classList.contains('product-detail__add-btn') ||
-        btn.classList.contains('shop-modal__add-btn') ||
-        btn.classList.contains('product-card__action');
-
-      if (isAddBtn) {
-        setHasNotification(true);
-        setIsPulsing(true);
-        setTimeout(() => setIsPulsing(false), 600);
-      }
-    };
-
-    document.addEventListener('click', handleGlobalClick, true);
-
-    return () => {
-      document.removeEventListener('click', handleGlobalClick, true);
-    };
-  }, []);
+    if (totalItems > 0) {
+      setIsPulsing(true);
+      const timer = setTimeout(() => setIsPulsing(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [totalItems]);
 
   const handleOpenCart = () => {
-    setHasNotification(false);
-    
-    // Find global cart or fallback to any cart element on page
-    const cart = (
-      document.getElementById('global-cart') ||
-      document.getElementById('product-cart') ||
-      document.getElementById('shop-cart') ||
-      document.getElementById('home-cart')
-    ) as any;
-
-    if (cart && typeof cart.showModal === 'function') {
-      cart.showModal();
-    } else if (cart && typeof cart.show === 'function') {
-      cart.show();
-    }
+    onOpenCart();
   };
 
   return (
     <button
-      className={`floating-cart-btn ${isPulsing ? 'floating-cart-btn--notify' : ''}`}
+      className={`floating-cart-btn ${isPulsing ? 'floating-cart-btn--notify' : ''} ${totalItems > 0 ? 'floating-cart-btn--has-items' : ''}`}
       onClick={handleOpenCart}
-      aria-label="Open Shopping Cart"
+      aria-label={`Open Shopping Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
       title="Shopping Cart"
     >
-      <ShoppingBag className="floating-cart-btn__icon" strokeWidth={1.75} />
-      {hasNotification && <span className="floating-cart-btn__badge" aria-label="New item in cart" />}
+      <div className="floating-cart-btn__icon-wrapper">
+        <ShoppingBag className="floating-cart-btn__icon" strokeWidth={1.75} />
+        {totalItems > 0 && (
+          <span className="floating-cart-btn__badge floating-cart-btn__badge--count">
+            {totalItems}
+          </span>
+        )}
+      </div>
     </button>
   );
 };

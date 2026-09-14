@@ -1,17 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import './Preloader.css';
 
 export const Preloader = () => {
   const [isVisible, setIsVisible] = useState(true);
+  const { pathname } = useLocation();
 
   useEffect(() => {
-    // Show preloader for 1 second static, then 1 second fade
+    // Only show preloader on home page (/)
+    if (pathname !== '/') {
+      setIsVisible(false);
+      return;
+    }
+
+    // Show preloader for 0.5 second static, then 1.7 second fade
     const timer = setTimeout(() => {
       setIsVisible(false);
-    }, 2000);
+    }, 2200);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [pathname]);
 
   if (!isVisible) return null;
 

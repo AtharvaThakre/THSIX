@@ -5,7 +5,7 @@ export const brandsData: Brand[] = [
     id: "adidas",
     name: "Adidas",
     logo: "/assets/logos/adidas-logo.png",
-    productImage: "/assets/hero-shoes.jpg?v=3",
+    productImage: "/assets/products/adidas.png",
     available: true,
     status: "AVAILABLE NOW",
     href: "/brands/adidas"

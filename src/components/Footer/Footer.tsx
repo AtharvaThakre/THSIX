@@ -1,4 +1,3 @@
-import { Logo } from '../Header/Logo';
 import { FooterColumnComponent } from './FooterColumn';
 import { SocialLinks } from './SocialLinks';
 import { footerColumns, footerLegal, socialLinks } from '../../data/footer';
@@ -7,31 +6,31 @@ import './Footer.css';
 export const Footer = () => {
   return (
     <footer className="footer">
-      <div className="footer__container">
-        {/* Top grid: logo + nav columns */}
-        <div className="footer__top">
-          {/* Logo area */}
-          <div className="footer__brand">
-            <Logo />
-            <p className="footer__tagline">STYLE BEYOND BASICS.</p>
-          </div>
+      {/* Gradient banner with THSIX text centered */}
+      <div className="footer__gradient-banner">
+        <div className="footer__banner-text">
+          <h1 className="footer__brand-text">THSIX</h1>
+        </div>
+      </div>
 
-          {/* Nav columns */}
+      <div className="footer__container">
+        {/* Full-width divider under the banner */}
+        <hr className="footer__divider" />
+
+        {/* 4-column nav grid */}
+        <div className="footer__top">
           <nav className="footer__nav" aria-label="Footer navigation">
             {footerColumns.map((col) => (
               <FooterColumnComponent key={col.title} column={col} />
             ))}
           </nav>
 
-          {/* Follow Us */}
+          {/* Follow Us column */}
           <div className="footer__follow">
             <h3 className="footer-col__heading">FOLLOW US</h3>
             <SocialLinks links={socialLinks} />
           </div>
         </div>
-
-        {/* Divider */}
-        <hr className="footer__divider" />
 
         {/* Bottom row */}
         <div className="footer__bottom">
