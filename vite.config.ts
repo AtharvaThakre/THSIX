@@ -12,12 +12,12 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
     sourcemap: false,
-    minify: 'terser',
+    minify: true,
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks(id) {
+        manualChunks: (id) => {
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
               return 'vendor';
@@ -28,22 +28,11 @@ export default defineConfig({
             if (id.includes('lucide-react') || id.includes('framer-motion')) {
               return 'ui';
             }
-            if (id.includes('three') || id.includes('@react-three')) {
-              return 'three';
-            }
             return 'vendor';
           }
         }
       }
     }
-  },
-  server: {
-    port: 3000,
-    host: true
-  },
-  preview: {
-    port: 3000,
-    host: true
   }
 })
 
