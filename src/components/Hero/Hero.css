@@ -170,12 +170,7 @@
   }
   
   .hero-title {
-    font-size: clamp(2.4rem, 10vw, 4.5rem);
-    line-height: 0.88;
-  }
-  
-  .hero-title-line {
-    display: inline;
+    font-size: clamp(2.8rem, 12vw, 4.5rem);
   }
   
   .hero-decoration {

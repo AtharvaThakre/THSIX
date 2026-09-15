@@ -3,7 +3,7 @@
   top: var(--announcement-height);
   left: 0;
   width: 100%;
-  padding: clamp(12px, 2vw, 24px) var(--page-padding);
+  padding: clamp(16px, 3vw, 28px) var(--page-padding);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -54,8 +54,8 @@
   flex: 2;
   display: flex;
   justify-content: center;
-  gap: clamp(24px, 4vw, 48px);
-  padding-top: 8px;
+  gap: clamp(16px, 3vw, 32px);
+  padding-top: 6px;
 }
 
 .nav-link {
@@ -86,8 +86,8 @@
   flex: 1;
   display: flex;
   justify-content: flex-end;
-  gap: 24px;
-  padding-top: 8px;
+  gap: 16px;
+  padding-top: 6px;
 }
 
 .icon-btn {
