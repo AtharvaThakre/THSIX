@@ -11,9 +11,9 @@ const heroData = {
   title: ["THE FIRST", "STEP.", "THE SAMBA."],
   description: "An icon doesn't need an introduction.",
   cta: "SHOP SAMBAS",
-  tags: [" ", " ", " "],
+  tags: [" "],
   slide: "1st Drop",
-  brandMeta: ["", ". ", ", "],
+  brandMeta: ["", " ", " "],
   decoration: ["Good", "Shoes", "Better", "People."]
 };
 

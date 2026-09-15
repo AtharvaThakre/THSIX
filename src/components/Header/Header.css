@@ -3,7 +3,7 @@
   top: var(--announcement-height);
   left: 0;
   width: 100%;
-  padding: clamp(24px, 4vw, 40px) var(--page-padding);
+  padding: clamp(12px, 2vw, 24px) var(--page-padding);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
