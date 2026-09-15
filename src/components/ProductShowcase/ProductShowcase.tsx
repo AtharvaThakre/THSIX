@@ -85,6 +85,8 @@ export const ProductShowcase = () => {
       {/* Section header */}
       <div className="product-showcase__header">
         <div className="product-showcase__header-left">
+          <br></br>
+          <br></br>   
           <span className="product-showcase__eyebrow">THE STORE</span>
           <h2 className="product-showcase__title">LATEST DROPS</h2>
           <p className="product-showcase__subtitle">CURATED. MINIMAL. YOURS.</p>

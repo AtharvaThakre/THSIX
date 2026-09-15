@@ -1,4 +1,4 @@
-import { ArrowRight, Lock } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import type { Brand } from '../../types/brand';
 import { BrandLogo } from './BrandLogos';
 
@@ -28,10 +28,9 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
 
       <div className="brand-card__footer">
         {brand.available ? (
-          <a href={brand.href} className="brand-card__cta">
-            <span>{brand.status}</span>
-            <ArrowRight size={14} strokeWidth={1.5} className="brand-cta-arrow" />
-          </a>
+          <div className="brand-card__status">
+            <span className="brand-card__status-text">{brand.status}</span>
+          </div>
         ) : (
           <div className="brand-card__status">
             <span className="brand-card__status-text">{brand.status}</span>

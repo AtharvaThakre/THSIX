@@ -58,15 +58,108 @@
   transition: transform 0.3s ease;
 }
 
-/* Brands Grid */
-.brands-showcase__grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: clamp(8px, 1.4vw, 18px);
+/* Brands Grid - Convert to Horizontal Scroll */
+.brands-showcase__scroll-wrapper {
+  position: relative;
 }
 
-/* Brand Card */
+.brands-showcase__scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  padding-bottom: 12px;
+}
+
+/* Firefox scrollbar */
+.brands-showcase__scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc #ffffff;
+}
+
+/* Chrome, Edge, Safari scrollbar */
+.brands-showcase__scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.brands-showcase__scroll-container::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 3px;
+}
+
+.brands-showcase__scroll-container::-webkit-scrollbar-thumb {
+  background: #d0d0cc;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.brands-showcase__scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.brands-showcase__scroll-content {
+  display: flex;
+  gap: clamp(8px, 1.4vw, 18px);
+  padding: 0 2px;
+}
+
+/* Scroll Buttons */
+.brands-showcase__scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  background: none;
+  border: none;
+  color: var(--black);
+  cursor: pointer;
+  padding: 8px;
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brands-showcase__scroll-btn:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.brands-showcase__scroll-btn--left {
+  left: -40px;
+}
+
+.brands-showcase__scroll-btn--right {
+  right: -40px;
+}
+
+.brands-showcase__scroll-btn--disabled {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Mobile scroll buttons - position inside container */
+@media (max-width: 768px) {
+  .brands-showcase__scroll-btn--left {
+    left: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    backdrop-filter: blur(4px);
+  }
+  
+  .brands-showcase__scroll-btn--right {
+    right: 8px;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Brand Card - Fixed Width */
 .brand-card {
+  flex-shrink: 0;
+  width: 300px;
   background-color: #f7f7f5;
   display: flex;
   flex-direction: column;
@@ -140,34 +233,6 @@
   padding: 0;
 }
 
-.brand-card__cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background-color: var(--black);
-  color: var(--white);
-  width: 100%;
-  height: 44px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.15em;
-  text-transform: uppercase;
-  transition: background-color 0.3s ease;
-}
-
-.brand-card__cta:hover {
-  background-color: #262626;
-}
-
-.brand-card__cta:hover .brand-cta-arrow {
-  transform: translateX(4px);
-}
-
-.brand-cta-arrow {
-  transition: transform 0.3s ease;
-}
-
 .brand-card__status {
   display: flex;
   align-items: center;
@@ -191,9 +256,8 @@
 
 /* Responsive */
 @media (max-width: 1099px) and (min-width: 768px) {
-  .brands-showcase__grid {
-    grid-template-columns: repeat(3, 1fr);
-    row-gap: 20px;
+  .brand-card {
+    width: 280px;
   }
 }
 
@@ -203,8 +267,7 @@
     gap: 16px;
   }
 
-  .brands-showcase__grid {
-    grid-template-columns: repeat(2, 1fr);
-    row-gap: 16px;
+  .brand-card {
+    width: 250px;
   }
 }
