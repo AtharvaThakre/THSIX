@@ -12,7 +12,7 @@ const heroData = {
   description: "An icon doesn't need an introduction.",
   cta: "SHOP SAMBAS",
   tags: [" ", " ", " "],
-  
+  slide: "1st Drop",
   brandMeta: ["", ". ", ", "],
   decoration: ["Good", "Shoes", "Better", "People."]
 };
