@@ -11,9 +11,9 @@ const heroData = {
   title: ["THE FIRST", "STEP.", "THE SAMBA."],
   description: "An icon doesn't need an introduction.",
   cta: "SHOP SAMBAS",
-  tags: ["TIMELESS", "VERSATILE", "ALWAYS RELEVANT"],
-  slide: "01 / 03",
-  brandMeta: ["THSIX", "EST. 2025", "NAGPUR, INDIA"],
+  tags: [" ", " ", " "],
+  
+  brandMeta: ["", ". ", ", "],
   decoration: ["Good", "Shoes", "Better", "People."]
 };
 

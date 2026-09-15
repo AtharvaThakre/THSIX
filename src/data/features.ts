@@ -9,7 +9,7 @@ export interface Feature {
 
 export const features: Feature[] = [
   {
-    title: '100% AUTHENTIC',
+    title: 'THSIX Verified',
     description: 'Every product is sourced and verified.',
     icon: ShieldCheck,
   },
