@@ -8,14 +8,16 @@
 
 /* ─── Announcement Section ─────────────────────────────────── */
 .product-showcase__announcement {
-  margin-bottom: clamp(16px, 2vw, 28px);
+  margin-bottom: 0;
+  margin-top: 0;
 }
 
 .announcement-parallax {
   position: relative;
   overflow: hidden;
   width: 100%;
-  padding: 0px 0;
+  padding: 0;
+  margin: 0;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.04));
   border-top: 1px solid #f0f0ed;
   border-bottom: 1px solid #f0f0ed;
@@ -32,6 +34,7 @@
   filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.08));
   line-height: 1.1;
   text-transform: uppercase;
+  padding: clamp(16px, 2vw, 24px) 0;
 }
 
 .announcement-text {
