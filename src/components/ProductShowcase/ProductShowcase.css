@@ -4,23 +4,22 @@
   margin: 0 auto;
   padding: clamp(0px, 2vw, 12px) var(--page-padding);
   background-color: var(--white);
-  display: grid;
-  grid-template-columns: 1fr;
 }
 
 /* ─── Announcement Section ─────────────────────────────────── */
 .product-showcase__announcement {
   margin-bottom: 0;
   margin-top: 0;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  grid-column: 1 / -1;
+  margin-left: calc(-1 * var(--page-padding));
+  margin-right: calc(-1 * var(--page-padding));
+  width: calc(100% + 2 * var(--page-padding));
 }
 
 .announcement-parallax {
   position: relative;
   overflow: hidden;
   width: 100%;
+  height: auto;
   padding: 0;
   margin: 0;
   background: linear-gradient(135deg, rgba(0, 0, 0, 0.02), rgba(0, 0, 0, 0.04));
