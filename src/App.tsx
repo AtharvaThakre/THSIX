@@ -18,7 +18,6 @@ import { WhyThsix } from './components/WhyThsix/WhyThsix';
 import { Newsletter } from './components/Newsletter/Newsletter';
 import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
-import { ShopPage } from './pages/ShopPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 
 function HomePage() {
@@ -109,7 +108,6 @@ function App() {
 
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/shop" element={<ShopPage />} />
           <Route path="/product/:handle" element={<ProductDetailPage />} />
         </Routes>
       </ShopifyProvider>

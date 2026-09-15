@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { CartEnhancer } from '../CartEnhancer/CartEnhancer';
 import { ShopifyGuard } from '../ShopifyGuard';
@@ -90,14 +89,9 @@ export const ProductShowcase = () => {
           <h2 className="product-showcase__title">LATEST DROPS</h2>
           <p className="product-showcase__subtitle">CURATED. MINIMAL. YOURS.</p>
         </div>
-
-        <Link to="/shop" className="product-showcase__view-all">
-          <span>VIEW ALL</span>
-          <ArrowRight size={14} strokeWidth={1.5} className="view-all-arrow" />
-        </Link>
       </div>
 
-      {/* Horizontal scroll container with navigation */}
+      {/* Products carousel */}
       <div className="product-showcase__scroll-wrapper">
         {/* Left scroll button */}
         <button
