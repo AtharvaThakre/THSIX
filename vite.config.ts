@@ -16,8 +16,13 @@ export default defineConfig({
     minify: true,
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
+      input: path.resolve(import.meta.dirname, './index.html'),
       output: {
         manualChunks: (id) => {
+          // Exclude api folder from client bundle
+          if (id.includes('api/')) {
+            return null;
+          }
           if (id.includes('node_modules')) {
             if (id.includes('react') || id.includes('react-dom')) {
               return 'vendor';

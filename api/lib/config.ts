@@ -1,22 +1,20 @@
 /**
  * Shiprocket API configuration
  */
+const shiprocketApiKey = process.env.SHIPROCKET_API_KEY;
+const shiprocketApiSecret = process.env.SHIPROCKET_API_SECRET;
+const shiprocketBaseUrl = process.env.SHIPROCKET_BASE_URL;
+const websiteBaseUrl = process.env.WEBSITE_BASE_URL;
+const checkoutSuccessUrl = process.env.CHECKOUT_SUCCESS_URL;
+const checkoutFailureUrl = process.env.CHECKOUT_FAILURE_URL;
+
 export const config = {
-  // Your Shiprocket API credentials (provided by Shiprocket team)
-  shiprocketApiKey: process.env.SHIPROCKET_API_KEY || '',
-  shiprocketApiSecret: process.env.SHIPROCKET_API_SECRET || '',
-  
-  // Shiprocket API base URL
-  shiprocketBaseUrl: process.env.SHIPROCKET_BASE_URL || 'https://checkout-api.shiprocket.com',
-  
-  // Your website base URL (for redirect URLs)
-  websiteBaseUrl: process.env.WEBSITE_BASE_URL || 'https://thsix.vercel.app',
-  
-  // Checkout success/failure redirect URLs
-  checkoutSuccessUrl: process.env.CHECKOUT_SUCCESS_URL || '/checkout/success',
-  checkoutFailureUrl: process.env.CHECKOUT_FAILURE_URL || '/checkout/failure',
-  
-  // Pagination defaults
+  shiprocketApiKey: shiprocketApiKey ? shiprocketApiKey : '',
+  shiprocketApiSecret: shiprocketApiSecret ? shiprocketApiSecret : '',
+  shiprocketBaseUrl: shiprocketBaseUrl ? shiprocketBaseUrl : 'https://checkout-api.shiprocket.com',
+  websiteBaseUrl: websiteBaseUrl ? websiteBaseUrl : 'https://thsix.vercel.app',
+  checkoutSuccessUrl: checkoutSuccessUrl ? checkoutSuccessUrl : '/checkout/success',
+  checkoutFailureUrl: checkoutFailureUrl ? checkoutFailureUrl : '/checkout/failure',
   defaultPageLimit: 100,
   maxPageLimit: 250,
 };

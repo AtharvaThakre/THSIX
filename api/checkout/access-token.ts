@@ -32,8 +32,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { cart_data, redirect_url } = req.body;
 
     // Validate required fields
-    if (!cart_data || !cart_data.items || !Array.isArray(cart_data.items)) {
-      return sendValidationError(res, 'cart_data.items is required and must be an array');
+    if (!cart_data) {
+      return sendValidationError(res, 'cart_data is required');
+    }
+    if (!cart_data.items) {
+      return sendValidationError(res, 'cart_data.items is required');
+    }
+    if (!Array.isArray(cart_data.items)) {
+      return sendValidationError(res, 'cart_data.items must be an array');
     }
 
     if (cart_data.items.length === 0) {
@@ -42,16 +48,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // Validate each cart item
     for (const item of cart_data.items) {
-      if (!item.variant_id || !item.quantity) {
-        return sendValidationError(res, 'Each cart item must have variant_id and quantity');
+      if (!item.variant_id) {
+        return sendValidationError(res, 'Each cart item must have variant_id');
       }
-      if (typeof item.quantity !== 'number' || item.quantity < 1) {
-        return sendValidationError(res, 'Item quantity must be a positive number');
+      if (!item.quantity) {
+        return sendValidationError(res, 'Each cart item must have quantity');
+      }
+      const qty = item.quantity;
+      if (typeof qty !== 'number') {
+        return sendValidationError(res, 'Item quantity must be a number');
+      }
+      if (qty < 1) {
+        return sendValidationError(res, 'Item quantity must be at least 1');
       }
     }
 
     // Use provided redirect_url or default
-    const finalRedirectUrl = redirect_url || `${config.websiteBaseUrl}${config.checkoutSuccessUrl}`;
+    const finalRedirectUrl = redirect_url ? redirect_url : `${config.websiteBaseUrl}${config.checkoutSuccessUrl}`;
 
     // Prepare request payload for Shiprocket
     const timestamp = new Date().toISOString();
@@ -64,11 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Generate HMAC signature
     const hmacSignature = generateHMAC(payload, config.shiprocketApiSecret);
 
-    // Call Shiprocket Access Token API
     const shiprocketUrl = `${config.shiprocketBaseUrl}/api/v1/access-token/checkout`;
-    
-    console.log('Calling Shiprocket access token API:', shiprocketUrl);
-    
     const response = await fetch(shiprocketUrl, {
       method: 'POST',
       headers: {
@@ -83,23 +92,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.error('Shiprocket API error:', responseData);
-      return sendError(
-        res,
-        responseData.message || 'Failed to generate checkout token',
-        response.status,
-        'SHIPROCKET_ERROR'
-      );
+      const msg = responseData.message ? responseData.message : 'Failed to generate checkout token';
+      return sendError(res, msg, response.status, 'SHIPROCKET_ERROR');
     }
 
     // Check if response has the expected structure
-    if (!responseData.ok || !responseData.result) {
+    if (!responseData.ok) {
       console.error('Unexpected Shiprocket response:', responseData);
-      return sendError(
-        res,
-        'Invalid response from Shiprocket',
-        500,
-        'INVALID_RESPONSE'
-      );
+      return sendError(res, 'Invalid response from Shiprocket', 500, 'INVALID_RESPONSE');
+    }
+    if (!responseData.result) {
+      console.error('Unexpected Shiprocket response:', responseData);
+      return sendError(res, 'Invalid response from Shiprocket', 500, 'INVALID_RESPONSE');
     }
 
     // Return token and order_id to frontend

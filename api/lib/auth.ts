@@ -35,7 +35,10 @@ export function verifyHMAC(data: string | object, signature: string, secret: str
  * @returns true if API key is valid
  */
 export function validateApiKey(apiKey: string | undefined, expectedKey: string): boolean {
-  if (!apiKey || !expectedKey) {
+  if (!apiKey) {
+    return false;
+  }
+  if (!expectedKey) {
     return false;
   }
   return crypto.timingSafeEqual(

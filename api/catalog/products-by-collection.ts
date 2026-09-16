@@ -23,11 +23,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Parse pagination parameters
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = Math.min(
-      parseInt(req.query.limit as string) || config.defaultPageLimit,
-      config.maxPageLimit
-    );
+    const pageParam = req.query.page as string;
+    const limitParam = req.query.limit as string;
+    const page = pageParam ? parseInt(pageParam) : 1;
+    let limit = limitParam ? parseInt(limitParam) : config.defaultPageLimit;
+    if (limit > config.maxPageLimit) {
+      limit = config.maxPageLimit;
+    }
 
     // Validate pagination
     if (page < 1) {

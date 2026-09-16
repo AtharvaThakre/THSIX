@@ -24,13 +24,15 @@ export function sendSuccess<T>(res: VercelResponse, data: T, statusCode = 200): 
 export function sendError(
   res: VercelResponse,
   message: string,
-  statusCode = 400,
+  statusCode?: number,
   errorCode?: string
 ): VercelResponse {
-  return res.status(statusCode).json({
+  const code = statusCode ? statusCode : 400;
+  const error = errorCode ? errorCode : 'ERROR';
+  return res.status(code).json({
     ok: false,
     result: null,
-    errorCode: errorCode || 'ERROR',
+    errorCode: error,
     message
   } as ApiResponse);
 }

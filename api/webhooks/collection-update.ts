@@ -32,8 +32,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const collectionData: ShiprocketCollection = req.body;
 
     // Validate required collection fields
-    if (!collectionData.id || !collectionData.title) {
-      return sendError(res, 'Missing required collection fields: id, title', 400);
+    if (!collectionData.id) {
+      return sendError(res, 'Missing required collection field: id', 400);
+    }
+    if (!collectionData.title) {
+      return sendError(res, 'Missing required collection field: title', 400);
     }
 
     // Generate HMAC signature
@@ -58,12 +61,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.error('Shiprocket collection webhook error:', responseData);
-      return sendError(
-        res,
-        responseData.message || 'Failed to sync collection to Shiprocket',
-        response.status,
-        'SHIPROCKET_ERROR'
-      );
+      const msg = responseData.message ? responseData.message : 'Failed to sync collection to Shiprocket';
+      return sendError(res, msg, response.status, 'SHIPROCKET_ERROR');
     }
 
     console.log('Collection synced successfully:', collectionData.id);

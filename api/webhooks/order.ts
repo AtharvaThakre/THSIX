@@ -42,7 +42,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return sendValidationError(res, 'order_id is required');
     }
 
-    if (!orderData.cart_data || !orderData.cart_data.items) {
+    if (!orderData.cart_data) {
+      return sendValidationError(res, 'cart_data is required');
+    }
+    if (!orderData.cart_data.items) {
       return sendValidationError(res, 'cart_data.items is required');
     }
 
@@ -113,9 +116,11 @@ async function processOrder(orderData: OrderWebhookPayload): Promise<void> {
   }
   
   // 5. Create shipping label (if applicable)
-  if (orderData.status === 'SUCCESS' && orderData.payment_status === 'Success') {
-    console.log('Order paid successfully, ready for fulfillment');
-    // await createShippingLabel(orderData);
+  if (orderData.status === 'SUCCESS') {
+    if (orderData.payment_status === 'Success') {
+      console.log('Order paid successfully, ready for fulfillment');
+      // await createShippingLabel(orderData);
+    }
   }
   
   // 6. Log for analytics

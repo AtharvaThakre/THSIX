@@ -32,8 +32,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const productData: ShiprocketProduct = req.body;
 
     // Validate required product fields
-    if (!productData.id || !productData.title || !productData.variants) {
-      return sendError(res, 'Missing required product fields: id, title, variants', 400);
+    if (!productData.id) {
+      return sendError(res, 'Missing required product field: id', 400);
+    }
+    if (!productData.title) {
+      return sendError(res, 'Missing required product field: title', 400);
+    }
+    if (!productData.variants) {
+      return sendError(res, 'Missing required product field: variants', 400);
     }
 
     // Generate HMAC signature
@@ -58,12 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.error('Shiprocket product webhook error:', responseData);
-      return sendError(
-        res,
-        responseData.message || 'Failed to sync product to Shiprocket',
-        response.status,
-        'SHIPROCKET_ERROR'
-      );
+      const msg = responseData.message ? responseData.message : 'Failed to sync product to Shiprocket';
+      return sendError(res, msg, response.status, 'SHIPROCKET_ERROR');
     }
 
     console.log('Product synced successfully:', productData.id);

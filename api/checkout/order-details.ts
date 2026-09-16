@@ -64,23 +64,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!response.ok) {
       console.error('Shiprocket API error:', responseData);
-      return sendError(
-        res,
-        responseData.message || 'Failed to fetch order details',
-        response.status,
-        'SHIPROCKET_ERROR'
-      );
+      const msg = responseData.message ? responseData.message : 'Failed to fetch order details';
+      return sendError(res, msg, response.status, 'SHIPROCKET_ERROR');
     }
 
     // Check if response has the expected structure
-    if (!responseData.ok || !responseData.result) {
+    if (!responseData.ok) {
       console.error('Unexpected Shiprocket response:', responseData);
-      return sendError(
-        res,
-        'Invalid response from Shiprocket',
-        500,
-        'INVALID_RESPONSE'
-      );
+      return sendError(res, 'Invalid response from Shiprocket', 500, 'INVALID_RESPONSE');
+    }
+    if (!responseData.result) {
+      console.error('Unexpected Shiprocket response:', responseData);
+      return sendError(res, 'Invalid response from Shiprocket', 500, 'INVALID_RESPONSE');
     }
 
     // Return order details
