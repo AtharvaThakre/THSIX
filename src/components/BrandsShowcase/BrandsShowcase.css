@@ -73,7 +73,7 @@
 /* Firefox scrollbar */
 .brands-showcase__scroll-container {
   scrollbar-width: thin;
-  scrollbar-color: #d0d0cc #ffffff;
+  scrollbar-color: #171717 #ffffff;
 }
 
 /* Chrome, Edge, Safari scrollbar */
@@ -224,7 +224,7 @@
 .brand-card__placeholder {
   width: 100%;
   height: 100%;
-  background-color: #ededeb;
+  background-color: #F7F7F5;
 }
 
 /* Footer */

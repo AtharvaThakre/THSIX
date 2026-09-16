@@ -274,7 +274,7 @@
 /* ─── RESPONSIVE IMAGE CONTAINER - NO CROPPING ──────────── */
 .product-card__image-container {
   width: 100%;
-  background-color: #f2f2f0;
+  background-color: #F7F7F5;
   overflow: visible;
   position: relative;
   display: flex;
@@ -312,12 +312,12 @@
 .product-card__placeholder {
   width: 100%;
   height: 100%;
-  background-color: #f2f2f0;
+  background-color: #F7F7F5;
   transition: background-color 0.3s ease;
 }
 
 .product-card:hover .product-card__placeholder {
-  background-color: #ebebe8;
+  background-color: #ececea;
 }
 
 .product-card:hover .product-card__image {
