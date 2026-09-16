@@ -19,6 +19,7 @@ import { Newsletter } from './components/Newsletter/Newsletter';
 import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
 import { ProductDetailPage } from './pages/ProductDetailPage';
+import { CheckoutSuccess } from './pages/CheckoutSuccess';
 
 function HomePage() {
   useEffect(() => {
@@ -109,6 +110,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/product/:handle" element={<ProductDetailPage />} />
+          <Route path="/checkout/success" element={<CheckoutSuccess />} />
         </Routes>
       </ShopifyProvider>
     </CartProvider>

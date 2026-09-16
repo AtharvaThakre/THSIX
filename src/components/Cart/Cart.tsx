@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
+import { initiateCheckout, openShiprocketCheckout, loadShiprocketScript } from '../../services/shiprocket';
 import './Cart.css';
 
 interface CartProps {
@@ -11,6 +12,8 @@ interface CartProps {
 export const Cart = ({ isOpen, onClose }: CartProps) => {
   const { items, totalItems, totalPrice, updateQuantity, removeItem } = useCart();
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -25,6 +28,15 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     };
   }, [isOpen]);
 
+  // Load Shiprocket script when cart opens
+  useEffect(() => {
+    if (isOpen && items.length > 0) {
+      loadShiprocketScript().catch((error) => {
+        console.error('Failed to load Shiprocket script:', error);
+      });
+    }
+  }, [isOpen, items.length]);
+
   const handleClose = () => {
     setIsAnimating(false);
     setTimeout(onClose, 200);
@@ -35,6 +47,44 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
       removeItem(id);
     } else {
       updateQuantity(id, newQuantity);
+    }
+  };
+
+  const handleCheckout = async () => {
+    setIsCheckingOut(true);
+    setCheckoutError(null);
+
+    try {
+      // Prepare cart items for Shiprocket format
+      const checkoutItems = items.map(item => ({
+        variant_id: item.variantId || item.id,
+        quantity: item.quantity
+      }));
+
+      // Get current page URL for redirect
+      const redirectUrl = `${window.location.origin}/checkout/success`;
+
+      // Call backend to generate access token
+      const response = await initiateCheckout(checkoutItems, redirectUrl);
+
+      if (!response.ok || !response.result) {
+        throw new Error('Failed to generate checkout token');
+      }
+
+      const { token } = response.result;
+
+      // Open Shiprocket checkout iframe
+      openShiprocketCheckout(token, redirectUrl);
+
+    } catch (error) {
+      console.error('Checkout error:', error);
+      setCheckoutError(
+        error instanceof Error 
+          ? error.message 
+          : 'Failed to initiate checkout. Please try again.'
+      );
+    } finally {
+      setIsCheckingOut(false);
     }
   };
 
@@ -166,9 +216,18 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
 
         {items.length > 0 && (
           <div className="cart-footer">
-            <button className="cart-checkout-btn">
+            {checkoutError && (
+              <div className="cart-error">
+                {checkoutError}
+              </div>
+            )}
+            <button 
+              className="cart-checkout-btn"
+              onClick={handleCheckout}
+              disabled={isCheckingOut}
+            >
               <CreditCard size={18} />
-              Checkout • {formatPrice(total)}
+              {isCheckingOut ? 'Processing...' : `Checkout • ${formatPrice(total)}`}
             </button>
           </div>
         )}
