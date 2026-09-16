@@ -5,7 +5,7 @@ export const brandsData: Brand[] = [
     id: "adidas",
     name: "Adidas",
     logo: "/assets/logos/adidas-logo.png",
-    productImage: "/assets/products/1adidas.png",
+    productImage: "/assets/products/adidas.png",
     available: true,
     status: "AVAILABLE NOW",
     href: "/brands/adidas"
@@ -14,7 +14,7 @@ export const brandsData: Brand[] = [
     id: "nike",
     name: "Nike",
     logo: "/assets/logos/nike-logo.png",
-    productImage: "/assets/products/nike.jpg?v=3",
+    productImage: "/assets/products/nike.jpg",
     available: false,
     status: "COMING SOON",
     href: "/brands/nike"
@@ -23,7 +23,7 @@ export const brandsData: Brand[] = [
     id: "new-balance",
     name: "New Balance",
     logo: "/assets/logos/new-balance-logo.png",
-    productImage: "/assets/products/newBalance.jpg?v=3",
+    productImage: "/assets/products/newBalance.jpg",
     available: false,
     status: "COMING SOON",
     href: "/brands/new-balance"
@@ -32,7 +32,7 @@ export const brandsData: Brand[] = [
     id: "puma",
     name: "Puma",
     logo: "/assets/logos/puma-logo.png",
-    productImage: "/assets/products/puma.jpg?v=3",
+    productImage: "/assets/products/puma.jpg",
     available: false,
     status: "COMING SOON",
     href: "/brands/puma"
@@ -41,7 +41,7 @@ export const brandsData: Brand[] = [
     id: "asics",
     name: "ASICS",
     logo: "/assets/logos/asics-logo.png",
-    productImage: "/assets/products/asics.jpeg?v=3",
+    productImage: "/assets/products/asics.jpeg",
     available: false,
     status: "COMING SOON",
     href: "/brands/asics"
@@ -50,7 +50,7 @@ export const brandsData: Brand[] = [
     id: "converse",
     name: "Converse",
     logo: "/assets/logos/converse-logo.png",
-    productImage: "/assets/products/converse.jpg?v=3",
+    productImage: "/assets/products/converse.jpg",
     available: false,
     status: "COMING SOON",
     href: "/brands/converse"
