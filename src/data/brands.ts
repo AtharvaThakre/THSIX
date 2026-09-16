@@ -4,8 +4,8 @@ export const brandsData: Brand[] = [
   {
     id: "adidas",
     name: "Adidas",
-    logo: "/assets/logos/adidas-logo.png",
-    productImage: "/assets/products/adidas.png",
+    logo: "/assets/logos/adidas-logo.png?v=2",
+    productImage: "/assets/products/adidas.png?v=2",
     available: true,
     status: "AVAILABLE NOW",
     href: "/brands/adidas"
@@ -13,8 +13,8 @@ export const brandsData: Brand[] = [
   {
     id: "nike",
     name: "Nike",
-    logo: "/assets/logos/nike-logo.png",
-    productImage: "/assets/products/nike.jpg",
+    logo: "/assets/logos/nike-logo.png?v=2",
+    productImage: "/assets/products/nike.jpg?v=2",
     available: false,
     status: "COMING SOON",
     href: "/brands/nike"
@@ -22,8 +22,8 @@ export const brandsData: Brand[] = [
   {
     id: "new-balance",
     name: "New Balance",
-    logo: "/assets/logos/new-balance-logo.png",
-    productImage: "/assets/products/newBalance.jpg",
+    logo: "/assets/logos/new-balance-logo.png?v=2",
+    productImage: "/assets/products/newBalance.jpg?v=2",
     available: false,
     status: "COMING SOON",
     href: "/brands/new-balance"
@@ -31,8 +31,8 @@ export const brandsData: Brand[] = [
   {
     id: "puma",
     name: "Puma",
-    logo: "/assets/logos/puma-logo.png",
-    productImage: "/assets/products/puma.jpg",
+    logo: "/assets/logos/puma-logo.png?v=2",
+    productImage: "/assets/products/puma.jpg?v=2",
     available: false,
     status: "COMING SOON",
     href: "/brands/puma"
@@ -40,8 +40,8 @@ export const brandsData: Brand[] = [
   {
     id: "asics",
     name: "ASICS",
-    logo: "/assets/logos/asics-logo.png",
-    productImage: "/assets/products/asics.jpeg",
+    logo: "/assets/logos/asics-logo.png?v=2",
+    productImage: "/assets/products/asics.jpeg?v=2",
     available: false,
     status: "COMING SOON",
     href: "/brands/asics"
@@ -49,8 +49,8 @@ export const brandsData: Brand[] = [
   {
     id: "converse",
     name: "Converse",
-    logo: "/assets/logos/converse-logo.png",
-    productImage: "/assets/products/converse.jpg",
+    logo: "/assets/logos/converse-logo.png?v=2",
+    productImage: "/assets/products/converse.jpg?v=2",
     available: false,
     status: "COMING SOON",
     href: "/brands/converse"

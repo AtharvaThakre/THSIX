@@ -1,5 +1,5 @@
 export const nextDropData = {
-  image: '/assets/next-drop.png',
+  image: '/assets/next-drop.png?v=2',
   eyebrow: "NEXT DROP",
   title: "WHAT’S NEXT?",
   dropNumber: "02 / ???",

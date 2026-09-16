@@ -4,5 +4,5 @@ export const newsletterContent = {
     'Get first access to new brands, exclusive releases and THSIX updates.',
   placeholder: 'Enter your email',
   decoration: ['SAME', 'PASSION.', 'A BIGGER', 'TOMORROW.'],
-  image: '/assets/newsletter-bg.png',
+  image: '/assets/newsletter-bg.png?v=2',
 };
