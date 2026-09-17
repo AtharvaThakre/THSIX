@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FloatingCartButton } from './FloatingCartButton';
+import { FloatingWhatsApp } from '../FloatingWhatsApp/FloatingWhatsApp';
 import { Cart } from './Cart';
 
 export const CartManager = () => {
@@ -10,7 +10,7 @@ export const CartManager = () => {
 
   return (
     <>
-      <FloatingCartButton onOpenCart={openCart} />
+      <FloatingWhatsApp whatsappUrl="https://wa.me/1234567890" />
       <Cart isOpen={isCartOpen} onClose={closeCart} />
     </>
   );

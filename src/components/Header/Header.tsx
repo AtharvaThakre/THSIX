@@ -1,10 +1,29 @@
-import { Search, UserRound, ShoppingBag, Menu } from 'lucide-react';
+import { ShoppingBag, Menu } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
-import { Logo } from './Logo';
 import './Header.css';
 
 export const Header = () => {
   const { totalItems } = useCart();
+  const [isPulsing, setIsPulsing] = useState(false);
+
+  // Trigger animation when items are added
+  useEffect(() => {
+    if (totalItems > 0) {
+      setIsPulsing(true);
+      const timer = setTimeout(() => setIsPulsing(false), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [totalItems]);
+
+  const handleOpenCart = () => {
+    const cart = (
+      document.getElementById('product-cart') || 
+      document.getElementById('global-cart') || 
+      document.getElementById('home-cart')
+    ) as any;
+    if (cart?.showModal) cart.showModal();
+  };
 
   return (
     <header className="header">
@@ -18,24 +37,16 @@ export const Header = () => {
         <a href="#journal" className="nav-link">JOURNAL</a>
       </nav>
       <div className="header-right">
-        <button className="icon-btn desktop-only" aria-label="Search">
-          <Search size={20} strokeWidth={1.5} />
-        </button>
-        <button className="icon-btn desktop-only" aria-label="Account">
-          <UserRound size={20} strokeWidth={1.5} />
-        </button>
         <button
-          className={`icon-btn cart-btn ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
+          className={`icon-btn cart-btn ${isPulsing ? 'cart-btn--notify' : ''} ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
           aria-label={`Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
-          onClick={() => {
-            const cart = (document.getElementById('global-cart') || document.getElementById('home-cart')) as any;
-            if (cart?.showModal) cart.showModal();
-          }}
+          onClick={handleOpenCart}
+          type="button"
         >
           <div className="cart-btn__icon-wrapper">
-            <ShoppingBag size={20} strokeWidth={1.5} />
+            <ShoppingBag size={24} strokeWidth={1.5} />
             {totalItems > 0 && (
-              <span className="cart-btn__badge">
+              <span className="cart-btn__badge cart-btn__badge--count">
                 {totalItems}
               </span>
             )}

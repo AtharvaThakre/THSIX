@@ -16,6 +16,7 @@ import { NextDrop } from './components/NextDrop/NextDrop';
 import { Lookbook } from './components/Lookbook/Lookbook';
 import { WhyThsix } from './components/WhyThsix/WhyThsix';
 import { Newsletter } from './components/Newsletter/Newsletter';
+import { InstagramReels } from './components/InstagramReels/InstagramReels';
 import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
 import { ProductDetailPage } from './pages/ProductDetailPage';
@@ -62,6 +63,7 @@ function HomePage() {
         <Lookbook />
         <WhyThsix />
         <Newsletter />
+        <InstagramReels />
       </main>
       <AboutStrip />
       <Footer />

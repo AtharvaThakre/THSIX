@@ -1,0 +1,448 @@
+/* ─── Instagram Reels Carousel Section ─────────────────────── */
+.instagram-reels {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: clamp(40px, 6vw, 80px) var(--page-padding);
+  background-color: var(--white, #ffffff);
+  overflow: hidden;
+}
+
+.instagram-reels__container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: clamp(32px, 4vw, 48px);
+}
+
+/* ─── Header with Title and Instagram Button ────────────────── */
+.instagram-reels__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.instagram-reels__title {
+  font-family: var(--font-primary);
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--black, #111111);
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.instagram-reels__insta-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: var(--black, #111111);
+  color: var(--white, #ffffff);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  outline: none;
+  text-decoration: none;
+  padding: 0;
+}
+
+.instagram-reels__insta-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.instagram-reels__insta-btn:active {
+  transform: scale(0.95);
+}
+
+.instagram-reels__insta-btn:focus-visible {
+  outline: 2px solid var(--black, #111111);
+  outline-offset: 2px;
+}
+
+.instagram-reels__insta-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.instagram-reels__carousel-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* ─── Navigation Buttons ─────────────────────────────────── */
+.instagram-reels__nav-btn {
+  position: absolute;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.instagram-reels__nav-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 1);
+  transform: scale(1.1);
+  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.15);
+}
+
+.instagram-reels__nav-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.instagram-reels__nav-btn--left {
+  left: -80px;
+}
+
+.instagram-reels__nav-btn--right {
+  right: -80px;
+}
+
+/* ─── Carousel Container ─────────────────────────────────── */
+.instagram-reels__carousel {
+  position: relative;
+  width: 100%;
+  height: 600px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ─── Reel Cards ─────────────────────────────────────────── */
+.instagram-reels__card {
+  position: absolute;
+  width: 320px;
+  height: 580px;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.instagram-reels__card.transitioning {
+  transition-duration: 0.6s;
+}
+
+/* ─── Card Positions ─────────────────────────────────────── */
+.reel-card--left {
+  transform: translateX(-220px) scale(0.85);
+  opacity: 0.7;
+  filter: blur(2px);
+  z-index: 1;
+}
+
+.reel-card--center {
+  transform: translateX(0) scale(1);
+  opacity: 1;
+  filter: blur(0);
+  z-index: 3;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+.reel-card--right {
+  transform: translateX(220px) scale(0.85);
+  opacity: 0.7;
+  filter: blur(2px);
+  z-index: 1;
+}
+
+.reel-card--hidden {
+  opacity: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ─── Video Container and Video ────────────────────────────── */
+.reel-card__video-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.reel-card__video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: inherit;
+  /* Remove all native video controls */
+  outline: none;
+}
+
+.reel-card__video::-webkit-media-controls {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-panel {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-play-button {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-start-playback-button {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-timeline {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-current-time-display {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-time-remaining-display {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-mute-button {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-volume-slider {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-fullscreen-button {
+  display: none !important;
+}
+
+.reel-card__video::-webkit-media-controls-overlay {
+  display: none !important;
+}
+
+/* Firefox */
+.reel-card__video::-moz-media-controls {
+  display: none !important;
+}
+
+/* ─── Tablet Responsive (768px - 1024px) ───────────────────── */
+@media (max-width: 1024px) {
+  .instagram-reels__nav-btn--left {
+    left: -60px;
+  }
+  
+  .instagram-reels__nav-btn--right {
+    right: -60px;
+  }
+
+  .instagram-reels__card {
+    width: 280px;
+    height: 500px;
+  }
+
+  .reel-card--left,
+  .reel-card--right {
+    transform: translateX(-180px) scale(0.85);
+  }
+
+  .reel-card--right {
+    transform: translateX(180px) scale(0.85);
+  }
+}
+
+/* ─── Mobile Responsive (max-width: 768px) ─────────────────── */
+@media (max-width: 768px) {
+  .instagram-reels {
+    padding: clamp(30px, 5vw, 50px) var(--page-padding);
+  }
+
+  .instagram-reels__container {
+    gap: clamp(24px, 4vw, 32px);
+  }
+
+  .instagram-reels__header {
+    justify-content: space-between;
+  }
+
+  .instagram-reels__title {
+    font-size: clamp(24px, 3.5vw, 32px);
+  }
+
+  .instagram-reels__insta-btn {
+    width: 44px;
+    height: 44px;
+  }
+
+  .instagram-reels__carousel {
+    height: 500px;
+  }
+
+  .instagram-reels__nav-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .instagram-reels__nav-btn--left {
+    left: 10px;
+  }
+  
+  .instagram-reels__nav-btn--right {
+    right: 10px;
+  }
+
+  .instagram-reels__card {
+    width: 220px;
+    height: 400px;
+  }
+
+  .reel-card--left {
+    transform: translateX(-140px) scale(0.8);
+    opacity: 0.6;
+  }
+
+  .reel-card--right {
+    transform: translateX(140px) scale(0.8);
+    opacity: 0.6;
+  }
+}
+
+/* ─── Small Mobile (max-width: 480px) ──────────────────────── */
+@media (max-width: 480px) {
+  .instagram-reels {
+    padding: clamp(20px, 4vw, 40px) 16px;
+  }
+
+  .instagram-reels__container {
+    gap: clamp(20px, 3vw, 24px);
+  }
+
+  .instagram-reels__title {
+    font-size: clamp(20px, 3vw, 28px);
+  }
+
+  .instagram-reels__insta-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .instagram-reels__carousel {
+    height: 420px;
+  }
+
+  .instagram-reels__nav-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .instagram-reels__nav-btn--left {
+    left: 8px;
+  }
+  
+  .instagram-reels__nav-btn--right {
+    right: 8px;
+  }
+
+  .instagram-reels__card {
+    width: 180px;
+    height: 320px;
+  }
+
+  .reel-card--left {
+    transform: translateX(-100px) scale(0.75);
+    opacity: 0.5;
+    filter: blur(3px);
+  }
+
+  .reel-card--right {
+    transform: translateX(100px) scale(0.75);
+    opacity: 0.5;
+    filter: blur(3px);
+  }
+}
+
+/* ─── Extra Small Mobile (max-width: 360px) ────────────────── */
+@media (max-width: 360px) {
+  .instagram-reels__carousel {
+    height: 380px;
+  }
+
+  .instagram-reels__card {
+    width: 180px;
+    height: 320px;
+  }
+
+  .reel-card--left {
+    transform: translateX(-100px) scale(0.7);
+  }
+
+  .reel-card--right {
+    transform: translateX(100px) scale(0.7);
+  }
+}
+
+/* ─── Accessibility and Interaction Improvements ──────────── */
+.instagram-reels__card {
+  cursor: default;
+  user-select: none;
+}
+
+.reel-card__video {
+  pointer-events: auto;
+  cursor: default;
+}
+
+/* Disable text selection on the entire component */
+.instagram-reels {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Focus states for accessibility */
+.instagram-reels__nav-btn:focus-visible {
+  outline: 2px solid #007bff;
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .instagram-reels__nav-btn {
+    border: 2px solid #000;
+    background: #fff;
+  }
+  
+  .reel-card--left,
+  .reel-card--right {
+    opacity: 0.9;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .instagram-reels__card,
+  .instagram-reels__nav-btn {
+    transition: none;
+  }
+  
+  .reel-card--left,
+  .reel-card--right {
+    filter: none;
+  }
+}
