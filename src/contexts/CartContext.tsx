@@ -139,10 +139,15 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
           item.id && 
           item.title && 
           typeof item.price === 'number' && 
-          item.price >= 0
+          item.price >= 0 &&
+          typeof item.quantity === 'number' &&
+          item.quantity > 0
         );
         if (validCart.length > 0) {
           dispatch({ type: 'LOAD_CART', payload: validCart });
+        } else {
+          // Clear invalid cart data
+          localStorage.removeItem('thsix_cart');
         }
       }
     } catch (error) {
