@@ -3,7 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "description": "THSIX Shopify Headless E-commerce Store",
-  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
