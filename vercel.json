@@ -1,6 +1,15 @@
 {
   "functions": {
-    "api/**/*.ts": {
+    "api/catalog/*.ts": {
+      "runtime": "@vercel/node@3.0.21"
+    },
+    "api/checkout/*.ts": {
+      "runtime": "@vercel/node@3.0.21"
+    },
+    "api/webhooks/*.ts": {
+      "runtime": "@vercel/node@3.0.21"
+    },
+    "api/*.ts": {
       "runtime": "@vercel/node@3.0.21"
     }
   },
