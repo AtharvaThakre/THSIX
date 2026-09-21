@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Fetch products by collection
-    const result = fetchProductsByCollection(collectionId, page, limit);
+    const result = await fetchProductsByCollection(collectionId, page, limit);
 
     // Return response in Shiprocket format
     return sendSuccess(res, {

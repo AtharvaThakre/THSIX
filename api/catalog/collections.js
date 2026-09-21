@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Fetch collections
-    const result = fetchCollections(page, limit);
+    const result = await fetchCollections(page, limit);
 
     // Return response in Shiprocket format
     return sendSuccess(res, {

@@ -43,7 +43,7 @@ module.exports = async function handler(req, res) {
     }
 
     // Fetch products
-    const result = fetchProducts(page, limit);
+    const result = await fetchProducts(page, limit);
 
     // Return response in Shiprocket format
     return sendSuccess(res, {
