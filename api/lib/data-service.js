@@ -36,7 +36,6 @@ async function fetchProductsFromShopify(limit = 250) {
                   }
                   sku
                   availableForSale
-                  quantityAvailable
                   weight
                   weightUnit
                   image {
@@ -160,7 +159,7 @@ function transformShopifyProduct(shopifyProduct) {
         created_at: shopifyProduct.createdAt,
         updated_at: shopifyProduct.updatedAt,
         taxable: true,
-        quantity: variant.quantityAvailable || 0,
+        quantity: 999, // Default quantity since API doesn't have access to inventory
         grams: variant.weight ? Math.round(variant.weight * 1000) : 0,
         image: variant.image ? { src: variant.image.url } : null,
         option_values: variant.selectedOptions.reduce((acc, opt) => {
