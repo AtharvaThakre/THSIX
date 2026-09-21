@@ -27,8 +27,8 @@ export function sendError(
   statusCode?: number,
   errorCode?: string
 ): VercelResponse {
-  const code = statusCode ? statusCode : 400;
-  const error = errorCode ? errorCode : 'ERROR';
+  const code = statusCode || 400;
+  const error = errorCode || 'ERROR';
   return res.status(code).json({
     ok: false,
     result: null,

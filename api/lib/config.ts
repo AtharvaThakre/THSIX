@@ -9,12 +9,12 @@ const checkoutSuccessUrl = process.env.CHECKOUT_SUCCESS_URL;
 const checkoutFailureUrl = process.env.CHECKOUT_FAILURE_URL;
 
 export const config = {
-  shiprocketApiKey: shiprocketApiKey ? shiprocketApiKey : '',
-  shiprocketApiSecret: shiprocketApiSecret ? shiprocketApiSecret : '',
-  shiprocketBaseUrl: shiprocketBaseUrl ? shiprocketBaseUrl : 'https://checkout-api.shiprocket.com',
-  websiteBaseUrl: websiteBaseUrl ? websiteBaseUrl : 'https://thsix.vercel.app',
-  checkoutSuccessUrl: checkoutSuccessUrl ? checkoutSuccessUrl : '/checkout/success',
-  checkoutFailureUrl: checkoutFailureUrl ? checkoutFailureUrl : '/checkout/failure',
+  shiprocketApiKey: shiprocketApiKey || '',
+  shiprocketApiSecret: shiprocketApiSecret || '',
+  shiprocketBaseUrl: shiprocketBaseUrl || 'https://checkout-api.shiprocket.com',
+  websiteBaseUrl: websiteBaseUrl || 'https://thsix.vercel.app',
+  checkoutSuccessUrl: checkoutSuccessUrl || '/checkout/success',
+  checkoutFailureUrl: checkoutFailureUrl || '/checkout/failure',
   defaultPageLimit: 100,
   maxPageLimit: 250,
 };
