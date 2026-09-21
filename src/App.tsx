@@ -21,6 +21,7 @@ import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CheckoutSuccess } from './pages/CheckoutSuccess';
+import { BrandCollectionPage } from './pages/BrandCollectionPage';
 
 function HomePage() {
   useEffect(() => {
@@ -112,6 +113,7 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/product/:handle" element={<ProductDetailPage />} />
+          <Route path="/brands/:brandId" element={<BrandCollectionPage />} />
           <Route path="/checkout/success" element={<CheckoutSuccess />} />
         </Routes>
       </ShopifyProvider>

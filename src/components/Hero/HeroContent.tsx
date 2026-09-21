@@ -17,7 +17,19 @@ export const HeroContent = ({ data }: { data: any }) => {
       </h1>
       <p className="hero-description">{data.description}</p>
       
-      <button className="hero-cta">
+      <button 
+        className="hero-cta"
+        onClick={(e) => {
+          e.preventDefault();
+          const section = document.querySelector('.product-showcase') as HTMLElement;
+          if (section) {
+            window.scrollTo({
+              top: section.offsetTop - 100,
+              behavior: 'smooth'
+            });
+          }
+        }}
+      >
         <span>{data.cta}</span>
         <ArrowRight size={16} strokeWidth={1.5} className="cta-arrow" />
       </button>

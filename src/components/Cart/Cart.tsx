@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
-import { initiateCheckout, openShiprocketCheckout, loadShiprocketScript } from '../../services/shiprocket';
+import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-shopify';
+import { syncCartToShopify } from '../../services/shopify-cart';
 import './Cart.css';
 
 interface CartProps {
@@ -28,15 +29,6 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     };
   }, [isOpen]);
 
-  // Load Shiprocket script when cart opens
-  useEffect(() => {
-    if (isOpen && items.length > 0) {
-      loadShiprocketScript().catch((error) => {
-        console.error('Failed to load Shiprocket script:', error);
-      });
-    }
-  }, [isOpen, items.length]);
-
   const handleClose = () => {
     setIsAnimating(false);
     setTimeout(onClose, 200);
@@ -55,26 +47,25 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     setCheckoutError(null);
 
     try {
-      // Prepare cart items for Shiprocket format
-      const checkoutItems = items.map(item => ({
-        variant_id: item.variantId || item.id,
-        quantity: item.quantity
-      }));
-
-      // Get current page URL for redirect
-      const redirectUrl = `${window.location.origin}/checkout/success`;
-
-      // Call backend to generate access token
-      const response = await initiateCheckout(checkoutItems, redirectUrl);
-
-      if (!response.ok || !response.result) {
-        throw new Error('Failed to generate checkout token');
+      // Step 1: Wait for Shiprocket to be ready
+      const isReady = await waitForShiprocket(5000);
+      
+      if (!isReady) {
+        throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      const { token } = response.result;
+      // Step 2: Sync React cart to Shopify cart
+      console.log('Syncing cart to Shopify...');
+      const synced = await syncCartToShopify(items);
+      
+      if (!synced) {
+        throw new Error('Failed to prepare checkout. Please try again.');
+      }
 
-      // Open Shiprocket checkout iframe
-      openShiprocketCheckout(token, redirectUrl);
+      // Step 3: Initiate Shiprocket checkout using the Shopify cart
+      // This will open the Shiprocket checkout iframe
+      console.log('Initiating Shiprocket checkout...');
+      checkoutFromCart();
 
     } catch (error) {
       console.error('Checkout error:', error);

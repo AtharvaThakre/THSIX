@@ -25,9 +25,13 @@ export const Header = () => {
     if (cart?.showModal) cart.showModal();
   };
 
+  const handleLogoClick = () => {
+    window.location.href = '/';
+  };
+
   return (
     <header className="header">
-      <div className="header-left">
+      <div className="header-left" onClick={handleLogoClick}>
         <strong>THSIX</strong>
       </div>
       <nav className="header-center">

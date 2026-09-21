@@ -1,4 +1,5 @@
 import { Lock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { Brand } from '../../types/brand';
 import { BrandLogo } from './BrandLogos';
 
@@ -7,8 +8,20 @@ interface BrandCardProps {
 }
 
 export const BrandCard = ({ brand }: BrandCardProps) => {
+  const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (brand.available && brand.id === 'adidas') {
+      navigate(`/brands/${brand.id}`);
+    }
+  };
+
   return (
-    <div className={`brand-card ${brand.available ? 'brand-card--available' : 'brand-card--locked'}`}>
+    <div 
+      className={`brand-card ${brand.available ? 'brand-card--available' : 'brand-card--locked'}`}
+      onClick={brand.available ? handleClick : undefined}
+      style={{ cursor: brand.available ? 'pointer' : 'default' }}
+    >
       <div className="brand-card__logo-wrapper">
         <BrandLogo brandId={brand.id} name={brand.name} customLogo={brand.logo} />
       </div>

@@ -1,4 +1,3 @@
-import { ArrowRight } from 'lucide-react';
 import { nextDropData } from '../../data/nextDrop';
 import './NextDrop.css';
 
@@ -19,11 +18,6 @@ export const NextDrop = () => {
         <h2 className="next-drop__title">{nextDropData.title}</h2>
         <div className="next-drop__meta">{nextDropData.dropNumber}</div>
         <p className="next-drop__description">{nextDropData.description}</p>
-
-        <a href={nextDropData.ctaHref} className="next-drop__cta">
-          <span>{nextDropData.cta}</span>
-          <ArrowRight size={15} strokeWidth={1.5} className="next-drop-cta-arrow" />
-        </a>
       </div>
 
       <div className="next-drop__decoration">

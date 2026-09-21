@@ -20,6 +20,12 @@
   display: flex;
   justify-content: flex-start;
   align-items: flex-start;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.header-left:hover {
+  opacity: 0.6;
 }
 
 .logo-container {
