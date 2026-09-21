@@ -2,12 +2,19 @@
   "functions": {
     "api/**/*.ts": {
       "runtime": "@vercel/node"
+    },
+    "api/**/*.js": {
+      "runtime": "@vercel/node"
     }
   },
-  "rewrites": [
+  "routes": [
     {
-      "source": "/((?!api).*)",
-      "destination": "/index.html"
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
     }
   ],
   "headers": [
