@@ -1,10 +1,10 @@
-const { fetchCollections } = require('../lib/data-service');
+const { fetchProducts } = require('../lib/data-service');
 const { sendSuccess, sendValidationError } = require('../lib/response');
 const { config } = require('../lib/config');
 
 /**
- * GET /api/catalog/collections
- * Fetch all collections with pagination
+ * GET /api/catalog/products
+ * Fetch all products with pagination
  * Query params: page (default: 1), limit (default: 100, max: 250)
  */
 module.exports = async function handler(req, res) {
@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
 
   try {
     // Parse pagination parameters
-    const pageParam = req.query.page as string;
-    const limitParam = req.query.limit as string;
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
     const page = pageParam ? parseInt(pageParam) : 1;
     let limit = limitParam ? parseInt(limitParam) : config.defaultPageLimit;
     if (limit > config.maxPageLimit) {
@@ -42,21 +42,21 @@ module.exports = async function handler(req, res) {
       return sendValidationError(res, 'Limit must be >= 1');
     }
 
-    // Fetch collections
-    const result = fetchCollections(page, limit);
+    // Fetch products
+    const result = fetchProducts(page, limit);
 
     // Return response in Shiprocket format
     return sendSuccess(res, {
       total: result.total,
-      collections: result.collections
+      products: result.products
     });
 
   } catch (error) {
-    console.error('Error fetching collections:', error);
+    console.error('Error fetching products:', error);
     return res.status(500).json({
       ok: false,
       error: 'Internal server error',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
+};
