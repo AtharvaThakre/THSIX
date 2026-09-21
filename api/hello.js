@@ -1,8 +1,17 @@
-module.exports = function handler(req, res) {
+module.exports = (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.status(200).json({ 
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  res.status(200).json({
     ok: true,
-    message: 'Hello from API!',
-    timestamp: new Date().toISOString()
+    message: "Vercel API is working!",
+    timestamp: new Date().toISOString(),
+    method: req.method,
+    path: req.url
   });
-}
+};
