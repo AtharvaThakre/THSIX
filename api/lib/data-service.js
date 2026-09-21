@@ -1,169 +1,346 @@
 /**
- * Mock product database - In production, this would be your actual database
- * For now, we'll transform the data from your products.ts file
+ * Shopify Storefront API client for fetching real products
  */
 
-// This is sample data structure - you'll need to expand this based on your actual products
-const mockProducts = [
-  {
-    id: "samba-og-cloud-white-core-black",
-    title: "Samba OG",
-    body_html: "<p>The iconic Adidas Samba OG sneaker in Cloud White and Core Black colorway. A timeless classic that never goes out of style.</p>",
-    vendor: "Adidas",
-    product_type: "Sneakers",
-    created_at: new Date().toISOString(),
-    handle: "samba-og-cloud-white-core-black",
-    updated_at: new Date().toISOString(),
-    tags: "Adidas, Samba, Sneakers, Classic",
-    status: "active",
-    variants: [
-      {
-        id: "samba-og-cloud-white-core-black-variant-1",
-        title: "Cloud White / Core Black",
-        price: "10999.00",
-        compare_at_price: "12999.00",
-        sku: "SAMBA-OG-CW-CB",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        taxable: true,
-        quantity: 50,
-        grams: 800,
-        image: {
-          src: "https://assets.adidas.com/images/h_840,f_auto,q_auto,fl_lossy,c_fill,g_auto/fbaf991a78bc4896a3e9ad7800abcec6_9366/Samba_OG_Shoes_White_B75806.jpg"
-        },
-        option_values: {
-          "Color": "Cloud White / Core Black",
-          "Size": "9"
-        },
-        weight: 0.8,
-        weight_unit: "kg"
-      }
-    ],
-    options: [
-      {
-        name: "Color",
-        values: ["Cloud White / Core Black", "Core Black / White", "Off White / Green"]
-      },
-      {
-        name: "Size",
-        values: ["7", "8", "9", "10", "11"]
-      }
-    ],
-    image: {
-      src: "https://assets.adidas.com/images/h_840,f_auto,q_auto,fl_lossy,c_fill,g_auto/fbaf991a78bc4896a3e9ad7800abcec6_9366/Samba_OG_Shoes_White_B75806.jpg"
-    }
-  },
-  {
-    id: "samba-og-core-black-white",
-    title: "Samba OG",
-    body_html: "<p>The iconic Adidas Samba OG sneaker in Core Black and White colorway. Classic styling with modern comfort.</p>",
-    vendor: "Adidas",
-    product_type: "Sneakers",
-    created_at: new Date().toISOString(),
-    handle: "samba-og-core-black-white",
-    updated_at: new Date().toISOString(),
-    tags: "Adidas, Samba, Sneakers, Classic, Black",
-    status: "active",
-    variants: [
-      {
-        id: "samba-og-core-black-white-variant-1",
-        title: "Core Black / White",
-        price: "10999.00",
-        compare_at_price: null,
-        sku: "SAMBA-OG-CB-W",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        taxable: true,
-        quantity: 35,
-        grams: 800,
-        image: {
-          src: "https://assets.adidas.com/images/h_840,f_auto,q_auto,fl_lossy,c_fill,g_auto/d69d0dfd4bc24bb4b39bada600f34bb8_9366/Samba_OG_Shoes_Black_B75807.jpg"
-        },
-        option_values: {
-          "Color": "Core Black / White",
-          "Size": "9"
-        },
-        weight: 0.8,
-        weight_unit: "kg"
-      }
-    ],
-    options: [
-      {
-        name: "Color",
-        values: ["Core Black / White"]
-      },
-      {
-        name: "Size",
-        values: ["7", "8", "9", "10", "11"]
-      }
-    ],
-    image: {
-      src: "https://assets.adidas.com/images/h_840,f_auto,q_auto,fl_lossy,c_fill,g_auto/d69d0dfd4bc24bb4b39bada600f34bb8_9366/Samba_OG_Shoes_Black_B75807.jpg"
-    }
-  }
-];
+const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || 'https://19sjnp-gx.myshopify.com';
+const SHOPIFY_STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || 'be59fa0cf086500d7b6456e64f233866';
 
-const mockCollections = [
-  {
-    id: "adidas-collection",
-    updated_at: new Date().toISOString(),
-    body_html: "<p>Explore our curated collection of Adidas sneakers and sportswear.</p>",
-    handle: "adidas",
-    image: {
-      src: "/assets/logos/adidas-logo.png"
+/**
+ * Fetch products from Shopify Storefront API
+ */
+async function fetchProductsFromShopify(limit = 250) {
+  const query = `
+    {
+      products(first: ${limit}) {
+        edges {
+          node {
+            id
+            title
+            descriptionHtml
+            vendor
+            productType
+            handle
+            createdAt
+            updatedAt
+            tags
+            variants(first: 250) {
+              edges {
+                node {
+                  id
+                  title
+                  price {
+                    amount
+                  }
+                  compareAtPrice {
+                    amount
+                  }
+                  sku
+                  availableForSale
+                  quantityAvailable
+                  weight
+                  weightUnit
+                  image {
+                    url
+                  }
+                  selectedOptions {
+                    name
+                    value
+                  }
+                }
+              }
+            }
+            options {
+              name
+              values
+            }
+            featuredImage {
+              url
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
     },
-    title: "Adidas Collection",
-    created_at: new Date().toISOString()
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
   }
-];
+
+  const data = await response.json();
+  
+  if (data.errors) {
+    throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
+  }
+
+  return data.data.products.edges.map(edge => transformShopifyProduct(edge.node));
+}
+
+/**
+ * Fetch collections from Shopify Storefront API
+ */
+async function fetchCollectionsFromShopify(limit = 250) {
+  const query = `
+    {
+      collections(first: ${limit}) {
+        edges {
+          node {
+            id
+            title
+            handle
+            descriptionHtml
+            updatedAt
+            image {
+              url
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  if (data.errors) {
+    throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
+  }
+
+  return data.data.collections.edges.map(edge => transformShopifyCollection(edge.node));
+}
+
+/**
+ * Transform Shopify product to Shiprocket format
+ */
+function transformShopifyProduct(shopifyProduct) {
+  // Extract numeric ID from Shopify's global ID (gid://shopify/Product/123456)
+  const id = shopifyProduct.id.split('/').pop();
+  
+  return {
+    id: id,
+    title: shopifyProduct.title,
+    body_html: shopifyProduct.descriptionHtml || '',
+    vendor: shopifyProduct.vendor || '',
+    product_type: shopifyProduct.productType || '',
+    created_at: shopifyProduct.createdAt,
+    handle: shopifyProduct.handle,
+    updated_at: shopifyProduct.updatedAt,
+    tags: shopifyProduct.tags.join(', '),
+    status: 'active',
+    variants: shopifyProduct.variants.edges.map(variantEdge => {
+      const variant = variantEdge.node;
+      const variantId = variant.id.split('/').pop();
+      
+      return {
+        id: variantId,
+        title: variant.title,
+        price: parseFloat(variant.price.amount).toFixed(2),
+        compare_at_price: variant.compareAtPrice ? parseFloat(variant.compareAtPrice.amount).toFixed(2) : null,
+        sku: variant.sku || '',
+        created_at: shopifyProduct.createdAt,
+        updated_at: shopifyProduct.updatedAt,
+        taxable: true,
+        quantity: variant.quantityAvailable || 0,
+        grams: variant.weight ? Math.round(variant.weight * 1000) : 0,
+        image: variant.image ? { src: variant.image.url } : null,
+        option_values: variant.selectedOptions.reduce((acc, opt) => {
+          acc[opt.name] = opt.value;
+          return acc;
+        }, {}),
+        weight: variant.weight || 0,
+        weight_unit: variant.weightUnit ? variant.weightUnit.toLowerCase() : 'kg'
+      };
+    }),
+    options: shopifyProduct.options.map(opt => ({
+      name: opt.name,
+      values: opt.values
+    })),
+    image: shopifyProduct.featuredImage ? { src: shopifyProduct.featuredImage.url } : null
+  };
+}
+
+/**
+ * Transform Shopify collection to Shiprocket format
+ */
+function transformShopifyCollection(shopifyCollection) {
+  const id = shopifyCollection.id.split('/').pop();
+  
+  return {
+    id: id,
+    updated_at: shopifyCollection.updatedAt,
+    body_html: shopifyCollection.descriptionHtml || '',
+    handle: shopifyCollection.handle,
+    image: shopifyCollection.image ? { src: shopifyCollection.image.url } : null,
+    title: shopifyCollection.title,
+    created_at: shopifyCollection.updatedAt
+  };
+}
 
 /**
  * Fetch all products with pagination
  */
-function fetchProducts(page = 1, limit = 100) {
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedProducts = mockProducts.slice(startIndex, endIndex);
+async function fetchProducts(page = 1, limit = 100) {
+  try {
+    const allProducts = await fetchProductsFromShopify(250);
+    
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
 
-  return {
-    total: mockProducts.length,
-    products: paginatedProducts
-  };
+    return {
+      total: allProducts.length,
+      products: paginatedProducts
+    };
+  } catch (error) {
+    console.error('Error fetching products from Shopify:', error);
+    throw error;
+  }
 }
 
 /**
  * Fetch all collections with pagination
  */
-function fetchCollections(page = 1, limit = 100) {
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedCollections = mockCollections.slice(startIndex, endIndex);
+async function fetchCollections(page = 1, limit = 100) {
+  try {
+    const allCollections = await fetchCollectionsFromShopify(250);
+    
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedCollections = allCollections.slice(startIndex, endIndex);
 
-  return {
-    total: mockCollections.length,
-    collections: paginatedCollections
-  };
+    return {
+      total: allCollections.length,
+      collections: paginatedCollections
+    };
+  } catch (error) {
+    console.error('Error fetching collections from Shopify:', error);
+    throw error;
+  }
 }
 
 /**
  * Fetch products by collection ID with pagination
  */
-function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
-  const collectionProducts = mockProducts.filter(product => {
-    if (collectionId === 'adidas-collection') {
-      return product.vendor === 'Adidas';
+async function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
+  try {
+    const query = `
+      {
+        collection(id: "gid://shopify/Collection/${collectionId}") {
+          products(first: 250) {
+            edges {
+              node {
+                id
+                title
+                descriptionHtml
+                vendor
+                productType
+                handle
+                createdAt
+                updatedAt
+                tags
+                variants(first: 250) {
+                  edges {
+                    node {
+                      id
+                      title
+                      price {
+                        amount
+                      }
+                      compareAtPrice {
+                        amount
+                      }
+                      sku
+                      availableForSale
+                      quantityAvailable
+                      weight
+                      weightUnit
+                      image {
+                        url
+                      }
+                      selectedOptions {
+                        name
+                        value
+                      }
+                    }
+                  }
+                }
+                options {
+                  name
+                  values
+                }
+                featuredImage {
+                  url
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
     }
-    return false;
-  });
 
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
-  const paginatedProducts = collectionProducts.slice(startIndex, endIndex);
+    const data = await response.json();
+    
+    if (data.errors) {
+      throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
+    }
 
-  return {
-    total: collectionProducts.length,
-    products: paginatedProducts
-  };
+    if (!data.data.collection) {
+      return {
+        total: 0,
+        products: []
+      };
+    }
+
+    const allProducts = data.data.collection.products.edges.map(edge => transformShopifyProduct(edge.node));
+    
+    // Apply pagination
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedProducts = allProducts.slice(startIndex, endIndex);
+
+    return {
+      total: allProducts.length,
+      products: paginatedProducts
+    };
+  } catch (error) {
+    console.error('Error fetching products by collection from Shopify:', error);
+    throw error;
+  }
 }
 
 module.exports = {
