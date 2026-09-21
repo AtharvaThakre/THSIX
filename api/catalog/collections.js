@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
 
   try {
     // Parse pagination parameters
-    const pageParam = req.query.page as string;
-    const limitParam = req.query.limit as string;
+    const pageParam = req.query.page;
+    const limitParam = req.query.limit;
     const page = pageParam ? parseInt(pageParam) : 1;
     let limit = limitParam ? parseInt(limitParam) : config.defaultPageLimit;
     if (limit > config.maxPageLimit) {
@@ -59,4 +59,4 @@ module.exports = async function handler(req, res) {
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
-}
+};
