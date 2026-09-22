@@ -475,10 +475,6 @@ export const ProductDetailPage = () => {
                           </div>
                         </div>
                       </div>
-
-                      <div class="product-detail__section">
-                        <h3 class="product-detail__section-title">Product Description</h3>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -489,8 +485,11 @@ export const ProductDetailPage = () => {
 
         {/* Product Description - Rendered separately to preserve HTML formatting */}
         <div className="product-detail__container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px' }}>
-          <div className="product-detail__description-wrapper">
-            <ProductDescription html={descriptionHtml} />
+          <div className="product-detail__description-section">
+            <h2 className="product-detail__description-heading">Product Description</h2>
+            <div className="product-detail__description-wrapper">
+              <ProductDescription html={descriptionHtml} />
+            </div>
           </div>
         </div>
 
