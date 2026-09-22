@@ -79,7 +79,10 @@ export const ProductDetailPage = () => {
       console.log('Fetching description for handle:', handle);
       
       try {
-        const response = await fetch('/api/catalog/products');
+        const apiUrl = `${window.location.origin}/api/catalog/products`;
+        console.log('API URL:', apiUrl);
+        
+        const response = await fetch(apiUrl);
         const data = await response.json();
         
         console.log('API Response:', data);
@@ -95,6 +98,7 @@ export const ProductDetailPage = () => {
             setProductTitle(product.title || '');
           } else {
             console.log('Product not found for handle:', handle);
+            console.log('Available handles:', data.result.products.map((p: any) => p.handle));
           }
         } else {
           console.log('Invalid API response structure');
