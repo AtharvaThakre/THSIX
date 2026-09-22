@@ -36,9 +36,6 @@ export const ProductReviews = ({
       <div className="product-reviews__header">
         <h3 className="product-reviews__title">Let's Hear It</h3>
         <h2 className="product-reviews__subtitle">From the SIX</h2>
-        <button className="product-reviews__write-btn">
-          Write us a review →
-        </button>
       </div>
 
       <div className="product-reviews__summary">

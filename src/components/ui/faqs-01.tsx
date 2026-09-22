@@ -27,10 +27,7 @@ const faqs = [
     q: "FAQ",
     a: "Have more questions? Visit our FAQ page or contact our customer support team for detailed answers to common inquiries.",
   },
-  {
-    q: "Product Information",
-    a: "Detailed product specifications, materials, sizing information, and care instructions are available for every item in our collection.",
-  },
+
 ];
 
 export default function Faqs01({ defaultValue }: { defaultValue?: string }) {

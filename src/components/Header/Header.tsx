@@ -29,6 +29,17 @@ export const Header = () => {
     window.location.href = '/';
   };
 
+  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetSelector: string) => {
+    e.preventDefault();
+    const element = document.querySelector(targetSelector);
+    if (element) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }
+  };
+
   return (
     <header className="header">
       <div className="header-left" onClick={handleLogoClick}>
@@ -36,9 +47,9 @@ export const Header = () => {
       </div>
       <nav className="header-center">
         <a href="#shop" className="nav-link">SHOP</a>
-        <a href="#brands" className="nav-link">BRANDS</a>
+        <a href="#brands" onClick={(e) => handleSmoothScroll(e, '.brands-showcase')} className="nav-link">BRANDS</a>
         <a href="#about" className="nav-link">ABOUT</a>
-        <a href="#journal" className="nav-link">JOURNAL</a>
+        <a href="#contact" className="nav-link">CONTACT US</a>
       </nav>
       <div className="header-right">
         <button

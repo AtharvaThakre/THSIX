@@ -9,26 +9,24 @@ interface ReelData {
   instagramUrl?: string; // Optional Instagram URL for reference
 }
 
-// Placeholder reel data - easily replaceable with actual Instagram reel URLs
-// Note: Instagram reels require using extracted video URLs or embedding
-// You can get direct video URLs by using browser developer tools on Instagram
 const reelsData: ReelData[] = [
   {
     id: 'reel-1',
-    videoUrl: '/Assets/reels/igexport-DdZBkXWtTzo.mp4',
-    thumbnail: 'https://via.placeholder.com/300x500?text=THSIX+Reel+1',
-    instagramUrl: 'https://www.instagram.com/reel/DdZBkXWtTzo/'
+    videoUrl: '/Assets/reels/igexport-Ddbk0pvtkZL.mp4',
+    thumbnail: '/Assets/reels/igexport-Ddbk0pvtkZL-poster.svg',
+    instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-2', 
-    videoUrl: '/Assets/reels/igexport-DdWc5pAt43Y.mp4',
-    thumbnail: 'https://via.placeholder.com/300x500?text=THSIX+Reel+2',
-    instagramUrl: 'https://www.instagram.com/reel/DdWc5pAt43Y/'
+    videoUrl: '/Assets/reels/igexport-DdeO8usNeZP.mp4',
+    thumbnail: '/Assets/reels/igexport-DdeO8usNeZP-poster.svg',
+    instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-3',
-    videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-    thumbnail: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/ForBiggerBlazes.jpg'
+    videoUrl: '/Assets/reels/igexport-DdWc5pAt43Y.mp4',
+    thumbnail: '/Assets/reels/igexport-DdWc5pAt43Y-poster.svg',
+    instagramUrl: 'https://www.instagram.com/thsix.official/'
   }
 ];
 
@@ -40,28 +38,32 @@ export const InstagramReels = () => {
   // Refs for video elements
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
 
-  // Get current center reel index
-  const _centerIndex = carouselState[1];
-
   // Control video playback based on position
   useEffect(() => {
     const centerReelId = reelsData[carouselState[1]]?.id;
     
-    // Pause all videos first
-    Object.values(videoRefs.current).forEach(video => {
-      if (video && !video.paused) {
-        video.pause();
-        video.currentTime = 0; // Reset to beginning
+    // Pause all videos and show poster
+    Object.entries(videoRefs.current).forEach(([id, video]) => {
+      if (video) {
+        if (!video.paused) {
+          video.pause();
+        }
+        // Reset to show poster for non-center videos
+        if (id !== centerReelId) {
+          video.currentTime = 0;
+          video.load(); // Force reload to show poster
+        }
       }
     });
 
-    // Play only the center video
+    // Play only the center video with optimization
     if (centerReelId && videoRefs.current[centerReelId]) {
       const centerVideo = videoRefs.current[centerReelId];
       if (centerVideo) {
         centerVideo.currentTime = 0;
-        centerVideo.play().catch(error => {
-          console.log('Autoplay prevented:', error);
+        // ponytail: eager play for UX, but catch to handle autoplay policy
+        centerVideo.play().catch(() => {
+          // Silently handle autoplay block; user can tap to play
         });
       }
     }
@@ -113,6 +115,9 @@ export const InstagramReels = () => {
     }
   };
 
+  // Check if video is in center position (should play)
+  const isCenter = (reelIndex: number) => carouselState[1] === reelIndex;
+
   return (
     <section className="instagram-reels">
       <div className="instagram-reels__container">
@@ -147,28 +152,38 @@ export const InstagramReels = () => {
 
           {/* Carousel Container */}
           <div className="instagram-reels__carousel">
-            {reelsData.map((reel, index) => (
-              <div
-                key={reel.id}
-                className={`instagram-reels__card ${getPositionClass(index)} ${isTransitioning ? 'transitioning' : ''}`}
-              >
-                <div className="reel-card__video-container">
-                  <video
-                    ref={setVideoRef(reel.id)}
-                    className="reel-card__video"
-                    src={reel.videoUrl}
-                    poster={reel.thumbnail}
-                    muted
-                    playsInline
-                    loop
-                    preload="metadata"
-                    onContextMenu={(e) => e.preventDefault()} // Prevent right-click menu
-                  >
-                    Your browser does not support the video tag.
-                  </video>
+            {reelsData.map((reel, index) => {
+              const isCenterCard = isCenter(index);
+              return (
+                <div
+                  key={reel.id}
+                  className={`instagram-reels__card ${getPositionClass(index)} ${isTransitioning ? 'transitioning' : ''}`}
+                >
+                  <div className="reel-card__video-container">
+                    {/* Show poster overlay for non-center videos */}
+                    {!isCenterCard && reel.thumbnail && (
+                      <div 
+                        className="reel-card__poster-overlay"
+                        style={{ backgroundImage: `url(${reel.thumbnail})` }}
+                      />
+                    )}
+                    <video
+                      ref={setVideoRef(reel.id)}
+                      className="reel-card__video"
+                      src={reel.videoUrl}
+                      poster={reel.thumbnail}
+                      muted
+                      playsInline
+                      loop
+                      preload="metadata"
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
+                      Your browser does not support the video tag.
+                    </video>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Right Arrow */}
