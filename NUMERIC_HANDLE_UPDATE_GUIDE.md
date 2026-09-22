@@ -7,14 +7,14 @@ This guide shows how to update all product handles to numeric format (1, 2, 3, e
 
 | Current Handle                | New Handle | Product Title                |
 |------------------------------|------------|------------------------------|
-| samba-ivory-scarlet-earth    | 1          | Samba Ivory Scarlet Earth    |
-| samba-monochrome-granite     | 2          | Samba Monochrome Granite     |
-| samba-ivory-green-earth      | 3          | Samba Ivory Green Earth      |
-| samba-evergreen-vanilla-gum  | 4          | Samba Evergreen Vanilla Gum  |
-| samba-onyx-ivory-gum         | 5          | Samba Onyx Ivory Gum         |
-| samba-deep-indigo-cream      | 6          | Samba Deep Indigo Cream      |
-| samba-burgundy-champagne     | 7          | Samba Burgundy Champagne     |
-| cloud-white-core-black-gum   | 8          | Samba Cream Sand Gum         |
+| samba-ivory-scarlet-earth    | 1011       | Samba Ivory Scarlet Earth    |
+| samba-monochrome-granite     | 1012       | Samba Monochrome Granite     |
+| samba-ivory-green-earth      | 1013       | Samba Ivory Green Earth      |
+| samba-evergreen-vanilla-gum  | 1014       | Samba Evergreen Vanilla Gum  |
+| samba-onyx-ivory-gum         | 1015       | Samba Onyx Ivory Gum         |
+| samba-deep-indigo-cream      | 1016       | Samba Deep Indigo Cream      |
+| samba-burgundy-champagne     | 1017       | Samba Burgundy Champagne     |
+| cloud-white-core-black-gum   | 1018       | Samba Cream Sand Gum         |
 
 ## Step-by-Step Instructions
 
@@ -29,8 +29,8 @@ This guide shows how to update all product handles to numeric format (1, 2, 3, e
 4. **Click "Edit website SEO"**
 
 5. **Update the URL handle** to the numeric value from the table above:
-   - Example: Change `samba-ivory-scarlet-earth` to `1`
-   - Just type the number without any prefixes or suffixes
+   - Example: Change `samba-ivory-scarlet-earth` to `1011`
+   - Just type the four-digit number without any prefixes or suffixes
 
 6. **Click "Save"** at the top right
 
@@ -38,27 +38,27 @@ This guide shows how to update all product handles to numeric format (1, 2, 3, e
 
 ### Quick Update Checklist:
 
-- [ ] Product 1: Change `samba-ivory-scarlet-earth` → `1`
-- [ ] Product 2: Change `samba-monochrome-granite` → `2`
-- [ ] Product 3: Change `samba-ivory-green-earth` → `3`
-- [ ] Product 4: Change `samba-evergreen-vanilla-gum` → `4`
-- [ ] Product 5: Change `samba-onyx-ivory-gum` → `5`
-- [ ] Product 6: Change `samba-deep-indigo-cream` → `6`
-- [ ] Product 7: Change `samba-burgundy-champagne` → `7`
-- [ ] Product 8: Change `cloud-white-core-black-gum` → `8`
+- [ ] Product 1: Change `samba-ivory-scarlet-earth` → `1011`
+- [ ] Product 2: Change `samba-monochrome-granite` → `1012`
+- [ ] Product 3: Change `samba-ivory-green-earth` → `1013`
+- [ ] Product 4: Change `samba-evergreen-vanilla-gum` → `1014`
+- [ ] Product 5: Change `samba-onyx-ivory-gum` → `1015`
+- [ ] Product 6: Change `samba-deep-indigo-cream` → `1016`
+- [ ] Product 7: Change `samba-burgundy-champagne` → `1017`
+- [ ] Product 8: Change `cloud-white-core-black-gum` → `1018`
 
 ## New Product URLs
 
 After updating, your products will be accessible at:
 
-- https://thsix.com/product/1
-- https://thsix.com/product/2
-- https://thsix.com/product/3
-- https://thsix.com/product/4
-- https://thsix.com/product/5
-- https://thsix.com/product/6
-- https://thsix.com/product/7
-- https://thsix.com/product/8
+- https://thsix.com/product/1011
+- https://thsix.com/product/1012
+- https://thsix.com/product/1013
+- https://thsix.com/product/1014
+- https://thsix.com/product/1015
+- https://thsix.com/product/1016
+- https://thsix.com/product/1017
+- https://thsix.com/product/1018
 
 ## Testing After Update
 
@@ -70,7 +70,7 @@ $response = Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" -Met
 $response.result.products | Select-Object handle, title
 
 # Test individual product URLs (after waiting 1-2 minutes)
-1..8 | ForEach-Object {
+1011..1018 | ForEach-Object {
     Write-Host "Testing product $_..." -ForegroundColor Cyan
     try {
         $page = Invoke-WebRequest -Uri "https://thsix.com/product/$_" -Method HEAD
@@ -88,7 +88,7 @@ $response.result.products | Select-Object handle, title
 curl https://thsix.com/api/catalog/products | jq '.result.products[] | {handle, title}'
 
 # Test individual product URLs
-for i in {1..8}; do
+for i in 1011 1012 1013 1014 1015 1016 1017 1018; do
   echo "Testing product $i..."
   curl -I https://thsix.com/product/$i
 done
@@ -119,13 +119,13 @@ After the update, the API will return:
       {
         "id": "...",
         "title": "Samba Ivory Scarlet Earth",
-        "handle": "1",
+        "handle": "1011",
         ...
       },
       {
         "id": "...",
         "title": "Samba Monochrome Granite",
-        "handle": "2",
+        "handle": "1012",
         ...
       }
     ]
@@ -142,8 +142,8 @@ Share these API endpoints:
 - Products by collection: `https://thsix.com/api/catalog/products-by-collection?collection=adidas`
 
 Product URLs will use numeric handles:
-- `https://thsix.com/product/1`
-- `https://thsix.com/product/2`
+- `https://thsix.com/product/1011`
+- `https://thsix.com/product/1012`
 - etc.
 
 ## Troubleshooting
@@ -168,5 +168,5 @@ After updating all handles:
 ---
 
 **Last Updated**: September 2026
-**Handles Format**: Numeric (1-8)
+**Handles Format**: Numeric (1011-1018)
 **Status**: Ready to update

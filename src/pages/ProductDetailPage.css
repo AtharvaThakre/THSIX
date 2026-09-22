@@ -436,6 +436,18 @@
   line-height: 1.7;
 }
 
+.product-detail__description-wrapper {
+  margin: 0;
+  padding: 24px 48px;
+  background: #ffffff;
+}
+
+@media (max-width: 1024px) {
+  .product-detail__description-wrapper {
+    padding: 24px 16px;
+  }
+}
+
 /* ─── Additional Info Sections ────────────────────────────── */
 .product-detail__section {
   margin-bottom: 24px;

@@ -11,14 +11,14 @@ These API endpoints fetch real products from your Shopify store and return them 
 
 **Product Handles:**
 Products use numeric handles for simplicity:
-- `1` - Samba Ivory Scarlet Earth
-- `2` - Samba Monochrome Granite
-- `3` - Samba Ivory Green Earth
-- `4` - Samba Evergreen Vanilla Gum
-- `5` - Samba Onyx Ivory Gum
-- `6` - Samba Deep Indigo Cream
-- `7` - Samba Burgundy Champagne
-- `8` - Samba Cream Sand Gum
+- `1011` - Samba Ivory Scarlet Earth
+- `1012` - Samba Monochrome Granite
+- `1013` - Samba Ivory Green Earth
+- `1014` - Samba Evergreen Vanilla Gum
+- `1015` - Samba Onyx Ivory Gum
+- `1016` - Samba Deep Indigo Cream
+- `1017` - Samba Burgundy Champagne
+- `1018` - Samba Cream Sand Gum
 
 ---
 
@@ -52,7 +52,7 @@ Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" -Method GET | Co
     {
       "id": "gid://shopify/Product/9690128728352",
       "title": "Samba Classic Ivory Scarlet Earth",
-      "handle": "1",
+      "handle": "1011",
       "description": "The classic Adidas Samba...",
       "vendor": "Adidas",
       "productType": "Sneakers",
@@ -174,7 +174,7 @@ Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products-by-collection?col
       {
         "id": "gid://shopify/Product/9690128728352",
         "title": "Samba Classic Ivory Scarlet Earth",
-        "handle": "1",
+        "handle": "1011",
         "description": "The classic Adidas Samba...",
         "vendor": "Adidas",
         "productType": "Sneakers",
@@ -287,14 +287,14 @@ https://thsix.com/product/{handle}
 ```
 
 **Example URLs** (with numeric handles):
-- https://thsix.com/product/1
-- https://thsix.com/product/2
-- https://thsix.com/product/3
-- https://thsix.com/product/4
-- https://thsix.com/product/5
-- https://thsix.com/product/6
-- https://thsix.com/product/7
-- https://thsix.com/product/8
+- https://thsix.com/product/1011
+- https://thsix.com/product/1012
+- https://thsix.com/product/1013
+- https://thsix.com/product/1014
+- https://thsix.com/product/1015
+- https://thsix.com/product/1016
+- https://thsix.com/product/1017
+- https://thsix.com/product/1018
 
 The frontend dynamically fetches product data based on the handle parameter.
 
@@ -373,7 +373,7 @@ All error responses follow this format:
 
 1. **Real-time Data**: All data is fetched directly from Shopify Storefront API in real-time. Cache propagation may take 1-2 minutes after Shopify updates.
 
-2. **Product Handles**: Handles are now numeric (1-8) as requested by the developer team for simpler integration.
+2. **Product Handles**: Handles are now numeric (1011-1018) as requested by the developer team for simpler integration.
 
 3. **Quantity Field**: Set to default value of 999 since inventory tracking is not enabled in Shopify.
 
@@ -404,7 +404,7 @@ Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" | ConvertTo-Json
 ### Test Specific Product by Handle
 Filter the products array by handle after fetching all products (no single-product endpoint yet):
 ```bash
-curl -X GET "https://thsix.com/api/catalog/products" | jq '.data[] | select(.handle == "1")'
+curl -X GET "https://thsix.com/api/catalog/products" | jq '.data[] | select(.handle == "1011")'
 ```
 
 ### Check Response Time
@@ -425,7 +425,7 @@ Before production integration:
 - [ ] Validate product data matches Shopify admin
 - [ ] Verify all image URLs are accessible
 - [ ] Test with different collection handles
-- [ ] Confirm all product handles are numeric (1-8, not samba-1)
+- [ ] Confirm all product handles are numeric (1011-1018)
 - [ ] Test frontend product URLs work with numeric handles
 - [ ] Monitor API for 24-48 hours after launch
 - [ ] Set up error logging and monitoring

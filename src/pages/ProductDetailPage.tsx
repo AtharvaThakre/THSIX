@@ -7,6 +7,7 @@ import { Footer } from '../components/Footer/Footer';
 import { ProductReviews } from '../components/ProductReviews/ProductReviews';
 import { CartEnhancer } from '../components/CartEnhancer/CartEnhancer';
 import { SizeChart } from '../components/SizeChart/SizeChart';
+import { ProductDescription } from '../components/ProductDescription/ProductDescription';
 import { forceLoadAllVariants, refreshProductData } from '../utils/shopifyVariantLoader';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
@@ -54,6 +55,8 @@ export const ProductDetailPage = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [totalImages, setTotalImages] = useState(1);
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
+  const [descriptionHtml, setDescriptionHtml] = useState('');
+  const [productTitle, setProductTitle] = useState('');
   
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -66,6 +69,30 @@ export const ProductDetailPage = () => {
   // Scroll to top on page load
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, [handle]);
+
+  // Fetch product description from API
+  useEffect(() => {
+    const fetchProductDescription = async () => {
+      if (!handle) return;
+      
+      try {
+        const response = await fetch('/api/catalog/products');
+        const data = await response.json();
+        
+        if (data.ok && data.result && data.result.products) {
+          const product = data.result.products.find((p: any) => p.handle === handle);
+          if (product) {
+            setDescriptionHtml(product.body_html || '');
+            setProductTitle(product.title || '');
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching product description:', error);
+      }
+    };
+
+    fetchProductDescription();
   }, [handle]);
 
   // Listen for size chart open event
@@ -433,9 +460,6 @@ export const ProductDetailPage = () => {
 
                       <div class="product-detail__section">
                         <h3 class="product-detail__section-title">Product Description</h3>
-                        <div class="product-detail__description-content" style="color: #666; line-height: 1.7; font-size: 14px;">
-                          <shopify-data query="product.description"></shopify-data>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -444,6 +468,13 @@ export const ProductDetailPage = () => {
             }}
           />
         </shopify-context>
+
+        {/* Product Description - Rendered separately to preserve HTML formatting */}
+        <div className="product-detail__container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px' }}>
+          <div className="product-detail__description-wrapper">
+            <ProductDescription html={descriptionHtml} />
+          </div>
+        </div>
 
         {/* Reviews Section */}
         <div className="product-detail__container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
