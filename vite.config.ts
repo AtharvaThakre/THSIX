@@ -10,6 +10,15 @@ export default defineConfig({
       '@': path.resolve(import.meta.dirname, './src'),
     },
   },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'https://thsix.com',
+        changeOrigin: true,
+        secure: true,
+      }
+    }
+  },
   build: {
     outDir: 'dist',
     sourcemap: false,
