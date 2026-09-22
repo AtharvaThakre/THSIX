@@ -489,6 +489,27 @@
   border-radius: 8px;
 }
 
+.product-detail__whatsapp-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f8f8f8;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.product-detail__whatsapp-link:hover {
+  background: #eff8f0;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .product-detail__info-icon {
   flex-shrink: 0;
   width: 20px;
