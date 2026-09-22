@@ -76,16 +76,28 @@ export const ProductDetailPage = () => {
     const fetchProductDescription = async () => {
       if (!handle) return;
       
+      console.log('Fetching description for handle:', handle);
+      
       try {
         const response = await fetch('/api/catalog/products');
         const data = await response.json();
         
+        console.log('API Response:', data);
+        
         if (data.ok && data.result && data.result.products) {
+          console.log('Products found:', data.result.products.length);
           const product = data.result.products.find((p: any) => p.handle === handle);
+          console.log('Matching product:', product);
+          
           if (product) {
+            console.log('Setting description HTML, length:', product.body_html?.length);
             setDescriptionHtml(product.body_html || '');
             setProductTitle(product.title || '');
+          } else {
+            console.log('Product not found for handle:', handle);
           }
+        } else {
+          console.log('Invalid API response structure');
         }
       } catch (error) {
         console.error('Error fetching product description:', error);
