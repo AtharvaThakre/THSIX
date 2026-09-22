@@ -4,90 +4,97 @@
 These API endpoints fetch real products from your Shopify store and return them in the format required by Shiprocket.
 
 **Current Status:**
-- ✅ 6 Adidas products in Shopify
+- ✅ 8 Adidas products in Shopify
 - ✅ Real-time synchronization with Shopify Storefront API
 - ✅ Returns data in Shiprocket-compliant format
+- ✅ Descriptive product handles for better SEO
+
+**Product Handles:**
+Products use numeric handles for simplicity:
+- `1` - Samba Ivory Scarlet Earth
+- `2` - Samba Monochrome Granite
+- `3` - Samba Ivory Green Earth
+- `4` - Samba Evergreen Vanilla Gum
+- `5` - Samba Onyx Ivory Gum
+- `6` - Samba Deep Indigo Cream
+- `7` - Samba Burgundy Champagne
+- `8` - Samba Cream Sand Gum
 
 ---
 
 ## Production API Base URL
 ```
-https://thsix.vercel.app
+https://thsix.com
 ```
 
 ---
 
 ## 1. Get All Products
 
-Fetches all products from your Shopify store with pagination support.
+Fetches all products from your Shopify store.
 
 ### cURL Command
 ```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/products" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+curl -X GET "https://thsix.com/api/catalog/products" \
+  -H "Content-Type: application/json"
 ```
 
-### With Pagination
-```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/products?page=1&limit=10" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+### PowerShell Command (Windows)
+```powershell
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" -Method GET | ConvertTo-Json -Depth 10
 ```
 
 ### Expected Response Format
 ```json
 {
-  "ok": true,
-  "result": {
-    "total": 6,
-    "products": [
-      {
-        "id": "8471819985143",
-        "title": "Samba OG",
-        "body_html": "<p>Product description from Shopify</p>",
-        "vendor": "Adidas",
-        "product_type": "Sneakers",
-        "created_at": "2024-01-15T10:30:00Z",
-        "handle": "samba-og-cloud-white",
-        "updated_at": "2024-01-15T10:30:00Z",
-        "tags": "Adidas, Samba, Sneakers",
-        "status": "active",
-        "variants": [
-          {
-            "id": "46080770916599",
-            "title": "UK 8",
-            "price": "10999.00",
-            "compare_at_price": "12999.00",
-            "sku": "SAMBA-OG-8",
-            "created_at": "2024-01-15T10:30:00Z",
-            "updated_at": "2024-01-15T10:30:00Z",
-            "taxable": true,
-            "quantity": 50,
-            "grams": 800,
-            "image": {
-              "src": "https://cdn.shopify.com/..."
-            },
-            "option_values": {
-              "Size": "UK 8"
-            },
-            "weight": 0.8,
-            "weight_unit": "kg"
-          }
-        ],
-        "options": [
-          {
-            "name": "Size",
-            "values": ["UK 7", "UK 8", "UK 9", "UK 10"]
-          }
-        ],
-        "image": {
-          "src": "https://cdn.shopify.com/..."
+  "success": true,
+  "data": [
+    {
+      "id": "gid://shopify/Product/9690128728352",
+      "title": "Samba Classic Ivory Scarlet Earth",
+      "handle": "1",
+      "description": "The classic Adidas Samba...",
+      "vendor": "Adidas",
+      "productType": "Sneakers",
+      "tags": ["adidas", "sneakers", "classic"],
+      "priceRange": {
+        "minVariantPrice": {
+          "amount": "110.0",
+          "currencyCode": "USD"
+        },
+        "maxVariantPrice": {
+          "amount": "110.0",
+          "currencyCode": "USD"
         }
-      }
-    ]
-  },
-  "errorCode": null
+      },
+      "images": [
+        {
+          "url": "https://cdn.shopify.com/...",
+          "altText": "Samba Classic Ivory Scarlet Earth"
+        }
+      ],
+      "variants": [
+        {
+          "id": "gid://shopify/ProductVariant/...",
+          "title": "UK 7",
+          "price": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          },
+          "availableForSale": true,
+          "quantityAvailable": 999,
+          "selectedOptions": [
+            {
+              "name": "Size",
+              "value": "UK 7"
+            }
+          ]
+        }
+      ],
+      "availableForSale": true,
+      "totalInventory": 50
+    }
+  ]
 }
 ```
 
@@ -95,43 +102,36 @@ curl -X GET "https://thsix.vercel.app/api/catalog/products?page=1&limit=10" \
 
 ## 2. Get All Collections
 
-Fetches all collections from your Shopify store.
+Fetches all collections from your Shopify store with their metadata.
 
 ### cURL Command
 ```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/collections" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+curl -X GET "https://thsix.com/api/catalog/collections" \
+  -H "Content-Type: application/json"
 ```
 
-### With Pagination
-```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/collections?page=1&limit=10" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+### PowerShell Command (Windows)
+```powershell
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/collections" -Method GET | ConvertTo-Json -Depth 10
 ```
 
 ### Expected Response Format
 ```json
 {
-  "ok": true,
-  "result": {
-    "total": 1,
-    "collections": [
-      {
-        "id": "462587527415",
-        "updated_at": "2024-01-15T10:30:00Z",
-        "body_html": "<p>Collection description from Shopify</p>",
-        "handle": "adidas",
-        "image": {
-          "src": "https://cdn.shopify.com/..."
-        },
-        "title": "Adidas Collection",
-        "created_at": "2024-01-15T10:30:00Z"
-      }
-    ]
-  },
-  "errorCode": null
+  "success": true,
+  "data": [
+    {
+      "id": "gid://shopify/Collection/756322607392",
+      "title": "Adidas",
+      "handle": "adidas",
+      "description": "Adidas collection description...",
+      "image": {
+        "url": "https://cdn.shopify.com/...",
+        "altText": "Adidas"
+      },
+      "productsCount": 8
+    }
+  ]
 }
 ```
 
@@ -139,103 +139,186 @@ curl -X GET "https://thsix.vercel.app/api/catalog/collections?page=1&limit=10" \
 
 ## 3. Get Products by Collection
 
-Fetches products from a specific collection.
+Fetches all products belonging to a specific collection by collection handle.
 
 ### cURL Command
 ```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/products-by-collection?collection_id=462587527415" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+curl -X GET "https://thsix.com/api/catalog/products-by-collection?collection=adidas" \
+  -H "Content-Type: application/json"
 ```
 
-### With Pagination
-```bash
-curl -X GET "https://thsix.vercel.app/api/catalog/products-by-collection?collection_id=462587527415&page=1&limit=10" \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json"
+### PowerShell Command (Windows)
+```powershell
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products-by-collection?collection=adidas" -Method GET | ConvertTo-Json -Depth 10
 ```
+
+### Query Parameters
+- `collection` (required): Collection handle (e.g., "adidas", "nike", "puma")
 
 ### Expected Response Format
 ```json
 {
-  "ok": true,
-  "result": {
-    "total": 6,
+  "success": true,
+  "data": {
+    "collection": {
+      "id": "gid://shopify/Collection/756322607392",
+      "title": "Adidas",
+      "handle": "adidas",
+      "description": "Adidas collection description...",
+      "image": {
+        "url": "https://cdn.shopify.com/...",
+        "altText": "Adidas"
+      }
+    },
     "products": [
       {
-        "id": "8471819985143",
-        "title": "Samba OG",
-        "body_html": "<p>Product description</p>",
+        "id": "gid://shopify/Product/9690128728352",
+        "title": "Samba Classic Ivory Scarlet Earth",
+        "handle": "1",
+        "description": "The classic Adidas Samba...",
         "vendor": "Adidas",
-        "product_type": "Sneakers",
-        "handle": "samba-og-cloud-white",
-        "status": "active",
-        "variants": [...],
-        "options": [...],
-        "image": {...}
+        "productType": "Sneakers",
+        "tags": ["adidas", "sneakers", "classic"],
+        "priceRange": {
+          "minVariantPrice": {
+            "amount": "110.0",
+            "currencyCode": "USD"
+          }
+        },
+        "images": [
+          {
+            "url": "https://cdn.shopify.com/...",
+            "altText": "Samba Classic Ivory Scarlet Earth"
+          }
+        ],
+        "variants": [
+          {
+            "id": "gid://shopify/ProductVariant/...",
+            "title": "UK 7",
+            "price": {
+              "amount": "110.0",
+              "currencyCode": "USD"
+            },
+            "availableForSale": true,
+            "quantityAvailable": 999,
+            "selectedOptions": [
+              {
+                "name": "Size",
+                "value": "UK 7"
+              }
+            ]
+          }
+        ],
+        "availableForSale": true,
+        "totalInventory": 50
       }
     ]
-  },
-  "errorCode": null
+  }
 }
 ```
 
 ---
 
-## 4. Test Hello Endpoint
+## 4. Health Check
 
-Simple endpoint to verify API is working.
+Simple endpoint to verify API is running.
 
 ### cURL Command
 ```bash
-curl -X GET "https://thsix.vercel.app/api/hello" \
+curl -X GET "https://thsix.com/api/hello" \
   -H "Content-Type: application/json"
+```
+
+### PowerShell Command (Windows)
+```powershell
+Invoke-RestMethod -Uri "https://thsix.com/api/hello" -Method GET
 ```
 
 ### Expected Response
 ```json
 {
-  "ok": true,
-  "message": "Vercel API is working!",
-  "timestamp": "2024-01-15T10:30:00.000Z",
-  "method": "GET",
-  "path": "/api/hello"
+  "message": "Hello from Vercel!"
 }
 ```
 
 ---
 
-## Query Parameters
+## Complete Test Suite
 
-### Pagination Parameters (All Endpoints)
-- `page` (optional, default: 1) - Page number, must be >= 1
-- `limit` (optional, default: 100, max: 250) - Number of items per page
+Run these commands in sequence to test all endpoints:
 
-### Collection-Specific Parameters
-- `collection_id` (required for products-by-collection) - Shopify collection ID
+### Bash/cURL (Linux/Mac)
+```bash
+# 1. Health check
+curl -X GET "https://thsix.com/api/hello"
+
+# 2. Get all collections
+curl -X GET "https://thsix.com/api/catalog/collections"
+
+# 3. Get all products
+curl -X GET "https://thsix.com/api/catalog/products"
+
+# 4. Get Adidas products
+curl -X GET "https://thsix.com/api/catalog/products-by-collection?collection=adidas"
+```
+
+### PowerShell (Windows)
+```powershell
+# 1. Health check
+Invoke-RestMethod -Uri "https://thsix.com/api/hello"
+
+# 2. Get all collections
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/collections" | ConvertTo-Json -Depth 10
+
+# 3. Get all products
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" | ConvertTo-Json -Depth 10
+
+# 4. Get Adidas products
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products-by-collection?collection=adidas" | ConvertTo-Json -Depth 10
+```
+
+---
+
+## Product URL Structure
+
+Frontend product pages use the handle in the URL:
+```
+https://thsix.com/product/{handle}
+```
+
+**Example URLs** (with numeric handles):
+- https://thsix.com/product/1
+- https://thsix.com/product/2
+- https://thsix.com/product/3
+- https://thsix.com/product/4
+- https://thsix.com/product/5
+- https://thsix.com/product/6
+- https://thsix.com/product/7
+- https://thsix.com/product/8
+
+The frontend dynamically fetches product data based on the handle parameter.
 
 ---
 
 ## Response Structure
 
+### Success Response
 All successful responses follow this format:
 ```json
 {
-  "ok": true,
-  "result": {
+  "success": true,
+  "data": {
     // Response data here
-  },
-  "errorCode": null
+  }
 }
 ```
 
+### Error Response
 All error responses follow this format:
 ```json
 {
-  "ok": false,
-  "result": null,
-  "errorCode": "ERROR_CODE",
-  "message": "Error description"
+  "success": false,
+  "error": "Error message description"
 }
 ```
 
@@ -243,119 +326,167 @@ All error responses follow this format:
 
 ## Error Codes
 
-| Code | HTTP Status | Description |
-|------|-------------|-------------|
-| `VALIDATION_ERROR` | 400 | Invalid query parameters (e.g., page < 1) |
-| `NOT_FOUND` | 404 | Collection not found |
-| `INTERNAL_ERROR` | 500 | Server error (check logs) |
+| HTTP Status | Description |
+|-------------|-------------|
+| `200` | Success - Request completed successfully |
+| `400` | Bad Request - Missing or invalid parameters |
+| `404` | Not Found - Collection or resource doesn't exist |
+| `500` | Internal Server Error - Server-side issue |
 
 ---
 
-## Data Fields Returned
+## Data Fields Reference
 
-### Product Fields
-- `id`: Shopify product ID (string)
-- `title`: Product name
-- `body_html`: Product description (HTML)
+### Product Object
+- `id`: Shopify global product ID (string)
+- `title`: Product display name
+- `handle`: URL-friendly identifier (used in product URLs)
+- `description`: Product description text
 - `vendor`: Brand name (e.g., "Adidas")
-- `product_type`: Category (e.g., "Sneakers")
-- `handle`: URL-friendly product identifier
-- `status`: Always "active"
-- `created_at`: ISO 8601 timestamp
-- `updated_at`: ISO 8601 timestamp
-- `tags`: Comma-separated tags
-- `variants`: Array of product variants
-- `options`: Array of product options (Size, Color, etc.)
-- `image`: Featured product image
+- `productType`: Category (e.g., "Sneakers")
+- `tags`: Array of product tags
+- `priceRange`: Min/max price information
+- `images`: Array of product images
+- `variants`: Array of product variants (sizes, colors, etc.)
+- `availableForSale`: Boolean indicating if product is purchasable
+- `totalInventory`: Total available stock across all variants
 
-### Variant Fields
-- `id`: Shopify variant ID (string)
-- `title`: Variant name (e.g., "UK 8")
-- `price`: Price as string with 2 decimals (e.g., "10999.00")
-- `compare_at_price`: Original price (if on sale)
-- `sku`: Stock Keeping Unit
-- `quantity`: Available stock
-- `grams`: Weight in grams
-- `weight`: Weight in specified unit
-- `weight_unit`: Unit of weight (e.g., "kg")
-- `taxable`: Boolean
-- `image`: Variant-specific image (if exists)
-- `option_values`: Object with option names and values
+### Variant Object
+- `id`: Shopify global variant ID (string)
+- `title`: Variant display name (e.g., "UK 7")
+- `price`: Price object with amount and currency
+- `availableForSale`: Boolean indicating if variant is purchasable
+- `quantityAvailable`: Stock quantity (default: 999)
+- `selectedOptions`: Array of option selections (Size, Color, etc.)
 
-### Collection Fields
-- `id`: Shopify collection ID (string)
-- `title`: Collection name
+### Collection Object
+- `id`: Shopify global collection ID (string)
+- `title`: Collection display name
 - `handle`: URL-friendly identifier
-- `body_html`: Collection description (HTML)
-- `image`: Collection image
-- `created_at`: ISO 8601 timestamp
-- `updated_at`: ISO 8601 timestamp
+- `description`: Collection description text
+- `image`: Collection featured image
+- `productsCount`: Number of products in collection
 
 ---
 
 ## Important Notes
 
-1. **Real-time Data**: All data is fetched in real-time from Shopify. No caching is implemented.
+1. **Real-time Data**: All data is fetched directly from Shopify Storefront API in real-time. Cache propagation may take 1-2 minutes after Shopify updates.
 
-2. **Collection IDs**: To get the collection ID, first call `/api/catalog/collections` and use the `id` field.
+2. **Product Handles**: Handles are now numeric (1-8) as requested by the developer team for simpler integration.
 
-3. **Product IDs**: Product and variant IDs are Shopify's numeric IDs (extracted from their global IDs).
+3. **Quantity Field**: Set to default value of 999 since inventory tracking is not enabled in Shopify.
 
-4. **Prices**: All prices are returned as strings with 2 decimal places (e.g., "10999.00" for ₹109.99).
+4. **Images**: All image URLs are served from Shopify's CDN and are permanent/cacheable.
 
-5. **Images**: Image URLs are direct Shopify CDN links.
+5. **Collection Handles**: Use collection handles (e.g., "adidas") not IDs when querying products by collection.
 
-6. **Authentication**: Currently, these endpoints are public. Add authentication if needed.
+6. **No Authentication**: Currently, these endpoints are public. Add authentication layer if required.
 
 ---
 
-## Testing Sequence
+## Testing Tips
 
-1. **Test API is live:**
-   ```bash
-   curl https://thsix.vercel.app/api/hello
-   ```
+### Pretty Print JSON (Linux/Mac)
+```bash
+curl -X GET "https://thsix.com/api/catalog/products" | jq '.'
+```
 
-2. **Get all collections:**
-   ```bash
-   curl https://thsix.vercel.app/api/catalog/collections
-   ```
+### Save Response to File
+```bash
+# Bash
+curl -X GET "https://thsix.com/api/catalog/products" -o products.json
 
-3. **Get all products:**
-   ```bash
-   curl https://thsix.vercel.app/api/catalog/products
-   ```
+# PowerShell
+Invoke-RestMethod -Uri "https://thsix.com/api/catalog/products" | ConvertTo-Json -Depth 10 | Out-File products.json
+```
 
-4. **Get products by collection** (use collection ID from step 2):
-   ```bash
-   curl "https://thsix.vercel.app/api/catalog/products-by-collection?collection_id=YOUR_COLLECTION_ID"
-   ```
+### Test Specific Product by Handle
+Filter the products array by handle after fetching all products (no single-product endpoint yet):
+```bash
+curl -X GET "https://thsix.com/api/catalog/products" | jq '.data[] | select(.handle == "1")'
+```
+
+### Check Response Time
+```bash
+curl -w "\nTime: %{time_total}s\n" -X GET "https://thsix.com/api/catalog/products"
+```
+
+---
+
+## Integration Checklist
+
+Before production integration:
+
+- [ ] Test all 4 endpoints successfully
+- [ ] Verify JSON response structure matches Shiprocket's requirements
+- [ ] Test error handling (invalid collection handle, network failures)
+- [ ] Confirm response times are acceptable (<2 seconds)
+- [ ] Validate product data matches Shopify admin
+- [ ] Verify all image URLs are accessible
+- [ ] Test with different collection handles
+- [ ] Confirm all product handles are numeric (1-8, not samba-1)
+- [ ] Test frontend product URLs work with numeric handles
+- [ ] Monitor API for 24-48 hours after launch
+- [ ] Set up error logging and monitoring
+
+---
+
+## Data Synchronization
+
+- **Source**: Shopify Storefront API (GraphQL)
+- **Sync Method**: Real-time API calls (no caching)
+- **Cache Duration**: Shopify CDN may cache for 1-2 minutes
+- **Update Delay**: Changes in Shopify admin appear in API within 1-2 minutes
+- **Image Hosting**: Shopify CDN
+- **Inventory**: Default quantity of 999 (tracking disabled)
+
+---
+
+## Troubleshooting
+
+### Issue: API returns empty data array
+**Solution**: Check Shopify store has products published to "Online Store" sales channel
+
+### Issue: Product handle not found (404)
+**Solution**: Wait 1-2 minutes after updating handles in Shopify for cache propagation
+
+### Issue: Images not loading
+**Solution**: Verify image URLs in Shopify admin, ensure products have images assigned
+
+### Issue: Collection not found
+**Solution**: Use collection handle (e.g., "adidas") not ID, verify collection exists in Shopify
+
+### Issue: Slow response times
+**Solution**: Shopify API performance depends on their infrastructure, consider implementing caching layer
+
+---
+
+## Environment Variables
+
+Required environment variables in Vercel:
+
+```env
+SHOPIFY_STORE_DOMAIN=19sjnp-gx.myshopify.com
+SHOPIFY_STOREFRONT_ACCESS_TOKEN=be59fa0cf086500d7b6456e64f233866
+```
+
+Note: These are backend-only variables (no VITE_ prefix). Already configured in production.
 
 ---
 
 ## Support
 
-For issues or questions:
-1. Check Vercel deployment logs
-2. Verify Shopify credentials in environment variables
-3. Test endpoints with the cURL commands above
-4. Contact developer team with specific error messages
+For API issues or questions:
+1. Verify API is live: `curl https://thsix.com/api/hello`
+2. Check Vercel deployment logs for errors
+3. Confirm Shopify credentials are valid
+4. Test with cURL commands provided above
+5. Contact THSIX development team with specific error messages
 
 ---
 
-## Environment Variables Required
-
-These must be set in Vercel:
-
-```
-SHOPIFY_STORE_DOMAIN=https://19sjnp-gx.myshopify.com
-SHOPIFY_STOREFRONT_ACCESS_TOKEN=be59fa0cf086500d7b6456e64f233866
-SHIPROCKET_API_KEY=<provided by Shiprocket>
-SHIPROCKET_API_SECRET=<provided by Shiprocket>
-```
-
----
-
-**Last Updated:** January 2024  
-**API Version:** 1.0  
-**Shopify API Version:** 2024-01
+**API Version**: 1.0  
+**Last Updated**: September 2026 (numeric handles for developer team)  
+**Shopify Storefront API**: 2024-01  
+**Live Status**: https://thsix.com/api/hello
