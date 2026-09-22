@@ -12,20 +12,20 @@ interface ReelData {
 const reelsData: ReelData[] = [
   {
     id: 'reel-1',
-    videoUrl: '/Assets/reels/igexport-Ddbk0pvtkZL.mp4',
-    thumbnail: '/Assets/reels/igexport-Ddbk0pvtkZL-poster.svg',
+    videoUrl: '/assets/reels/igexport-Ddbk0pvtkZL.mp4',
+    thumbnail: '/assets/reels/igexport-Ddbk0pvtkZL-poster.svg',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-2', 
-    videoUrl: '/Assets/reels/igexport-DdeO8usNeZP.mp4',
-    thumbnail: '/Assets/reels/igexport-DdeO8usNeZP-poster.svg',
+    videoUrl: '/assets/reels/igexport-DdeO8usNeZP.mp4',
+    thumbnail: '/assets/reels/igexport-DdeO8usNeZP-poster.svg',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-3',
-    videoUrl: '/Assets/reels/igexport-DdWc5pAt43Y.mp4',
-    thumbnail: '/Assets/reels/igexport-DdWc5pAt43Y-poster.svg',
+    videoUrl: '/assets/reels/igexport-DdWc5pAt43Y.mp4',
+    thumbnail: '/assets/reels/igexport-DdWc5pAt43Y-poster.svg',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   }
 ];
