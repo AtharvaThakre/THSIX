@@ -30,9 +30,9 @@ export const Lookbook = () => {
       const section = sectionRef.current;
       if (!section) return;
 
-      // Header elements
+      // Header elements - single batch animation
       const headerEls = [headingRef.current, subtitleRef.current, linkRef.current].filter(Boolean);
-      gsap.fromTo(
+      const headerTrigger = gsap.fromTo(
         headerEls,
         { opacity: 0, y: 28 },
         {
@@ -44,14 +44,17 @@ export const Lookbook = () => {
           scrollTrigger: {
             trigger: section,
             start: 'top 82%',
+            once: true, // Fire once and cleanup
           },
         }
       );
 
       // Grid cards
       const cards = gridRef.current?.querySelectorAll('.lookbook-card');
+      let cardsTrigger: gsap.core.Tween | undefined;
+      
       if (cards && cards.length) {
-        gsap.fromTo(
+        cardsTrigger = gsap.fromTo(
           cards,
           { opacity: 0, y: 30 },
           {
@@ -63,13 +66,28 @@ export const Lookbook = () => {
             scrollTrigger: {
               trigger: gridRef.current,
               start: 'top 85%',
+              once: true, // Fire once and cleanup
             },
           }
         );
       }
+
+      return () => {
+        headerTrigger?.scrollTrigger?.kill();
+        headerTrigger?.kill();
+        cardsTrigger?.scrollTrigger?.kill();
+        cardsTrigger?.kill();
+      };
     };
 
-    initGsap();
+    let cleanup: (() => void) | undefined;
+    initGsap().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   return (

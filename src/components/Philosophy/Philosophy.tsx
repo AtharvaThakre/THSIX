@@ -12,6 +12,9 @@ export const Philosophy = () => {
           alt="THSIX Philosophy"
           className="philosophy__image"
           loading="lazy"
+          decoding="async"
+          width="1920"
+          height="1080"
         />
       ) : (
         <div className="philosophy__image-placeholder" />

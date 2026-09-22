@@ -48,12 +48,12 @@ export const ProductShowcase = () => {
     // Initial check after a delay to ensure DOM is fully rendered
     const timeoutId = setTimeout(updateScrollButtons, 500);
 
-    // Listen to scroll events - these fire continuously during smooth scroll
+    // Passive scroll listeners for better performance
     const handleScroll = () => updateScrollButtons();
     const handleResize = () => updateScrollButtons();
 
-    container.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleResize);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
 
     return () => {
       clearTimeout(timeoutId);

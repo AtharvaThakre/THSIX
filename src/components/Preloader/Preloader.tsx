@@ -31,6 +31,10 @@ export const Preloader = () => {
             src="/assets/logo-Photoroom.png"
             alt="THSIX Logo"
             className="preloader__logo"
+            loading="eager"
+            decoding="async"
+            width="200"
+            height="200"
           />
         </div>
       </div>

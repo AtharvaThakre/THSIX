@@ -44,12 +44,12 @@ export const BrandsShowcase = () => {
     // Initial check after a delay
     const timeoutId = setTimeout(updateScrollButtons, 500);
 
-    // Listen to scroll events
+    // Passive scroll listener for better performance
     const handleScroll = () => updateScrollButtons();
     const handleResize = () => updateScrollButtons();
 
-    container.addEventListener('scroll', handleScroll);
-    window.addEventListener('resize', handleResize);
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleResize, { passive: true });
 
     return () => {
       clearTimeout(timeoutId);

@@ -29,6 +29,8 @@ export const Newsletter = () => {
     ).matches;
     if (prefersReducedMotion) return;
 
+    let cleanup: (() => void) | undefined;
+
     const initGsap = async () => {
       const { gsap } = await import('gsap');
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
@@ -37,7 +39,7 @@ export const Newsletter = () => {
       const section = sectionRef.current;
       if (!section) return;
 
-      gsap.fromTo(
+      const animTrigger = gsap.fromTo(
         [contentRef.current, decorRef.current],
         { opacity: 0, y: 24 },
         {
@@ -49,12 +51,24 @@ export const Newsletter = () => {
           scrollTrigger: {
             trigger: section,
             start: 'top 85%',
+            once: true,
           },
         }
       );
+
+      return () => {
+        animTrigger?.scrollTrigger?.kill();
+        animTrigger?.kill();
+      };
     };
 
-    initGsap();
+    initGsap().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   return (

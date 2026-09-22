@@ -14,6 +14,9 @@ export const LookbookCard = ({ item }: LookbookCardProps) => {
           alt={item.alt}
           className="lookbook-card__image"
           loading="lazy"
+          decoding="async"
+          width="600"
+          height="800"
         />
       </div>
       <div className="lookbook-card__label">

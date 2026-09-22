@@ -9,7 +9,10 @@ export const NextDrop = () => {
           src={nextDropData.image} 
           alt="Next Drop Sneaker" 
           className="next-drop__image" 
-          loading="lazy" 
+          loading="lazy"
+          decoding="async"
+          width="800"
+          height="800"
         />
       </div>
 

@@ -32,7 +32,10 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
             src={brand.productImage} 
             alt={`${brand.name} product`} 
             className="brand-card__product-image" 
-            loading="lazy" 
+            loading="lazy"
+            decoding="async"
+            width="400"
+            height="400"
           />
         ) : (
           <div className="brand-card__placeholder" />

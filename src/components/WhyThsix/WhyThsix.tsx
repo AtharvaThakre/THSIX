@@ -15,6 +15,8 @@ export const WhyThsix = () => {
     ).matches;
     if (prefersReducedMotion) return;
 
+    let cleanup: (() => void) | undefined;
+
     const initGsap = async () => {
       const { gsap } = await import('gsap');
       const { ScrollTrigger } = await import('gsap/ScrollTrigger');
@@ -23,8 +25,10 @@ export const WhyThsix = () => {
       const section = sectionRef.current;
       if (!section) return;
 
+      const triggers: gsap.core.Tween[] = [];
+
       // Header
-      gsap.fromTo(
+      const headerTrigger = gsap.fromTo(
         [headingRef.current, subtitleRef.current],
         { opacity: 0, y: 26 },
         {
@@ -36,14 +40,16 @@ export const WhyThsix = () => {
           scrollTrigger: {
             trigger: section,
             start: 'top 82%',
+            once: true,
           },
         }
       );
+      triggers.push(headerTrigger);
 
       // Feature columns
       const featureCols = gridRef.current?.querySelectorAll('.why-feature');
       if (featureCols && featureCols.length) {
-        gsap.fromTo(
+        const featureTrigger = gsap.fromTo(
           featureCols,
           { opacity: 0, y: 24 },
           {
@@ -55,13 +61,28 @@ export const WhyThsix = () => {
             scrollTrigger: {
               trigger: gridRef.current,
               start: 'top 88%',
+              once: true,
             },
           }
         );
+        triggers.push(featureTrigger);
       }
+
+      return () => {
+        triggers.forEach(trigger => {
+          trigger?.scrollTrigger?.kill();
+          trigger?.kill();
+        });
+      };
     };
 
-    initGsap();
+    initGsap().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   return (
