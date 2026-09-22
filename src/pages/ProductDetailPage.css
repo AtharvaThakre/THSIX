@@ -436,33 +436,16 @@
   line-height: 1.7;
 }
 
-.product-detail__description-section {
+.product-detail__description-wrapper {
   margin: 0;
   padding: 24px 48px;
   background: #ffffff;
 }
 
 @media (max-width: 1024px) {
-  .product-detail__description-section {
+  .product-detail__description-wrapper {
     padding: 24px 16px;
   }
-}
-
-.product-detail__description-heading {
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--black);
-  margin: 0 0 20px 0;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0ed;
-}
-
-.product-detail__description-wrapper {
-  margin: 0;
-  padding: 0;
-  background: #ffffff;
 }
 
 /* ─── Additional Info Sections ────────────────────────────── */
@@ -504,27 +487,6 @@
   padding: 12px;
   background: #f8f8f8;
   border-radius: 8px;
-}
-
-.product-detail__whatsapp-link {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  background: #f8f8f8;
-  border-radius: 8px;
-  text-decoration: none;
-  color: inherit;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  width: 100%;
-  box-sizing: border-box;
-}
-
-.product-detail__whatsapp-link:hover {
-  background: #eff8f0;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .product-detail__info-icon {
@@ -1286,5 +1248,42 @@
   
   .product-detail__main {
     padding-top: 60px;
+  }
+}
+
+
+/* ─── Product Description Section ────────────────────────────── */
+.product-detail__description-section {
+  margin: 0;
+  padding: 24px 48px;
+  background: #ffffff;
+}
+
+@media (max-width: 1024px) {
+  .product-detail__description-section {
+    padding: 24px 16px;
+  }
+}
+
+.product-detail__description-heading {
+  font-size: 18px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--black);
+  margin: 0 0 20px 0;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0ed;
+}
+
+.product-detail__description-wrapper {
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+}
+
+@media (max-width: 1024px) {
+  .product-detail__description-wrapper {
+    padding: 0;
   }
 }
