@@ -3,6 +3,7 @@ import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-shopify';
 import { syncCartToShopify } from '../../services/shopify-cart';
+import { loadPickrrScript } from '../../utils/pickrr-loader';
 import './Cart.css';
 
 interface CartProps {
@@ -47,14 +48,18 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     setCheckoutError(null);
 
     try {
-      // Step 1: Wait for Shiprocket to be ready
+      // Step 1: Load Pickrr script if not already loaded
+      console.log('Loading checkout integration...');
+      await loadPickrrScript();
+      
+      // Step 2: Wait for Shiprocket to be ready
       const isReady = await waitForShiprocket(5000);
       
       if (!isReady) {
         throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      // Step 2: Sync React cart to Shopify cart
+      // Step 3: Sync React cart to Shopify cart
       console.log('Syncing cart to Shopify...');
       const synced = await syncCartToShopify(items);
       
@@ -62,9 +67,8 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
         throw new Error('Failed to prepare checkout. Please try again.');
       }
 
-      // Step 3: Initiate Shiprocket checkout using the Shopify cart
-      // This will open the Shiprocket checkout iframe
-      console.log('Initiating Shiprocket checkout...');
+      // Step 4: Initiate Shiprocket checkout using the Shopify cart
+      console.log('Initiating checkout...');
       checkoutFromCart();
 
     } catch (error) {

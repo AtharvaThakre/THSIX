@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import gsap from 'gsap';
 import { HeroImage } from './HeroImage';
 import { HeroContent } from './HeroContent';
 import { HeroMeta } from './HeroMeta';
@@ -24,26 +23,44 @@ export const Hero = () => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    const ctx = gsap.context(() => {
-      const tl = gsap.timeline();
+    let cleanup: (() => void) | undefined;
 
-      gsap.fromTo('.hero-image video', 
-        { scale: 1.04 },
-        { scale: 1, duration: 1.5, ease: 'power3.out' }
-      );
-
-      tl.from('.hero-eyebrow', { y: 20, opacity: 0, duration: 0.6, ease: 'power3.out' }, 0.2);
-      tl.from('.hero-title-line', { y: 30, opacity: 0, duration: 0.8, stagger: 0.08, ease: 'power3.out' }, 0.3);
-      tl.from('.hero-description', { y: 20, opacity: 0, duration: 0.6, ease: 'power3.out' }, 0.6);
-      tl.from('.hero-cta', { y: 20, opacity: 0, duration: 0.6, ease: 'power3.out' }, 0.7);
-      tl.from('.hero-tags', { opacity: 0, duration: 0.8, ease: 'power2.out' }, 0.8);
+    // Lazy load GSAP - don't block initial render
+    const initAnimations = async () => {
+      const { gsap } = await import('gsap');
       
-      tl.from('.hero-meta', { opacity: 0, duration: 1, ease: 'power2.out' }, 0.9);
-      tl.from('.hero-decoration', { opacity: 0, duration: 1, ease: 'power2.out' }, 0.9);
+      const ctx = gsap.context(() => {
+        const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-    }, heroRef);
+        // Only animate video if it exists
+        const video = heroRef.current?.querySelector('.hero-image video');
+        if (video) {
+          gsap.fromTo(video, 
+            { scale: 1.04 },
+            { scale: 1, duration: 1.5, ease: 'power3.out' }
+          );
+        }
 
-    return () => ctx.revert();
+        // Batch hero animations in single timeline
+        tl.from('.hero-eyebrow', { y: 20, opacity: 0, duration: 0.6 }, 0.2)
+          .from('.hero-title-line', { y: 30, opacity: 0, duration: 0.8, stagger: 0.08 }, 0.3)
+          .from('.hero-description', { y: 20, opacity: 0, duration: 0.6 }, 0.6)
+          .from('.hero-cta', { y: 20, opacity: 0, duration: 0.6 }, 0.7)
+          .from('.hero-tags', { opacity: 0, duration: 0.8, ease: 'power2.out' }, 0.8)
+          .from(['.hero-meta', '.hero-decoration'], { opacity: 0, duration: 1, ease: 'power2.out' }, 0.9);
+
+      }, heroRef);
+
+      return () => ctx.revert();
+    };
+
+    initAnimations().then(cleanupFn => {
+      cleanup = cleanupFn;
+    });
+
+    return () => {
+      cleanup?.();
+    };
   }, []);
 
   return (

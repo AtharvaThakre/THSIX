@@ -7,15 +7,27 @@ export const Philosophy = () => {
     <section className="philosophy">
       {/* Full-bleed background image */}
       {philosophyData.image ? (
-        <img
-          src={philosophyData.image}
-          alt="THSIX Philosophy"
-          className="philosophy__image"
-          loading="lazy"
-          decoding="async"
-          width="1920"
-          height="1080"
-        />
+        <picture>
+          <source
+            srcSet="/assets/philosophy-lifestyle.webp 800w, /assets/philosophy-lifestyle@2x.webp 1600w"
+            type="image/webp"
+            sizes="100vw"
+          />
+          <source
+            srcSet="/assets/philosophy-lifestyle-fallback.jpg 800w"
+            type="image/jpeg"
+            sizes="100vw"
+          />
+          <img
+            src="/assets/philosophy-lifestyle-fallback.jpg"
+            alt="THSIX Philosophy"
+            className="philosophy__image"
+            loading="lazy"
+            decoding="async"
+            width="1920"
+            height="1080"
+          />
+        </picture>
       ) : (
         <div className="philosophy__image-placeholder" />
       )}

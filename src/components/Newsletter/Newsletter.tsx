@@ -74,13 +74,26 @@ export const Newsletter = () => {
   return (
     <section className="newsletter" ref={sectionRef} aria-label="Newsletter signup">
       {/* Background image */}
-      <img
-        src={newsletterContent.image}
-        alt=""
-        className="newsletter__bg-image"
-        loading="lazy"
-        aria-hidden="true"
-      />
+      <picture>
+        <source
+          srcSet="/assets/newsletter-bg.webp"
+          type="image/webp"
+        />
+        <source
+          srcSet="/assets/newsletter-bg-fallback.jpg"
+          type="image/jpeg"
+        />
+        <img
+          src="/assets/newsletter-bg-fallback.jpg"
+          alt=""
+          className="newsletter__bg-image"
+          loading="lazy"
+          decoding="async"
+          width="1200"
+          height="200"
+          aria-hidden="true"
+        />
+      </picture>
       {/* Dark overlay */}
       <div className="newsletter__overlay" aria-hidden="true" />
 

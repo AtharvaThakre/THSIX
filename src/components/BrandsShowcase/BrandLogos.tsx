@@ -1,6 +1,16 @@
 export const BrandLogo = ({ brandId, name, customLogo }: { brandId: string; name: string; customLogo: string | null }) => {
   if (customLogo) {
-    return <img src={customLogo} alt={name} className="brand-card__logo-img" />;
+    return (
+      <img 
+        src={customLogo} 
+        alt={name} 
+        className="brand-card__logo-img"
+        width="150"
+        height="80"
+        loading="lazy"
+        decoding="async"
+      />
+    );
   }
 
   switch (brandId) {

@@ -103,6 +103,11 @@ export default defineConfig({
           if (/woff2?|ttf|eot/i.test(ext)) {
             return `assets/fonts/[name]-[hash][extname]`;
           }
+
+          // Video files - keep in assets/videos
+          if (/mp4|webm|mov|avi/i.test(ext)) {
+            return `assets/videos/[name]-[hash][extname]`;
+          }
           
           return `assets/[name]-[hash][extname]`;
         },
@@ -117,4 +122,5 @@ export default defineConfig({
     exclude: ['@react-three/fiber', '@react-three/drei', 'three'],
   },
 })
+
 

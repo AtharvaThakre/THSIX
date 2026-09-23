@@ -2,8 +2,6 @@ import { useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { CartProvider } from './contexts/CartContext';
 import { ShopifyProvider } from './contexts/ShopifyContext';
-import Lenis from 'lenis';
-import gsap from 'gsap';
 import { Preloader } from './components/Preloader/Preloader';
 import { AnnouncementBar } from './components/Header/AnnouncementBar';
 import { Header } from './components/Header/Header';
@@ -41,34 +39,35 @@ function HomePage() {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReducedMotion) return;
 
-    const lenis = new Lenis({
-      duration: 0.8, // Reduced from 1.2 for snappier feel
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      smoothWheel: true,
-      wheelMultiplier: 1,
-      touchMultiplier: 2,
-    });
+    let lenis: any;
+    let rafId: number;
 
-    // Use GSAP ticker for better performance
-    function onScroll() {
-      if (gsap.globalTimeline) {
-        gsap.ticker.tick();
+    // Lazy load Lenis to reduce initial bundle
+    const initSmoothScroll = async () => {
+      const LenisModule = await import('lenis');
+      const Lenis = LenisModule.default;
+
+      lenis = new Lenis({
+        duration: 0.8,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+        smoothWheel: true,
+        wheelMultiplier: 1,
+        touchMultiplier: 2,
+      });
+
+      function raf(time: number) {
+        lenis.raf(time);
+        rafId = requestAnimationFrame(raf);
       }
-    }
 
-    lenis.on('scroll', onScroll);
+      rafId = requestAnimationFrame(raf);
+    };
 
-    function raf(time: number) {
-      lenis.raf(time);
-      requestAnimationFrame(raf);
-    }
-
-    const rafId = requestAnimationFrame(raf);
+    initSmoothScroll();
 
     return () => {
-      cancelAnimationFrame(rafId);
-      lenis.off('scroll', onScroll);
-      lenis.destroy();
+      if (rafId) cancelAnimationFrame(rafId);
+      if (lenis) lenis.destroy();
     };
   }, []);
 
