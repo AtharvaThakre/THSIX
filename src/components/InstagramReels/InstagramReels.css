@@ -122,7 +122,7 @@
 .instagram-reels__carousel {
   position: relative;
   width: 100%;
-  height: 600px;
+  height: 700px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -131,8 +131,8 @@
 /* ─── Reel Cards ─────────────────────────────────────────── */
 .instagram-reels__card {
   position: absolute;
-  width: 320px;
-  height: 580px;
+  width: 380px;
+  height: 680px;
   border-radius: 16px;
   overflow: hidden;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
@@ -148,7 +148,7 @@
 
 /* ─── Card Positions ─────────────────────────────────────── */
 .reel-card--left {
-  transform: translateX(-220px) scale(0.85) translateZ(0);
+  transform: translateX(-260px) scale(0.85) translateZ(0);
   opacity: 1;
   z-index: 1;
 }
@@ -161,7 +161,7 @@
 }
 
 .reel-card--right {
-  transform: translateX(220px) scale(0.85) translateZ(0);
+  transform: translateX(260px) scale(0.85) translateZ(0);
   opacity: 1;
   z-index: 1;
 }
@@ -196,6 +196,20 @@
   pointer-events: none;
 }
 
+/* Cover overlay for non-center reels */
+.reel-card__cover-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 2;
+  pointer-events: none;
+}
+
 .reel-card__video {
   width: 100%;
   height: 100%;
@@ -206,6 +220,37 @@
   /* Performance: hardware acceleration */
   transform: translateZ(0);
   backface-visibility: hidden;
+}
+
+/* Mute button styling */
+.reel-card__mute-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.reel-card__mute-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.1);
+}
+
+.reel-card__mute-btn:active {
+  transform: scale(0.95);
 }
 
 .reel-card__video::-webkit-media-controls {
@@ -268,17 +313,17 @@
   }
 
   .instagram-reels__card {
-    width: 280px;
-    height: 500px;
+    width: 320px;
+    height: 580px;
   }
 
   .reel-card--left,
   .reel-card--right {
-    transform: translateX(-180px) scale(0.85) translateZ(0);
+    transform: translateX(-210px) scale(0.85) translateZ(0);
   }
 
   .reel-card--right {
-    transform: translateX(180px) scale(0.85) translateZ(0);
+    transform: translateX(210px) scale(0.85) translateZ(0);
   }
 }
 
@@ -306,7 +351,7 @@
   }
 
   .instagram-reels__carousel {
-    height: 500px;
+    height: 550px;
   }
 
   .instagram-reels__nav-btn {
@@ -323,17 +368,17 @@
   }
 
   .instagram-reels__card {
-    width: 220px;
-    height: 400px;
+    width: 260px;
+    height: 470px;
   }
 
   .reel-card--left {
-    transform: translateX(-140px) scale(0.8) translateZ(0);
+    transform: translateX(-160px) scale(0.8) translateZ(0);
     opacity: 1;
   }
 
   .reel-card--right {
-    transform: translateX(140px) scale(0.8) translateZ(0);
+    transform: translateX(160px) scale(0.8) translateZ(0);
     opacity: 1;
   }
 }
@@ -358,7 +403,7 @@
   }
 
   .instagram-reels__carousel {
-    height: 420px;
+    height: 480px;
   }
 
   .instagram-reels__nav-btn {
@@ -375,17 +420,17 @@
   }
 
   .instagram-reels__card {
-    width: 180px;
-    height: 320px;
+    width: 220px;
+    height: 400px;
   }
 
   .reel-card--left {
-    transform: translateX(-100px) scale(0.75) translateZ(0);
+    transform: translateX(-130px) scale(0.75) translateZ(0);
     opacity: 1;
   }
 
   .reel-card--right {
-    transform: translateX(100px) scale(0.75) translateZ(0);
+    transform: translateX(130px) scale(0.75) translateZ(0);
     opacity: 1;
   }
 }
@@ -393,20 +438,20 @@
 /* ─── Extra Small Mobile (max-width: 360px) ────────────────── */
 @media (max-width: 360px) {
   .instagram-reels__carousel {
-    height: 380px;
+    height: 450px;
   }
 
   .instagram-reels__card {
-    width: 180px;
-    height: 320px;
+    width: 200px;
+    height: 360px;
   }
 
   .reel-card--left {
-    transform: translateX(-100px) scale(0.7) translateZ(0);
+    transform: translateX(-110px) scale(0.7) translateZ(0);
   }
 
   .reel-card--right {
-    transform: translateX(100px) scale(0.7) translateZ(0);
+    transform: translateX(110px) scale(0.7) translateZ(0);
   }
 }
 

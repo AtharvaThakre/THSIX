@@ -4,7 +4,9 @@ import BlurText from './BlurText';
 export const HeroContent = ({ data }: { data: any }) => {
   return (
     <div className="hero-content">
-      <div className="hero-eyebrow">{data.eyebrow}</div>
+      {data.eyebrow && data.eyebrow.trim() && (
+        <div className="hero-eyebrow">{data.eyebrow}</div>
+      )}
       <h1 className="hero-title">
         <BlurText
           text="THE FIRST STEP. THE SAMBA."
@@ -34,14 +36,18 @@ export const HeroContent = ({ data }: { data: any }) => {
         <ArrowRight size={16} strokeWidth={1.5} className="cta-arrow" />
       </button>
 
-      <div className="hero-tags">
-        {data.tags.map((tag: string, i: number) => (
-          <span key={i} className="hero-tag-item">
-            {tag}
-            {i < data.tags.length - 1 && <span className="tag-separator">/</span>}
-          </span>
-        ))}
-      </div>
+      {data.tags && data.tags.some((tag: string) => tag.trim()) && (
+        <div className="hero-tags">
+          {data.tags.map((tag: string, i: number) => (
+            tag.trim() && (
+              <span key={i} className="hero-tag-item">
+                {tag}
+                {i < data.tags.length - 1 && <span className="tag-separator">/</span>}
+              </span>
+            )
+          ))}
+        </div>
+      )}
     </div>
   );
 };

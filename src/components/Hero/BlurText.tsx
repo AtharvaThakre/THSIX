@@ -69,7 +69,7 @@ const BlurText = ({
     () => [
       {
         filter: 'blur(5px)',
-        opacity: 0.5,
+        opacity: 1,
         y: direction === 'top' ? 5 : -5
       },
       { filter: 'blur(0px)', opacity: 1, y: 0 }

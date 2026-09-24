@@ -10,7 +10,6 @@ import { BlankSection } from './components/BlankSection/BlankSection';
 import { ProductShowcase } from './components/ProductShowcase/ProductShowcase';
 import { Philosophy } from './components/Philosophy/Philosophy';
 import { BrandsShowcase } from './components/BrandsShowcase/BrandsShowcase';
-import { AboutStrip } from './components/AboutStrip/AboutStrip';
 import { Footer } from './components/Footer/Footer';
 import { CartManager } from './components/Cart/CartManager';
 
@@ -97,7 +96,7 @@ function HomePage() {
           <InstagramReels />
         </Suspense>
       </main>
-      <AboutStrip />
+      
       <Footer />
     </>
   );

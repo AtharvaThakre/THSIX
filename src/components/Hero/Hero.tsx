@@ -30,6 +30,9 @@ export const Hero = () => {
       const { gsap } = await import('gsap');
       
       const ctx = gsap.context(() => {
+        // Set initial state - ensure elements start invisible for animation
+        gsap.set(['.hero-eyebrow', '.hero-title-line', '.hero-description', '.hero-cta', '.hero-tags', '.hero-meta', '.hero-decoration'], { opacity: 0 });
+        
         const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
         // Only animate video if it exists
@@ -41,13 +44,13 @@ export const Hero = () => {
           );
         }
 
-        // Batch hero animations in single timeline
-        tl.from('.hero-eyebrow', { y: 20, opacity: 0, duration: 0.6 }, 0.2)
-          .from('.hero-title-line', { y: 30, opacity: 0, duration: 0.8, stagger: 0.08 }, 0.3)
-          .from('.hero-description', { y: 20, opacity: 0, duration: 0.6 }, 0.6)
-          .from('.hero-cta', { y: 20, opacity: 0, duration: 0.6 }, 0.7)
-          .from('.hero-tags', { opacity: 0, duration: 0.8, ease: 'power2.out' }, 0.8)
-          .from(['.hero-meta', '.hero-decoration'], { opacity: 0, duration: 1, ease: 'power2.out' }, 0.9);
+        // Batch hero animations in single timeline - animate TO full opacity
+        tl.to('.hero-eyebrow', { y: 0, opacity: 1, duration: 0.6 }, 0.2)
+          .to('.hero-title-line', { y: 0, opacity: 1, duration: 0.8, stagger: 0.08 }, 0.3)
+          .to('.hero-description', { y: 0, opacity: 1, duration: 0.6 }, 0.6)
+          .to('.hero-cta', { y: 0, opacity: 1, duration: 0.6 }, 0.7)
+          .to('.hero-tags', { opacity: 1, duration: 0.8, ease: 'power2.out' }, 0.8)
+          .to(['.hero-meta', '.hero-decoration'], { opacity: 1, duration: 1, ease: 'power2.out' }, 0.9);
 
       }, heroRef);
 

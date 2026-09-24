@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Volume2, VolumeX } from 'lucide-react';
 import './InstagramReels.css';
 
 interface ReelData {
@@ -34,6 +34,7 @@ export const InstagramReels = () => {
   // Current carousel positions: [leftIndex, centerIndex, rightIndex]
   const [carouselState, setCarouselState] = useState([0, 1, 2]);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start with muted
   
   // Refs for video elements
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
@@ -60,6 +61,7 @@ export const InstagramReels = () => {
     if (centerReelId && videoRefs.current[centerReelId]) {
       const centerVideo = videoRefs.current[centerReelId];
       if (centerVideo) {
+        centerVideo.muted = isMuted;
         centerVideo.currentTime = 0;
         // ponytail: eager play for UX, but catch to handle autoplay policy
         centerVideo.play().catch(() => {
@@ -67,7 +69,7 @@ export const InstagramReels = () => {
         });
       }
     }
-  }, [carouselState]);
+  }, [carouselState, isMuted]);
 
   // Rotate carousel right: [1,2,3] → [2,3,1]
   const rotateRight = () => {
@@ -160,19 +162,35 @@ export const InstagramReels = () => {
                   className={`instagram-reels__card ${getPositionClass(index)} ${isTransitioning ? 'transitioning' : ''}`}
                 >
                   <div className="reel-card__video-container">
-                    {/* Show poster overlay for non-center videos */}
-                    {!isCenterCard && reel.thumbnail && (
+                    {/* Show cover overlay for non-center videos */}
+                    {!isCenterCard && (
                       <div 
-                        className="reel-card__poster-overlay"
-                        style={{ backgroundImage: `url(${reel.thumbnail})` }}
+                        className="reel-card__cover-overlay"
+                        style={{ backgroundImage: `url(/assets/Thsix_reels_cover.jpeg)` }}
                       />
                     )}
+                    
+                    {/* Mute button - only show for center card */}
+                    {isCenterCard && (
+                      <button
+                        className="reel-card__mute-btn"
+                        onClick={() => setIsMuted(!isMuted)}
+                        aria-label={isMuted ? 'Unmute video' : 'Mute video'}
+                        title={isMuted ? 'Unmute' : 'Mute'}
+                      >
+                        {isMuted ? (
+                          <VolumeX size={20} />
+                        ) : (
+                          <Volume2 size={20} />
+                        )}
+                      </button>
+                    )}
+                    
                     <video
                       ref={setVideoRef(reel.id)}
                       className="reel-card__video"
                       src={reel.videoUrl}
                       poster={reel.thumbnail}
-                      muted
                       playsInline
                       loop
                       preload="metadata"

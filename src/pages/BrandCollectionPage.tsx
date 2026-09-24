@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom';
 import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
-import { AboutStrip } from '../components/AboutStrip/AboutStrip';
 import { brandsData } from '../data/brands';
 import { fetchShopifyCollection, convertShopifyProductFromCollection } from '../services/shopify-collections';
 import './BrandCollectionPage.css';
@@ -203,7 +202,7 @@ export function BrandCollectionPage() {
           <h1>Brand Not Found</h1>
           <p>The requested brand could not be found.</p>
         </main>
-        <AboutStrip />
+        
         <Footer />
       </div>
     );
@@ -311,7 +310,7 @@ export function BrandCollectionPage() {
           </div>
         </section>
       </main>
-      <AboutStrip />
+      
       <Footer />
     </>
   );

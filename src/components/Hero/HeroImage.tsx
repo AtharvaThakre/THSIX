@@ -48,34 +48,54 @@ export const HeroImage = () => {
     };
   }, [shouldLoadVideo]);
 
-  // Check if mobile device
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-
   return (
     <div className="hero-image">
-      {/* Always show poster image immediately - critical for LCP */}
-      <picture>
-        <source
-          srcSet="/assets/hero-shoes-desktop.webp"
-          type="image/webp"
-          media="(min-width: 768px)"
-        />
-        <source
-          srcSet="/assets/hero-shoes-mobile.webp"
-          type="image/webp"
-          media="(max-width: 767px)"
-        />
-        <source
-          srcSet="/assets/hero-shoes-fallback.jpg"
-          type="image/jpeg"
-        />
-        <img
-          src="/assets/hero-shoes-fallback.jpg"
-          alt="Hero"
-          loading="eager"
-          fetchPriority="high"
-          width="1920"
-          height="1080"
+      {/* Fallback poster image - shown until video loads */}
+      {!isLoaded && (
+        <picture>
+          <source
+            srcSet="/assets/hero-shoes-desktop.webp"
+            type="image/webp"
+            media="(min-width: 768px)"
+          />
+          <source
+            srcSet="/assets/hero-shoes-mobile.webp"
+            type="image/webp"
+            media="(max-width: 767px)"
+          />
+          <source
+            srcSet="/assets/hero-shoes-fallback.jpg"
+            type="image/jpeg"
+          />
+          <img
+            src="/assets/hero-shoes-fallback.jpg"
+            alt="Hero"
+            loading="eager"
+            fetchPriority="high"
+            width="1920"
+            height="1080"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover'
+            }}
+          />
+        </picture>
+      )}
+      
+      {/* Video - loads during idle time */}
+      {shouldLoadVideo && (
+        <video
+          ref={videoRef}
+          loop
+          muted
+          autoPlay
+          playsInline
+          preload="auto"
+          poster="/assets/hero-shoes-desktop.webp"
           style={{
             position: 'absolute',
             top: 0,
@@ -83,34 +103,18 @@ export const HeroImage = () => {
             width: '100%',
             height: '100%',
             objectFit: 'cover',
-            opacity: isLoaded ? 0 : 1,
-            transition: 'opacity 0.5s ease-in-out'
-          }}
-        />
-      </picture>
-      
-      {/* Only load video if shouldLoadVideo is true and not on mobile */}
-      {shouldLoadVideo && !isMobile && (
-        <video
-          ref={videoRef}
-          loop
-          muted
-          playsInline
-          preload="none"
-          poster="/assets/hero-shoes-desktop.webp"
-          style={{
             opacity: isLoaded ? 1 : 0,
             transition: 'opacity 0.5s ease-in-out'
           }}
         >
-          {/* Modern WebM format first (best compression) - VP9 codec */}
+          {/* Primary source: existing herovideo.mp4 */}
+          <source src="/assets/herovideo.mp4" type="video/mp4" />
+          {/* Optimized WebM fallback (best compression) */}
           <source src="/assets/videos/herovideo.webm" type="video/webm" />
           {/* Desktop MP4 fallback (1920x1080) */}
           <source src="/assets/videos/herovideo-desktop.mp4" type="video/mp4" />
           {/* Mobile MP4 fallback (1280x720, lower bandwidth) */}
           <source src="/assets/videos/herovideo-mobile.mp4" type="video/mp4" />
-          {/* Original fallback for very old browsers */}
-          <source src="/assets/herovideo.mp4" type="video/mp4" />
         </video>
       )}
     </div>

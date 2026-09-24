@@ -28,22 +28,19 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
 
       <div className="brand-card__image-container">
         {brand.productImage ? (
-          <picture>
-            <source
-              srcSet={`/assets/products/${brand.id}.webp 400w, /assets/products/${brand.id}@2x.webp 800w`}
-              type="image/webp"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 400px"
-            />
-            <img 
-              src={brand.productImage} 
-              alt={`${brand.name} product`} 
-              className="brand-card__product-image" 
-              loading="lazy"
-              decoding="async"
-              width="400"
-              height="400"
-            />
-          </picture>
+          <img 
+            src={brand.productImage} 
+            alt={`${brand.name} product`} 
+            className="brand-card__product-image" 
+            loading="lazy"
+            decoding="async"
+            width="400"
+            height="400"
+            onError={(e) => {
+              console.error(`Failed to load image: ${brand.productImage}`);
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         ) : (
           <div className="brand-card__placeholder" />
         )}
