@@ -1,60 +1,139 @@
 # Vercel Environment Variables Setup
 
-## Required Environment Variables
+## 🚀 Quick Setup Guide
 
-Add these to your Vercel project settings:
+Follow these steps to add Shiprocket API keys to your Vercel project.
 
-### 1. Go to Vercel Dashboard
-- Navigate to: https://vercel.com/dashboard
-- Select your project: **THSIX**
-- Go to: **Settings** → **Environment Variables**
+## Step 1: Access Vercel Dashboard
 
-### 2. Add Shopify Variables
+1. Go to https://vercel.com/dashboard
+2. Log in to your account
+3. Find and click on your **THSIX** project
 
-Add these **two** environment variables:
+## Step 2: Navigate to Environment Variables
 
-#### Variable 1: SHOPIFY_STORE_DOMAIN
+1. Click on **Settings** tab
+2. Click on **Environment Variables** in the left sidebar
+
+## Step 3: Add Variables
+
+Add each of the following variables one by one:
+
+### Required Variables
+
+| Variable Name | Value | Select Environments |
+|---------------|-------|---------------------|
+| `SHIPROCKET_API_KEY` | `93B0a2SK2S9srY1N` | ☑️ Production<br>☑️ Preview<br>☑️ Development |
+| `SHIPROCKET_API_SECRET` | `4slCXvmTfW3CKWwhYiMQCu0ngIIOZ6fN` | ☑️ Production<br>☑️ Preview<br>☑️ Development |
+
+### Optional Variables (Already Set in Code)
+
+| Variable Name | Value | Select Environments |
+|---------------|-------|---------------------|
+| `SHIPROCKET_BASE_URL` | `https://checkout-api.shiprocket.com` | ☑️ Production<br>☑️ Preview<br>☑️ Development |
+| `WEBSITE_BASE_URL` | `https://thsix.com` | ☑️ Production |
+| `CHECKOUT_SUCCESS_URL` | `/checkout/success` | ☑️ Production<br>☑️ Preview<br>☑️ Development |
+| `CHECKOUT_FAILURE_URL` | `/checkout/failure` | ☑️ Production<br>☑️ Preview<br>☑️ Development |
+
+## Step 4: Save Each Variable
+
+For each variable:
+
+1. Click **Add New** button
+2. Enter the **Key** (variable name)
+3. Enter the **Value** (from table above)
+4. Select **Environments**: Check all three boxes (Production, Preview, Development)
+5. Click **Save**
+
+## Step 5: Redeploy
+
+After adding all variables:
+
+1. Go to **Deployments** tab
+2. Click on the three dots (...) next to the latest deployment
+3. Click **Redeploy**
+4. Wait for deployment to complete
+
+OR simply push a new commit and it will auto-deploy.
+
+## 🧪 Verification
+
+After redeployment, verify the integration:
+
+1. Visit your site: https://thsix.com
+2. Open browser DevTools (F12)
+3. Check console for any errors
+4. Add items to cart
+5. Click "Checkout" button
+6. Shiprocket checkout modal should open
+
+## 📸 Visual Guide
+
+### Adding a Variable:
+
 ```
-Name: SHOPIFY_STORE_DOMAIN
-Value: https://19sjnp-gx.myshopify.com
-Environments: ✅ Production ✅ Preview ✅ Development
+┌─────────────────────────────────────┐
+│ Add New Environment Variable        │
+├─────────────────────────────────────┤
+│                                     │
+│ Key:   SHIPROCKET_API_KEY          │
+│                                     │
+│ Value: 93B0a2SK2S9srY1N            │
+│                                     │
+│ ☑️ Production                       │
+│ ☑️ Preview                          │
+│ ☑️ Development                      │
+│                                     │
+│ [Cancel]  [Save]                    │
+└─────────────────────────────────────┘
 ```
 
-#### Variable 2: SHOPIFY_STOREFRONT_ACCESS_TOKEN
-```
-Name: SHOPIFY_STOREFRONT_ACCESS_TOKEN
-Value: be59fa0cf086500d7b6456e64f233866
-Environments: ✅ Production ✅ Preview ✅ Development
-```
+## ⚠️ Security Notes
 
-### 3. Redeploy
+- ✅ Never commit these values to Git
+- ✅ Only add them in Vercel Dashboard
+- ✅ Keep API keys private
+- ✅ Rotate keys if accidentally exposed
 
-After adding environment variables, trigger a new deployment:
-- Option 1: Push a new commit
-- Option 2: Go to **Deployments** → Click ⋯ on latest → **Redeploy**
+## 🆘 Troubleshooting
 
----
+### Problem: Checkout button doesn't work
 
-## Optional: Shiprocket Variables (Add later when provided)
+**Solution:**
+1. Check browser console for errors
+2. Verify environment variables are set in Vercel
+3. Ensure you clicked all three environment checkboxes
+4. Redeploy after adding variables
 
-```
-Name: SHIPROCKET_API_KEY
-Value: <will be provided by Shiprocket team>
-Environments: ✅ Production
+### Problem: API returns "result" instead of "data"
 
-Name: SHIPROCKET_API_SECRET
-Value: <will be provided by Shiprocket team>
-Environments: ✅ Production
-```
+**Solution:**
+1. Clear browser cache
+2. Verify latest deployment is active
+3. Check if changes were pushed to Git
 
----
+### Problem: "Shiprocket not loaded" error
 
-## Verification
+**Solution:**
+1. Check if `index.html` has the Shiprocket script tags
+2. Verify network requests in DevTools
+3. Check for ad blockers blocking the script
 
-Once deployed, test with:
+## ✅ Checklist
 
-```bash
-curl https://thsix.vercel.app/api/catalog/products
-```
+- [ ] Logged into Vercel Dashboard
+- [ ] Opened THSIX project
+- [ ] Went to Settings → Environment Variables
+- [ ] Added `SHIPROCKET_API_KEY` to all environments
+- [ ] Added `SHIPROCKET_API_SECRET` to all environments
+- [ ] Saved all variables
+- [ ] Redeployed the application
+- [ ] Tested checkout flow
+- [ ] Verified Shiprocket modal opens
 
-You should see your 6 real Adidas products from Shopify!
+## 📞 Need Help?
+
+If you encounter issues:
+1. Review SHIPROCKET_SETUP.md
+2. Run `.\verify-shiprocket-integration.ps1` locally
+3. Contact Shiprocket support if checkout issues persist
