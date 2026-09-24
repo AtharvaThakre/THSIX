@@ -4,7 +4,7 @@
 function sendSuccess(res, data, statusCode = 200) {
   return res.status(statusCode).json({
     ok: true,
-    result: data,
+    data: data,
     errorCode: null
   });
 }
