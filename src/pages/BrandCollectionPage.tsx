@@ -264,46 +264,62 @@ export function BrandCollectionPage() {
             {!loading && !error && products.length > 0 && (
               <div className="products-grid">
                 {products.map((product) => (
-                  <div key={product.id} className="product-card">
+                  <a 
+                    key={product.id}
+                    className="product-card__link" 
+                    href={`/product/${product.handle}`}
+                    data-product-handle={product.handle}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      window.location.href = `/product/${product.handle}`;
+                    }}
+                  >
                     <div className="product-card__image-container">
                       <img
+                        className="product-card__image"
                         src={product.image?.src || '/assets/products/adidas.png'}
                         alt={product.title}
-                        className="product-card__image"
                         loading="lazy"
+                        decoding="async"
                       />
                     </div>
-                    <div className="product-card__content">
-                      <h3 className="product-card__title">{product.title}</h3>
-                      <p className="product-card__vendor">{product.vendor}</p>
-                      {product.variants.length > 0 && (
-                        <>
-                          <p className="product-card__variant">
-                            {product.variants[0].option_values.Color || product.variants[0].title}
+                    <div className="product-card__info">
+                      <div className="product-card__details">
+                        <h3 className="product-card__title">
+                          {product.title}
+                        </h3>
+                        <p className="product-card__color">
+                          {product.vendor}
+                        </p>
+                        {product.variants.length > 0 && (
+                          <p className="product-card__price">
+                            {formatPrice(product.variants[0].price)}
                           </p>
-                          <div className="product-card__price">
-                            <span className="product-card__current-price">
-                              {formatPrice(product.variants[0].price)}
-                            </span>
-                            {product.variants[0].compare_at_price && (
-                              <span className="product-card__compare-price">
-                                {formatComparePrice(product.variants[0].compare_at_price)}
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      )}
-                      <button
-                        className="product-card__cta"
-                        onClick={() => {
-                          // Navigate to product detail page
-                          window.location.href = `/product/${product.handle}`;
+                        )}
+                      </div>
+                      <button 
+                        className="product-card__action" 
+                        aria-label="Quick add to cart"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          // TODO: Implement add to cart functionality
+                          console.log('Add to cart:', product);
                         }}
+                        disabled={!product.available}
                       >
-                        View Details
+                        <div className="cart-btn-icon">
+                          <svg className="cart-btn-icon__bag" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                          </svg>
+                          <svg className="cart-btn-icon__check" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                          </svg>
+                        </div>
+                        <span className="cart-btn-text"></span>
                       </button>
                     </div>
-                  </div>
+                  </a>
                 ))}
               </div>
             )}
