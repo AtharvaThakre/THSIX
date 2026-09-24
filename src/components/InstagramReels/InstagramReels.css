@@ -208,6 +208,9 @@
   background-repeat: no-repeat;
   z-index: 2;
   pointer-events: none;
+  filter: blur(8px);
+  /* Slight scale to prevent blur edges from showing */
+  background-attachment: fixed;
 }
 
 .reel-card__video {

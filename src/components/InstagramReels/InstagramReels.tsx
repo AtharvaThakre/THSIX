@@ -13,19 +13,19 @@ const reelsData: ReelData[] = [
   {
     id: 'reel-1',
     videoUrl: '/assets/reels/igexport-Ddbk0pvtkZL.mp4',
-    thumbnail: '/assets/reels/igexport-Ddbk0pvtkZL-poster.svg',
+    thumbnail: '/assets/reels/reel_1_cover.png',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-2', 
     videoUrl: '/assets/reels/igexport-DdeO8usNeZP.mp4',
-    thumbnail: '/assets/reels/igexport-DdeO8usNeZP-poster.svg',
+    thumbnail: '/assets/reels/reel_2_cover.png',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-3',
     videoUrl: '/assets/reels/igexport-DdWc5pAt43Y.mp4',
-    thumbnail: '/assets/reels/igexport-DdWc5pAt43Y-poster.svg',
+    thumbnail: '/assets/reels/reel_3_cover.png',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   }
 ];
@@ -162,11 +162,11 @@ export const InstagramReels = () => {
                   className={`instagram-reels__card ${getPositionClass(index)} ${isTransitioning ? 'transitioning' : ''}`}
                 >
                   <div className="reel-card__video-container">
-                    {/* Show cover overlay for non-center videos */}
+                    {/* Show cover overlay for non-center videos with blur effect */}
                     {!isCenterCard && (
                       <div 
                         className="reel-card__cover-overlay"
-                        style={{ backgroundImage: `url(/assets/Thsix_reels_cover.jpeg)` }}
+                        style={{ backgroundImage: `url(${reel.thumbnail})` }}
                       />
                     )}
                     
