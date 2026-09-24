@@ -9,7 +9,8 @@ interface AddToCartButtonProps {
   productPrice: number;
   productImage: string;
   productHandle?: string;
-  variantId?: string;
+  variantId?: string; // Numeric Shopify variant ID
+  variantTitle?: string; // Human-readable variant name
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -22,6 +23,7 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
   productImage,
   productHandle,
   variantId,
+  variantTitle,
   disabled = false,
   className = '',
   children,
@@ -51,6 +53,7 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
       price: productPrice,
       image: productImage,
       variantId,
+      variantTitle,
       handle: productHandle,
     });
 

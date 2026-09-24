@@ -6,7 +6,8 @@ export interface CartItem {
   price: number;
   image: string;
   quantity: number;
-  variantId?: string;
+  variantId?: string; // Numeric Shopify variant ID for checkout
+  variantTitle?: string; // Human-readable variant name (e.g., "UK7")
   handle?: string;
 }
 

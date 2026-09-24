@@ -146,8 +146,8 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
                     
                     <div className="cart-item__details">
                       <h3 className="cart-item__title">{item.title.trim()}</h3>
-                      {item.variantId && (
-                        <span className="cart-item__variant">Size: {item.variantId}</span>
+                      {item.variantTitle && (
+                        <span className="cart-item__variant">Size: {item.variantTitle}</span>
                       )}
                       <div className="cart-item__price">
                         {formatPrice(item.price)}
