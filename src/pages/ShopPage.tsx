@@ -202,7 +202,6 @@ export const ShopPage = () => {
 
       {/* Footer */}
       <footer className="shop-footer">
-        <p>© 2025 THSIX. All rights reserved.</p>
       </footer>
     </div>
   );

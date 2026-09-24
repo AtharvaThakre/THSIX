@@ -34,7 +34,6 @@ export const footerColumns: FooterColumn[] = [
   {
     title: 'SUPPORT',
     links: [
-      { label: 'Money Back Guarantee FAQ', href: '/faq' },
       { label: 'For resellers', href: '/resellers' },
       { label: 'Our Reviews', href: '/reviews' },
     ],
@@ -52,7 +51,7 @@ export const socialLinks: SocialLink[] = [
 ];
 
 export const footerLegal = {
-  copyright: '© 2025 THSIX. All rights reserved.',
+  copyright: '',
   links: [
     { label: 'Terms', href: '/terms' },
     { label: 'Privacy', href: '/privacy' },

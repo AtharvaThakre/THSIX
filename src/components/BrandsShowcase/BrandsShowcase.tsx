@@ -67,8 +67,6 @@ export const BrandsShowcase = () => {
         </div>
 
         <a href="/brands" className="brands-showcase__explore">
-          <span>EXPLORE BRANDS</span>
-          <ArrowRight size={14} strokeWidth={1.5} className="explore-arrow" />
         </a>
       </div>
 

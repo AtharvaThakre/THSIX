@@ -67,9 +67,6 @@ export const Header = () => {
             )}
           </div>
         </button>
-        <button className="icon-btn mobile-only" aria-label="Menu">
-          <Menu size={20} strokeWidth={1.5} />
-        </button>
       </div>
     </header>
   );
