@@ -22,8 +22,11 @@ export async function handleBuyNow(event: Event): Promise<void> {
     
     // First check if we tracked it globally
     if ((window as any).selectedVariantId) {
-      variantId = (window as any).selectedVariantId;
-      console.log('Variant ID from global tracker:', variantId);
+      const tracked = (window as any).selectedVariantId;
+      if (tracked && tracked.length >= 8) {
+        variantId = tracked;
+        console.log('Variant ID from global tracker:', variantId);
+      }
     }
     
     // Method 1: Try shopify-store (most reliable)
@@ -31,10 +34,19 @@ export async function handleBuyNow(event: Event): Promise<void> {
       try {
         const shopifyStore = document.querySelector('shopify-store');
         if (shopifyStore) {
-          const productData = (shopifyStore as any).product;
+          // Try multiple ways to access the product data
+          const productData = (shopifyStore as any).product || 
+                            (shopifyStore as any).__product ||
+                            (shopifyStore as any).state?.product;
+          
           if (productData?.selectedOrFirstAvailableVariant?.id) {
-            variantId = productData.selectedOrFirstAvailableVariant.id.toString();
+            const id = productData.selectedOrFirstAvailableVariant.id;
+            variantId = typeof id === 'number' ? id.toString() : id;
             console.log('Variant ID from shopify-store:', variantId);
+          } else if (productData?.selectedVariant?.id) {
+            const id = productData.selectedVariant.id;
+            variantId = typeof id === 'number' ? id.toString() : id;
+            console.log('Variant ID from shopify-store (selectedVariant):', variantId);
           }
         }
       } catch (e) {
@@ -46,7 +58,7 @@ export async function handleBuyNow(event: Event): Promise<void> {
     if (!variantId || variantId.length < 8) {
       const form = document.querySelector('product-form form') as HTMLFormElement;
       const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-      if (variantInput?.value) {
+      if (variantInput?.value && variantInput.value.length >= 8) {
         variantId = variantInput.value;
         console.log('Variant ID from form input:', variantId);
       }
@@ -136,8 +148,14 @@ export async function handleBuyNow(event: Event): Promise<void> {
     
     // Final validation: must be a numeric ID (at least 8 digits)
     if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
-      alert('Unable to determine product variant. Please try refreshing the page and selecting a size again.');
-      console.error('Invalid variant ID:', variantId);
+      console.error('Invalid or missing variant ID:', {
+        variantId,
+        length: variantId?.length,
+        isNumeric: variantId ? !isNaN(Number(variantId)) : false,
+        globalTracker: (window as any).selectedVariantId,
+      });
+      
+      alert('Unable to determine product variant. Please try:\n1. Refresh the page\n2. Select a size again\n3. Wait a moment after selecting before clicking Buy Now');
       return;
     }
 

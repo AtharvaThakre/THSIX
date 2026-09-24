@@ -158,31 +158,44 @@ export const ProductDetailPage = () => {
                            target.getAttribute('data-variant-id') ||
                            (target as HTMLInputElement).value;
             
-            // If not found on target, try to get from product form
-            if (!variantId || variantId.length < 8) { // Variant IDs are long numbers
-              const form = document.querySelector('product-form form') as HTMLFormElement;
-              const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-              if (variantInput?.value) {
-                variantId = variantInput.value;
+            // If not found on target, try to get from shopify-store
+            if (!variantId || variantId.length < 8) {
+              try {
+                const shopifyStore = document.querySelector('shopify-store');
+                if (shopifyStore) {
+                  const productData = (shopifyStore as any).product || 
+                                    (shopifyStore as any).__product ||
+                                    (shopifyStore as any).state?.product;
+                  
+                  if (productData?.selectedOrFirstAvailableVariant?.id) {
+                    const id = productData.selectedOrFirstAvailableVariant.id;
+                    variantId = typeof id === 'number' ? id.toString() : id;
+                  } else if (productData?.selectedVariant?.id) {
+                    const id = productData.selectedVariant.id;
+                    variantId = typeof id === 'number' ? id.toString() : id;
+                  }
+                }
+              } catch (e) {
+                console.warn('Could not get variant from shopify-store during click', e);
               }
             }
             
-            // Try shopify-store for selected variant
+            // Try product-form
             if (!variantId || variantId.length < 8) {
-              const shopifyStore = document.querySelector('shopify-store');
-              if (shopifyStore) {
-                const productData = (shopifyStore as any).product;
-                if (productData?.selectedOrFirstAvailableVariant?.id) {
-                  variantId = productData.selectedOrFirstAvailableVariant.id.toString();
-                }
+              const form = document.querySelector('product-form form') as HTMLFormElement;
+              const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
+              if (variantInput?.value && variantInput.value.length >= 8) {
+                variantId = variantInput.value;
               }
             }
             
             if (variantId && variantId.length >= 8) {
               (window as any).selectedVariantId = variantId;
               console.log('Variant selected (tracked):', variantId);
+            } else {
+              console.warn('Could not determine variant ID, got:', variantId);
             }
-          }, 100);
+          }, 200); // Increased delay
         }
       };
       
