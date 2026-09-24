@@ -142,6 +142,39 @@ export const ProductDetailPage = () => {
     ensureAllVariantsLoaded();
   }, [handle]);
 
+  // Track variant selection globally
+  useEffect(() => {
+    const trackVariantSelection = () => {
+      // Listen for clicks on variant buttons
+      const handleVariantClick = (e: Event) => {
+        const target = e.target as HTMLElement;
+        
+        // Check if it's a variant button or radio
+        if (target.matches('input[type="radio"][name*="variant"], button[data-variant-id]')) {
+          const variantId = target.getAttribute('value') || 
+                           target.getAttribute('data-variant-id') ||
+                           (target as HTMLInputElement).value;
+          
+          if (variantId) {
+            (window as any).selectedVariantId = variantId;
+            console.log('Variant selected:', variantId);
+          }
+        }
+      };
+      
+      document.addEventListener('click', handleVariantClick, true);
+      document.addEventListener('change', handleVariantClick, true);
+      
+      return () => {
+        document.removeEventListener('click', handleVariantClick, true);
+        document.removeEventListener('change', handleVariantClick, true);
+      };
+    };
+    
+    const cleanup = trackVariantSelection();
+    return cleanup;
+  }, []);
+
   // Initialize gallery and sync thumbnails with main image
   useEffect(() => {
     const updateMainImageFromThumbnail = (thumbnail: HTMLElement, index?: number) => {
