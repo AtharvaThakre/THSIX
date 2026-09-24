@@ -297,27 +297,6 @@ export function BrandCollectionPage() {
                           </p>
                         )}
                       </div>
-                      <button 
-                        className="product-card__action" 
-                        aria-label="Quick add to cart"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // TODO: Implement add to cart functionality
-                          console.log('Add to cart:', product);
-                        }}
-                        disabled={!product.available}
-                      >
-                        <div className="cart-btn-icon">
-                          <svg className="cart-btn-icon__bag" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
-                          </svg>
-                          <svg className="cart-btn-icon__check" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
-                          </svg>
-                        </div>
-                        <span className="cart-btn-text"></span>
-                      </button>
                     </div>
                   </a>
                 ))}
