@@ -26,8 +26,24 @@ export async function handleBuyNow(event: Event): Promise<void> {
       console.log('Variant ID from global tracker:', variantId);
     }
     
-    // Method 1: Try to get from product-form input
-    if (!variantId) {
+    // Method 1: Try shopify-store (most reliable)
+    if (!variantId || variantId.length < 8) {
+      try {
+        const shopifyStore = document.querySelector('shopify-store');
+        if (shopifyStore) {
+          const productData = (shopifyStore as any).product;
+          if (productData?.selectedOrFirstAvailableVariant?.id) {
+            variantId = productData.selectedOrFirstAvailableVariant.id.toString();
+            console.log('Variant ID from shopify-store:', variantId);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not get variant from shopify-store', e);
+      }
+    }
+    
+    // Method 2: Try to get from product-form input
+    if (!variantId || variantId.length < 8) {
       const form = document.querySelector('product-form form') as HTMLFormElement;
       const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
       if (variantInput?.value) {
@@ -95,7 +111,7 @@ export async function handleBuyNow(event: Event): Promise<void> {
     }
     
     // Method 5: Get the first available variant as fallback
-    if (!variantId) {
+    if (!variantId || variantId.length < 8) {
       try {
         const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
         if (productDataEl) {
@@ -106,6 +122,10 @@ export async function handleBuyNow(event: Event): Promise<void> {
             if (firstAvailable) {
               variantId = firstAvailable.id.toString();
               console.warn('No variant selected, using first available:', variantId);
+            } else {
+              // If no available, just use first variant
+              variantId = productData.variants[0].id.toString();
+              console.warn('Using first variant (may be unavailable):', variantId);
             }
           }
         }
@@ -114,9 +134,10 @@ export async function handleBuyNow(event: Event): Promise<void> {
       }
     }
     
-    if (!variantId) {
-      alert('Please select a size before buying');
-      console.error('Could not find selected variant ID');
+    // Final validation: must be a numeric ID (at least 8 digits)
+    if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
+      alert('Unable to determine product variant. Please try refreshing the page and selecting a size again.');
+      console.error('Invalid variant ID:', variantId);
       return;
     }
 

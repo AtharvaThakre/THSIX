@@ -150,15 +150,39 @@ export const ProductDetailPage = () => {
         const target = e.target as HTMLElement;
         
         // Check if it's a variant button or radio
-        if (target.matches('input[type="radio"][name*="variant"], button[data-variant-id]')) {
-          const variantId = target.getAttribute('value') || 
+        if (target.matches('input[type="radio"][name*="variant"], button[data-variant-id], .product-detail__size-btn')) {
+          // Small delay to let Shopify update its state
+          setTimeout(() => {
+            // Try multiple methods to get the variant ID
+            let variantId = target.getAttribute('value') || 
                            target.getAttribute('data-variant-id') ||
                            (target as HTMLInputElement).value;
-          
-          if (variantId) {
-            (window as any).selectedVariantId = variantId;
-            console.log('Variant selected:', variantId);
-          }
+            
+            // If not found on target, try to get from product form
+            if (!variantId || variantId.length < 8) { // Variant IDs are long numbers
+              const form = document.querySelector('product-form form') as HTMLFormElement;
+              const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
+              if (variantInput?.value) {
+                variantId = variantInput.value;
+              }
+            }
+            
+            // Try shopify-store for selected variant
+            if (!variantId || variantId.length < 8) {
+              const shopifyStore = document.querySelector('shopify-store');
+              if (shopifyStore) {
+                const productData = (shopifyStore as any).product;
+                if (productData?.selectedOrFirstAvailableVariant?.id) {
+                  variantId = productData.selectedOrFirstAvailableVariant.id.toString();
+                }
+              }
+            }
+            
+            if (variantId && variantId.length >= 8) {
+              (window as any).selectedVariantId = variantId;
+              console.log('Variant selected (tracked):', variantId);
+            }
+          }, 100);
         }
       };
       

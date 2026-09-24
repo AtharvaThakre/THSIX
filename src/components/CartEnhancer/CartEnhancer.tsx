@@ -122,7 +122,22 @@ export const CartEnhancer = () => {
       let selectedVariant = '';
       let variantId = '';
       
-      if (variantSelector) {
+      // Priority 1: Try shopify-store (most reliable)
+      try {
+        const shopifyStore = document.querySelector('shopify-store');
+        if (shopifyStore) {
+          const productData = (shopifyStore as any).product;
+          if (productData?.selectedOrFirstAvailableVariant) {
+            variantId = productData.selectedOrFirstAvailableVariant.id.toString();
+            selectedVariant = productData.selectedOrFirstAvailableVariant.title || '';
+            console.log('Variant from shopify-store:', variantId, selectedVariant);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get variant from shopify-store:', error);
+      }
+      
+      if (variantSelector && !variantId) {
         // Try to get the NUMERIC variant ID from Shopify's product JSON
         try {
           const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
