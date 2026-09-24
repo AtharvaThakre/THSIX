@@ -4,7 +4,7 @@
  */
 
 import { loadPickrrScript } from './pickrr-loader';
-import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-shopify';
+import { waitForShiprocket, checkoutFromCart } from '../services/shiprocket-shopify';
 
 /**
  * Handle Buy Now button click
@@ -161,11 +161,37 @@ export async function handleBuyNow(event: Event): Promise<void> {
 
     console.log('Shiprocket ready, initiating Buy Now checkout');
 
-    // Step 5: Trigger Shiprocket Buy Now with the product
-    checkoutWithProducts([{
-      variantId: variantId,
-      quantity: 1
-    }]);
+    // Step 5: First sync to Shopify cart, then trigger Shiprocket
+    // Shiprocket reads from Shopify's cart, so we need to add the item there first
+    try {
+      const shopifyDomain = '19sjnp-gx.myshopify.com';
+      const response = await fetch(`https://${shopifyDomain}/cart/add.js`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: [{
+            id: variantId,
+            quantity: 1
+          }]
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add to Shopify cart');
+      }
+
+      console.log('Added to Shopify cart, now triggering Shiprocket');
+      
+      // Small delay to let Shopify cart update
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (error) {
+      console.warn('Could not add to Shopify cart:', error);
+    }
+
+    // Step 6: Trigger Shiprocket checkout from cart
+    checkoutFromCart();
 
     console.log('Shiprocket Buy Now initiated');
 
