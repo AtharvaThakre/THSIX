@@ -12,6 +12,7 @@ import { Philosophy } from './components/Philosophy/Philosophy';
 import { BrandsShowcase } from './components/BrandsShowcase/BrandsShowcase';
 import { Footer } from './components/Footer/Footer';
 import { CartManager } from './components/Cart/CartManager';
+import { initializeBuyNowHandler } from './utils/shiprocket-buy-now';
 
 // Lazy load heavy components below the fold
 const NextDrop = lazy(() => import('./components/NextDrop/NextDrop').then(m => ({ default: m.NextDrop })));
@@ -123,6 +124,11 @@ const PageFallback = () => (
 function App() {
   const storeDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com";
   const accessToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866";
+
+  // Initialize Shiprocket Buy Now handler on app load
+  useEffect(() => {
+    initializeBuyNowHandler();
+  }, []);
 
   return (
     <CartProvider>

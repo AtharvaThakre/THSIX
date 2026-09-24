@@ -55,14 +55,11 @@ export const CartEnhancer = () => {
           if (productData) {
             // Add to our cart context
             addItem(productData);
+            console.log('Added to cart:', productData);
           }
           
-          // Call original Shopify onclick after our logic
-          if (originalOnclick) {
-            setTimeout(() => {
-              originalOnclick.call(button, e);
-            }, 100);
-          }
+          // DON'T call original Shopify onclick - we're handling the cart ourselves
+          // This prevents Shopify cart redirects
           
           // Change button appearance
           setTimeout(() => {

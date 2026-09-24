@@ -415,7 +415,7 @@ export const ProductDetailPage = () => {
                         </button>
                         <button
                           class="product-detail__buy-btn"
-                          onclick="document.querySelector('shopify-store').buyNow(event)"
+                          onclick="window.handleBuyNow ? window.handleBuyNow(event) : document.querySelector('shopify-store').buyNow(event)"
                           shopify-attr--disabled="!product.selectedOrFirstAvailableVariant.availableForSale"
                         >
                           Buy Now
