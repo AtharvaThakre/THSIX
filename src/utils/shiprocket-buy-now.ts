@@ -244,11 +244,38 @@ export function initializeBuyNowHandler(): void {
   // Also track selected variant globally for easy access
   (window as any).selectedVariantId = null;
   
+  // DEBUG: Add a global function to check variant status
+  (window as any).checkVariant = () => {
+    console.log('=== VARIANT DEBUG INFO ===');
+    console.log('Global tracker:', (window as any).selectedVariantId);
+    
+    const shopifyStore = document.querySelector('shopify-store');
+    if (shopifyStore) {
+      console.log('Shopify store element found');
+      const pd1 = (shopifyStore as any).product;
+      const pd2 = (shopifyStore as any).__product;
+      const pd3 = (shopifyStore as any).state?.product;
+      console.log('Product data sources:', { pd1, pd2, pd3 });
+      
+      if (pd1?.selectedOrFirstAvailableVariant) {
+        console.log('Selected variant from pd1:', pd1.selectedOrFirstAvailableVariant);
+      }
+    } else {
+      console.log('Shopify store element NOT found');
+    }
+    
+    const form = document.querySelector('product-form form') as HTMLFormElement;
+    const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
+    console.log('Form variant input:', variantInput?.value);
+    
+    console.log('=== END DEBUG INFO ===');
+  };
+  
   // Listen for variant changes from Shopify web components
   document.addEventListener('variant:change', (e: any) => {
     if (e.detail?.variantId || e.detail?.id) {
       (window as any).selectedVariantId = e.detail.variantId || e.detail.id;
-      console.log('Variant changed:', (window as any).selectedVariantId);
+      console.log('Variant changed (event):', (window as any).selectedVariantId);
     }
   });
   
@@ -261,7 +288,7 @@ export function initializeBuyNowHandler(): void {
         const variantId = target.getAttribute('value') || 
                          target.getAttribute('data-variant-id') ||
                          (e.detail?.variantId);
-        if (variantId) {
+        if (variantId && variantId.length >= 8) {
           (window as any).selectedVariantId = variantId;
           console.log('Variant selector changed:', variantId);
         }
@@ -274,4 +301,5 @@ export function initializeBuyNowHandler(): void {
   setTimeout(observeVariantSelector, 1000);
   
   console.log('Shiprocket Buy Now handler initialized');
+  console.log('Run window.checkVariant() to debug variant detection');
 }
