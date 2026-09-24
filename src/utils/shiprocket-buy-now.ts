@@ -146,17 +146,35 @@ export async function handleBuyNow(event: Event): Promise<void> {
       }
     }
     
-    // Final validation: must be a numeric ID (at least 8 digits)
+    // Final validation and fallback - log but proceed
     if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
-      console.error('Invalid or missing variant ID:', {
+      console.error('Invalid or missing variant ID, attempting to proceed anyway:', {
         variantId,
         length: variantId?.length,
         isNumeric: variantId ? !isNaN(Number(variantId)) : false,
         globalTracker: (window as any).selectedVariantId,
       });
       
-      alert('Unable to determine product variant. Please try:\n1. Refresh the page\n2. Select a size again\n3. Wait a moment after selecting before clicking Buy Now');
-      return;
+      // Last resort: try to get ANY variant from the page
+      try {
+        const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
+        if (productDataEl) {
+          const productData = JSON.parse(productDataEl.textContent || '{}');
+          if (productData.variants && productData.variants.length > 0) {
+            variantId = productData.variants[0].id.toString();
+            console.warn('Using first variant as last resort:', variantId);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to get any variant:', e);
+      }
+      
+      // If still no variant, we can't proceed
+      if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
+        console.error('Cannot proceed without a valid variant ID');
+        alert('Unable to process checkout. Please contact support.');
+        return;
+      }
     }
 
     console.log('Final selected variant ID:', variantId);
