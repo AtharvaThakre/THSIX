@@ -11,41 +11,31 @@ export interface FooterColumn {
 export interface SocialLink {
   label: string;
   href: string;
-  iconName: 'instagram' | 'tiktok' | 'pinterest' | 'youtube';
+  iconName: 'instagram' | 'facebook' | 'pinterest';
 }
 
 export const footerColumns: FooterColumn[] = [
   {
-    title: 'SHOP',
+    title: 'KNOW MORE',
     links: [
-      { label: 'New Arrivals', href: '/shop/new-arrivals' },
-      { label: 'Adidas', href: '/brands/adidas' },
-      { label: 'Coming Soon', href: '/shop/coming-soon' },
-    ],
-  },
-  {
-    title: 'THSIX',
-    links: [
-      { label: 'About', href: '/about' },
-      { label: 'Journal', href: '/journal' },
-      { label: 'Contact', href: '/contact' },
-    ],
-  },
-  {
-    title: 'HELP',
-    links: [
+      { label: 'About us', href: '/about' },
+      { label: 'Cancellations & Returns', href: '/returns' },
+      { label: 'Cash on Delivery Policy', href: '/cod-policy' },
       { label: 'Shipping', href: '/shipping' },
-      { label: 'Returns', href: '/returns' },
-      { label: 'FAQ', href: '/faq' },
+      { label: 'Terms & Conditions', href: '/terms' },
+      { label: 'Money Back Guarantee FAQ', href: '/faq' },
+      { label: 'Privacy Policy', href: '/privacy' },
+      { label: 'For resellers', href: '/resellers' },
+      { label: 'Our Reviews', href: '/reviews' },
+      { label: 'Blogs', href: '/blogs' },
     ],
   },
 ];
 
 export const socialLinks: SocialLink[] = [
-  { label: 'Instagram', href: '#', iconName: 'instagram' },
-  { label: 'TikTok', href: '#', iconName: 'tiktok' },
-  { label: 'Pinterest', href: '#', iconName: 'pinterest' },
-  { label: 'YouTube', href: '#', iconName: 'youtube' },
+  { label: 'Instagram', href: 'https://www.instagram.com/thsix.official?stkn=MnUwaHFhczJ4aTN6', iconName: 'instagram' },
+  { label: 'Facebook', href: 'https://www.facebook.com/share/1CgrQSppfH/', iconName: 'facebook' },
+  { label: 'Pinterest', href: 'https://pin.it/2LqbE5RsJ', iconName: 'pinterest' },
 ];
 
 export const footerLegal = {
