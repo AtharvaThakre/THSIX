@@ -128,36 +128,35 @@ export async function syncCartToShopify(
   }>
 ): Promise<boolean> {
   try {
-    // Step 1: Get current Shopify cart to see what's already there
-    const currentCart = await getShopifyCart();
-    console.log('Current Shopify cart:', currentCart);
+    console.log('Syncing cart to Shopify...', cartItems);
 
-    // Step 2: If cart is already populated (from Shopify web components), just proceed
-    if (currentCart.item_count > 0) {
-      console.log('Shopify cart already has items, proceeding with checkout');
-      return true;
-    }
-
-    // Step 3: Clear existing Shopify cart (if empty or needs sync)
+    // Step 1: Clear existing Shopify cart
     await clearShopifyCart();
+    console.log('Shopify cart cleared');
 
-    // Step 4: Prepare items for Shopify
+    // Step 2: Prepare items for Shopify (must be numeric variant IDs)
     const shopifyItems: ShopifyCartItem[] = cartItems
       .filter(item => item.variantId) // Only include items with variantId
-      .map(item => ({
-        id: item.variantId as string,
-        quantity: item.quantity,
-      }));
+      .map(item => {
+        // Extract numeric ID from variantId (could be "gid://shopify/ProductVariant/123" or just "123")
+        const numericId = item.variantId!.split('/').pop() || item.variantId!;
+        return {
+          id: numericId,
+          quantity: item.quantity,
+        };
+      });
 
-    // Step 5: Add items to Shopify cart
+    console.log('Prepared Shopify cart items:', shopifyItems);
+
+    // Step 3: Add items to Shopify cart
     if (shopifyItems.length > 0) {
-      await addToShopifyCart(shopifyItems);
-      console.log('Cart synced to Shopify successfully');
+      const result = await addToShopifyCart(shopifyItems);
+      console.log('Cart synced to Shopify successfully:', result);
+      return true;
     } else {
       console.warn('No items with variantId to sync');
+      return false;
     }
-
-    return true;
   } catch (error) {
     console.error('Failed to sync cart to Shopify:', error);
     return false;

@@ -22,6 +22,7 @@ export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): vo
   // Check if the Shiprocket function is available
   if (typeof (window as any).shiprocketCheckoutEvents === 'undefined') {
     console.error('Shiprocket checkout script not loaded');
+    console.log('Available window properties:', Object.keys(window).filter(k => k.toLowerCase().includes('ship') || k.toLowerCase().includes('pickrr')));
     alert('Checkout is temporarily unavailable. Please refresh the page and try again.');
     return;
   }
@@ -33,7 +34,7 @@ export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): vo
     type: params.type,
   };
 
-  // Add products if provided (for product type)
+  // Add products if provided (for product type) - must be in format [{variantId: "123", quantity: 1}]
   if (params.products && params.products.length > 0) {
     checkoutParams.products = params.products.map(item => ({
       variantId: item.variantId,
@@ -54,10 +55,12 @@ export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): vo
     checkoutParams.cartAttributes = params.cartAttributes;
   }
 
+  console.log('Shiprocket checkout params:', checkoutParams);
+
   try {
     // Call the Shiprocket checkout function
     shiprocketEvents.buyDirect(checkoutParams);
-    console.log('Shiprocket checkout initiated:', checkoutParams);
+    console.log('Shiprocket checkout initiated successfully');
   } catch (error) {
     console.error('Error initiating Shiprocket checkout:', error);
     alert('Failed to start checkout. Please try again.');

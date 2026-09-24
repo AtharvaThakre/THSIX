@@ -48,18 +48,24 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     setCheckoutError(null);
 
     try {
+      console.log('Starting checkout process...');
+      console.log('Cart items:', items);
+
       // Step 1: Load Pickrr script if not already loaded
-      console.log('Loading checkout integration...');
+      console.log('Loading Shiprocket integration...');
       await loadPickrrScript();
       
       // Step 2: Wait for Shiprocket to be ready
-      const isReady = await waitForShiprocket(5000);
+      console.log('Waiting for Shiprocket to be ready...');
+      const isReady = await waitForShiprocket(10000); // Increased timeout
       
       if (!isReady) {
         throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      // Step 3: Sync React cart to Shopify cart
+      console.log('Shiprocket is ready');
+
+      // Step 3: Sync React cart to Shopify cart (Shiprocket reads from Shopify cart)
       console.log('Syncing cart to Shopify...');
       const synced = await syncCartToShopify(items);
       
@@ -67,9 +73,14 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
         throw new Error('Failed to prepare checkout. Please try again.');
       }
 
-      // Step 4: Initiate Shiprocket checkout using the Shopify cart
-      console.log('Initiating checkout...');
+      console.log('Cart synced successfully');
+
+      // Step 4: Initiate Shiprocket checkout
+      // Shiprocket will read the cart from Shopify
+      console.log('Initiating Shiprocket checkout...');
       checkoutFromCart();
+
+      console.log('Checkout initiated - Shiprocket modal should appear');
 
     } catch (error) {
       console.error('Checkout error:', error);

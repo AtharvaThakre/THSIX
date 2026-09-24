@@ -22,12 +22,15 @@ export const loadPickrrScript = (): Promise<void> => {
   pickrrLoading = true;
 
   return new Promise((resolve, reject) => {
-    // Add hidden input for sellerDomain
-    const sellerDomainInput = document.createElement('input');
-    sellerDomainInput.type = 'hidden';
-    sellerDomainInput.value = '19sjnp-gx.myshopify.com';
-    sellerDomainInput.id = 'sellerDomain';
-    document.body.appendChild(sellerDomainInput);
+    // Check if sellerDomain already exists (from index.html)
+    const existingDomain = document.getElementById('sellerDomain');
+    if (!existingDomain) {
+      const sellerDomainInput = document.createElement('input');
+      sellerDomainInput.type = 'hidden';
+      sellerDomainInput.value = 'thsix.com';
+      sellerDomainInput.id = 'sellerDomain';
+      document.body.appendChild(sellerDomainInput);
+    }
 
     // Load CSS
     const link = document.createElement('link');
