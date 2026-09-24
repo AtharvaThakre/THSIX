@@ -20,16 +20,19 @@ export const Footer = () => {
         {/* 4-column nav grid */}
         <div className="footer__top">
           <nav className="footer__nav" aria-label="Footer navigation">
-            {footerColumns.map((col) => (
-              <FooterColumnComponent key={col.title} column={col} />
-            ))}
+            {footerColumns.map((col) => {
+              // Special handling for FOLLOW US column
+              if (col.title === 'FOLLOW US') {
+                return (
+                  <div key={col.title} className="footer-col">
+                    <h3 className="footer-col__heading">{col.title}</h3>
+                    <SocialLinks links={socialLinks} />
+                  </div>
+                );
+              }
+              return <FooterColumnComponent key={col.title} column={col} />;
+            })}
           </nav>
-
-          {/* Follow Us column */}
-          <div className="footer__follow">
-            <h3 className="footer-col__heading">FOLLOW US</h3>
-            <SocialLinks links={socialLinks} />
-          </div>
         </div>
 
         {/* Bottom row */}

@@ -21,14 +21,27 @@ export const footerColumns: FooterColumn[] = [
       { label: 'About us', href: '/about' },
       { label: 'Cancellations & Returns', href: '/returns' },
       { label: 'Cash on Delivery Policy', href: '/cod-policy' },
+    ],
+  },
+  {
+    title: 'POLICIES',
+    links: [
       { label: 'Shipping', href: '/shipping' },
       { label: 'Terms & Conditions', href: '/terms' },
-      { label: 'Money Back Guarantee FAQ', href: '/faq' },
       { label: 'Privacy Policy', href: '/privacy' },
+    ],
+  },
+  {
+    title: 'SUPPORT',
+    links: [
+      { label: 'Money Back Guarantee FAQ', href: '/faq' },
       { label: 'For resellers', href: '/resellers' },
       { label: 'Our Reviews', href: '/reviews' },
-      { label: 'Blogs', href: '/blogs' },
     ],
+  },
+  {
+    title: 'FOLLOW US',
+    links: [], // Social links will be displayed separately
   },
 ];
 
