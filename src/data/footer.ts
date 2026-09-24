@@ -16,26 +16,30 @@ export interface SocialLink {
 
 export const footerColumns: FooterColumn[] = [
   {
-    title: 'KNOW MORE',
+    title: 'SHOP',
     links: [
-      { label: 'About us', href: '/about' },
-      { label: 'Cancellations & Returns', href: '/returns' },
-      { label: 'Cash on Delivery Policy', href: '/cod-policy' },
+      { label: 'New Drops', href: '/new-drops' },
+      { label: 'Best sellers', href: '/best-sellers' },
+      { label: 'Categories', href: '/categories' },
+      { label: 'All products', href: '/all-products' },
+    ],
+  },
+  {
+    title: 'HELP',
+    links: [
+      { label: 'Track Order', href: '/track-order' },
+      { label: 'Contact us via call', href: 'tel:+919876543210' },
+      { label: 'Contact us via mail', href: 'mailto:support@thsix.com' },
+      { label: 'about us', href: '/about' },
     ],
   },
   {
     title: 'POLICIES',
     links: [
-      { label: 'Shipping', href: '/shipping' },
-      { label: 'Terms & Conditions', href: '/terms' },
-      { label: 'Privacy Policy', href: '/privacy' },
-    ],
-  },
-  {
-    title: 'SUPPORT',
-    links: [
-      { label: 'For resellers', href: '/resellers' },
-      { label: 'Our Reviews', href: '/reviews' },
+      { label: 'Shipping policy', href: '/shipping' },
+      { label: 'Return and Refund policy', href: '/returns' },
+      { label: 'Payment policy', href: '/payment-policy' },
+      { label: 'Terms and Conditions', href: '/terms' },
     ],
   },
   {
