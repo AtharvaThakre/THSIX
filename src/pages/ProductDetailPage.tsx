@@ -9,6 +9,7 @@ import { CartEnhancer } from '../components/CartEnhancer/CartEnhancer';
 import { SizeChart } from '../components/SizeChart/SizeChart';
 import { ProductDescription } from '../components/ProductDescription/ProductDescription';
 import { forceLoadAllVariants, refreshProductData } from '../utils/shopifyVariantLoader';
+import { fetchShopifyProductByHandle } from '../services/shopify-products';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
@@ -71,37 +72,28 @@ export const ProductDetailPage = () => {
     window.scrollTo(0, 0);
   }, [handle]);
 
-  // Fetch product description from API
+  // Fetch product description from Shopify API
   useEffect(() => {
     const fetchProductDescription = async () => {
       if (!handle) return;
       
-      console.log('Fetching description for handle:', handle);
+      console.log('Fetching product description for handle:', handle);
       
       try {
-        const apiUrl = `${window.location.origin}/api/catalog/products`;
-        console.log('API URL:', apiUrl);
+        const product = await fetchShopifyProductByHandle(handle);
         
-        const response = await fetch(apiUrl);
-        const data = await response.json();
-        
-        console.log('API Response:', data);
-        
-        if (data.ok && data.result && data.result.products) {
-          console.log('Products found:', data.result.products.length);
-          const product = data.result.products.find((p: any) => p.handle === handle);
-          console.log('Matching product:', product);
+        if (product) {
+          console.log('Product fetched:', product.title);
+          console.log('Description length:', product.description?.length);
           
-          if (product) {
-            console.log('Setting description HTML, length:', product.body_html?.length);
-            setDescriptionHtml(product.body_html || '');
-            setProductTitle(product.title || '');
-          } else {
-            console.log('Product not found for handle:', handle);
-            console.log('Available handles:', data.result.products.map((p: any) => p.handle));
-          }
+          // Shopify returns plain text description, convert it to HTML for display
+          const descriptionHtml = product.description ? 
+            `<p>${product.description.split('\n').join('</p><p>')}</p>` : '';
+          
+          setDescriptionHtml(descriptionHtml);
+          setProductTitle(product.title);
         } else {
-          console.log('Invalid API response structure');
+          console.log('Product not found for handle:', handle);
         }
       } catch (error) {
         console.error('Error fetching product description:', error);
