@@ -159,7 +159,9 @@ function transformShopifyProduct(shopifyProduct) {
         created_at: shopifyProduct.createdAt,
         updated_at: shopifyProduct.updatedAt,
         taxable: true,
-        quantity: 999, // Default quantity since API doesn't have access to inventory
+        // The Storefront token can't read stock levels; expose sold-out variants as 0 so
+        // Shiprocket won't sell them
+        quantity: variant.availableForSale === false ? 0 : 999,
         grams: variant.weight ? Math.round(variant.weight * 1000) : 0,
         image: variant.image ? { src: variant.image.url } : null,
         option_values: variant.selectedOptions.reduce((acc, opt) => {
@@ -272,7 +274,6 @@ async function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
                       }
                       sku
                       availableForSale
-                      quantityAvailable
                       weight
                       weightUnit
                       image {
