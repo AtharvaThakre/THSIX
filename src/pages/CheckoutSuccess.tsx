@@ -11,29 +11,21 @@ export const CheckoutSuccess = () => {
   const { clearCart } = useCart();
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Reaching this page means the order went through, so always empty the cart
+    clearCart();
+
     const orderId = searchParams.get('order_id');
 
     if (orderId) {
-      // Fetch order details
+      // Details are a nice-to-have; the order is placed either way
       fetchOrderDetails(orderId)
-        .then((details) => {
-          setOrderDetails(details);
-          setLoading(false);
-          // Clear cart after successful order
-          clearCart();
-        })
-        .catch((err) => {
-          console.error('Failed to fetch order details:', err);
-          setError('Failed to load order details');
-          setLoading(false);
-        });
+        .then((details) => setOrderDetails(details))
+        .catch((err) => console.warn('Order details unavailable:', err))
+        .finally(() => setLoading(false));
     } else {
       setLoading(false);
-      // Clear cart anyway if on success page
-      clearCart();
     }
   }, [searchParams, clearCart]);
 
@@ -43,25 +35,6 @@ export const CheckoutSuccess = () => {
         <div className="checkout-success__content">
           <div className="loading-spinner"></div>
           <p>Loading order details...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="checkout-success">
-        <div className="checkout-success__content">
-          <CheckCircle size={64} className="success-icon" />
-          <h1>Order Placed Successfully!</h1>
-          <p className="success-message">
-            Your order has been placed successfully. You will receive a confirmation email shortly.
-          </p>
-          <p className="error-message">{error}</p>
-          <button onClick={() => navigate('/')} className="continue-shopping-btn">
-            Continue Shopping
-            <ArrowRight size={18} />
-          </button>
         </div>
       </div>
     );

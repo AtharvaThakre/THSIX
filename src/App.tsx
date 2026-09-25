@@ -1,5 +1,5 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { CartProvider } from './contexts/CartContext';
 import { ShopifyProvider } from './contexts/ShopifyContext';
 import { Preloader } from './components/Preloader/Preloader';
@@ -157,6 +157,11 @@ function App() {
             <Route path="/product/:handle" element={<ProductDetailPage />} />
             <Route path="/brands/:brandId" element={<BrandCollectionPage />} />
             <Route path="/checkout/success" element={<CheckoutSuccess />} />
+            {/* Shopify's primary domain is thsix.com, so its order-status and cart-permalink
+                links (used by Shiprocket after payment / as a fallback) land on this app */}
+            <Route path="/:shopId/orders/:token" element={<CheckoutSuccess />} />
+            <Route path="/checkouts/*" element={<CheckoutSuccess />} />
+            <Route path="/cart/*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </ShopifyProvider>

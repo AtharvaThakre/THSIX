@@ -1,56 +1,63 @@
-// Lazy load Pickrr/Shiprocket scripts only when needed for checkout
-let pickrrLoaded = false;
-let pickrrLoading = false;
+// Load the Pickrr/Shiprocket checkout script exactly once.
+// index.html already includes it, so this normally just waits for that copy.
+// Injecting a second copy registers every listener twice and breaks the checkout modal.
+const SCRIPT_SRC = 'https://fastrr-boost-ui.pickrr.com/assets/js/channels/shopify.js';
+const STYLE_HREF = 'https://fastrr-boost-ui.pickrr.com/assets/styles/shopify.css';
+const SELLER_DOMAIN = 'thsix.com';
+
+let loadPromise: Promise<void> | null = null;
+
+const isReady = () => typeof (window as any).shiprocketCheckoutEvents !== 'undefined';
 
 export const loadPickrrScript = (): Promise<void> => {
-  if (pickrrLoaded) {
-    return Promise.resolve();
-  }
+  if (isReady()) return Promise.resolve();
+  if (loadPromise) return loadPromise;
 
-  if (pickrrLoading) {
-    // Return existing promise if already loading
-    return new Promise((resolve) => {
-      const checkInterval = setInterval(() => {
-        if (pickrrLoaded) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
-    });
-  }
-
-  pickrrLoading = true;
-
-  return new Promise((resolve, reject) => {
-    // Check if sellerDomain already exists (from index.html)
-    const existingDomain = document.getElementById('sellerDomain');
-    if (!existingDomain) {
+  loadPromise = new Promise<void>((resolve, reject) => {
+    // Shiprocket identifies the merchant by this input's value
+    if (!document.getElementById('sellerDomain')) {
       const sellerDomainInput = document.createElement('input');
       sellerDomainInput.type = 'hidden';
-      sellerDomainInput.value = 'thsix.com';
+      sellerDomainInput.value = SELLER_DOMAIN;
       sellerDomainInput.id = 'sellerDomain';
       document.body.appendChild(sellerDomainInput);
     }
 
-    // Load CSS
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://fastrr-boost-ui.pickrr.com/assets/styles/shopify.css';
-    document.head.appendChild(link);
+    if (!document.querySelector(`link[href="${STYLE_HREF}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = STYLE_HREF;
+      document.head.appendChild(link);
+    }
 
-    // Load JS
-    const script = document.createElement('script');
-    script.src = 'https://fastrr-boost-ui.pickrr.com/assets/js/channels/shopify.js';
-    script.defer = true;
-    script.onload = () => {
-      pickrrLoaded = true;
-      pickrrLoading = false;
-      resolve();
-    };
-    script.onerror = () => {
-      pickrrLoading = false;
-      reject(new Error('Failed to load Pickrr script'));
-    };
-    document.head.appendChild(script);
+    let script = document.querySelector(`script[src="${SCRIPT_SRC}"]`) as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement('script');
+      script.src = SCRIPT_SRC;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    // The script may already have executed (tag from index.html), so poll for the global
+    // rather than relying solely on the load event.
+    const started = Date.now();
+    const timer = setInterval(() => {
+      if (isReady()) {
+        clearInterval(timer);
+        resolve();
+      } else if (Date.now() - started > 15000) {
+        clearInterval(timer);
+        loadPromise = null;
+        reject(new Error('Failed to load Shiprocket checkout script'));
+      }
+    }, 100);
+
+    script.addEventListener('error', () => {
+      clearInterval(timer);
+      loadPromise = null;
+      reject(new Error('Failed to load Shiprocket checkout script'));
+    });
   });
+
+  return loadPromise;
 };

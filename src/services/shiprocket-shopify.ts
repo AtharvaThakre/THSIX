@@ -12,6 +12,7 @@ interface ShiprocketCheckoutParams {
   couponCode?: string;
   utmParams?: string;
   cartAttributes?: Record<string, any>;
+  fallbackUrl?: string;
 }
 
 /**
@@ -46,26 +47,28 @@ export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): vo
 
   const shiprocketEvents = (window as any).shiprocketCheckoutEvents;
 
-  // Validate parameters based on checkout type
-  if (params.type === 'product') {
-    if (!params.products || params.products.length === 0) {
-      throw new Error('Products array is required for product checkout');
+  // Shiprocket's buyDirect() needs products for both 'product' and 'cart' types.
+  // Without them it builds its fallback URL from undefined and throws. This is a headless
+  // store, so it can't read the Shopify AJAX cart (/cart.js) the way a theme would.
+  if (!params.products || params.products.length === 0) {
+    throw new Error('Your cart is empty.');
+  }
+
+  for (const product of params.products) {
+    if (!product.variantId || extractNumericVariantId(product.variantId).length < 8) {
+      throw new Error('Invalid variant ID for checkout');
     }
-    
-    // Validate each product has valid variant ID
-    for (const product of params.products) {
-      if (!product.variantId || product.variantId.length < 8) {
-        throw new Error('Invalid variant ID for product checkout');
-      }
-      if (!product.quantity || product.quantity < 1) {
-        throw new Error('Invalid quantity for product checkout');
-      }
+    if (!product.quantity || product.quantity < 1) {
+      throw new Error('Invalid quantity for checkout');
     }
   }
 
   // Prepare the checkout parameters
   const checkoutParams: any = {
     type: params.type,
+    // Used for the "having to wait? Click here" link. Shiprocket's default is
+    // https://<sellerDomain>/cart/..., which on this headless site is a dead SPA route.
+    fallbackUrl: params.fallbackUrl ?? window.location.href,
   };
 
   // Add products if provided (for product type)
@@ -105,13 +108,19 @@ export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): vo
 }
 
 /**
- * Start checkout from cart
- * Uses the current Shopify cart state
+ * Start checkout from the React cart.
+ * Items are passed straight to Shiprocket; the Shopify AJAX cart isn't reachable
+ * from this domain (no CORS on /cart/*.js), so there is nothing to sync first.
  */
-export function checkoutFromCart(): void {
+export function checkoutFromCart(
+  products: Array<{ variantId: string; quantity: number }>,
+  couponCode?: string
+): void {
   console.log('Initiating cart checkout...');
   initiateShiprocketCheckout({
     type: 'cart',
+    products,
+    couponCode,
   });
 }
 

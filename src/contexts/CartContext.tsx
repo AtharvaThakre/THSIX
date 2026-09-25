@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react';
 
 export interface CartItem {
   id: string;
@@ -183,9 +183,10 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   };
 
-  const clearCart = () => {
+  // Stable identity: CheckoutSuccess calls this from an effect that depends on it
+  const clearCart = useCallback(() => {
     dispatch({ type: 'CLEAR_CART' });
-  };
+  }, []);
 
   const isItemInCart = (id: string) => {
     return state.items.some(item => item.id === id);

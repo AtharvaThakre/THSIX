@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-shopify';
-import { syncCartToShopify } from '../../services/shopify-cart';
 import { loadPickrrScript } from '../../utils/pickrr-loader';
 import './Cart.css';
 
@@ -48,40 +47,22 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     setCheckoutError(null);
 
     try {
-      console.log('Starting checkout process...');
-      console.log('Cart items:', items);
+      const products = items.map(item => ({
+        variantId: item.variantId ?? '',
+        quantity: item.quantity,
+      }));
 
-      // Step 1: Load Pickrr script if not already loaded
-      console.log('Loading Shiprocket integration...');
+      if (products.some(p => !p.variantId)) {
+        throw new Error('Some items in your cart are out of date. Please remove and re-add them.');
+      }
+
       await loadPickrrScript();
-      
-      // Step 2: Wait for Shiprocket to be ready
-      console.log('Waiting for Shiprocket to be ready...');
-      const isReady = await waitForShiprocket(10000); // Increased timeout
-      
+      const isReady = await waitForShiprocket(10000);
       if (!isReady) {
         throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      console.log('Shiprocket is ready');
-
-      // Step 3: Sync React cart to Shopify cart (Shiprocket reads from Shopify cart)
-      console.log('Syncing cart to Shopify...');
-      const synced = await syncCartToShopify(items);
-      
-      if (!synced) {
-        throw new Error('Failed to prepare checkout. Please try again.');
-      }
-
-      console.log('Cart synced successfully');
-
-      // Step 4: Initiate Shiprocket checkout
-      // Shiprocket will read the cart from Shopify
-      console.log('Initiating Shiprocket checkout...');
-      checkoutFromCart();
-
-      console.log('Checkout initiated - Shiprocket modal should appear');
-
+      checkoutFromCart(products);
     } catch (error) {
       console.error('Checkout error:', error);
       setCheckoutError(
