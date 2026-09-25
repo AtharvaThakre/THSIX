@@ -18,6 +18,7 @@ interface ShopifyProduct {
   title: string;
   handle: string;
   description: string;
+  descriptionHtml: string;
   priceRange: {
     minVariantPrice: {
       amount: string;
@@ -75,6 +76,7 @@ export async function fetchShopifyProducts(limit = 50): Promise<ShopifyProduct[]
             title
             handle
             description
+            descriptionHtml
             availableForSale
             priceRange {
               minVariantPrice {
@@ -154,6 +156,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Shopi
         title
         handle
         description
+        descriptionHtml
         availableForSale
         priceRange {
           minVariantPrice {
@@ -232,6 +235,7 @@ export async function fetchShopifyProductsByCollection(
               title
               handle
               description
+              descriptionHtml
               availableForSale
               priceRange {
                 minVariantPrice {

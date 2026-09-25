@@ -84,13 +84,10 @@ export const ProductDetailPage = () => {
         
         if (product) {
           console.log('Product fetched:', product.title);
-          console.log('Description length:', product.description?.length);
+          console.log('Description HTML length:', product.descriptionHtml?.length);
           
-          // Shopify returns plain text description, convert it to HTML for display
-          const descriptionHtml = product.description ? 
-            `<p>${product.description.split('\n').join('</p><p>')}</p>` : '';
-          
-          setDescriptionHtml(descriptionHtml);
+          // Use Shopify's formatted HTML directly - preserves all formatting: bold, paragraphs, headings, etc.
+          setDescriptionHtml(product.descriptionHtml || '');
           setProductTitle(product.title);
         } else {
           console.log('Product not found for handle:', handle);
