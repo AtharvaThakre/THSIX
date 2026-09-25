@@ -85,10 +85,9 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     }).format(numPrice);
   };
 
+  // Shiprocket prices the order from Shopify (tax-inclusive) and applies its own
+  // shipping/COD rules, so the cart shows the item subtotal only.
   const subtotal = totalPrice;
-  const shipping = subtotal > 2000 ? 0 : 150; // Free shipping over ₹2000
-  const tax = subtotal * 0.18; // 18% GST
-  const total = subtotal + shipping + tax;
 
   if (!isOpen) return null;
 
@@ -175,27 +174,16 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
                 </div>
                 
                 <div className="cart-summary__row">
-                  <span>Shipping</span>
-                  <span>{shipping === 0 ? 'FREE' : formatPrice(shipping)}</span>
-                </div>
-                
-                <div className="cart-summary__row">
-                  <span>GST (18%)</span>
-                  <span>{formatPrice(tax)}</span>
-                </div>
-                
-                <div className="cart-summary__divider"></div>
-                
-                <div className="cart-summary__row cart-summary__row--total">
-                  <span>Total</span>
-                  <span>{formatPrice(total)}</span>
+                  <span>Shipping & taxes</span>
+                  <span>Calculated at checkout</span>
                 </div>
 
-                {subtotal > 0 && subtotal < 2000 && (
-                  <div className="cart-shipping-notice">
-                    Add {formatPrice(2000 - subtotal)} more for FREE shipping
-                  </div>
-                )}
+                <div className="cart-summary__divider"></div>
+
+                <div className="cart-summary__row cart-summary__row--total">
+                  <span>Total</span>
+                  <span>{formatPrice(subtotal)}</span>
+                </div>
               </div>
             </>
           )}
@@ -214,7 +202,7 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
               disabled={isCheckingOut}
             >
               <CreditCard size={18} />
-              {isCheckingOut ? 'Processing...' : `Checkout • ${formatPrice(total)}`}
+              {isCheckingOut ? 'Processing...' : `Checkout • ${formatPrice(subtotal)}`}
             </button>
           </div>
         )}
