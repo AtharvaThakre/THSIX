@@ -17,6 +17,7 @@ interface ShopifyProduct {
   id: string;
   title: string;
   handle: string;
+  vendor?: string;
   description: string;
   descriptionHtml: string;
   priceRange: {
@@ -46,7 +47,12 @@ interface ShopifyProduct {
         sku: string | null;
         image: {
           url: string;
+          altText: string | null;
         } | null;
+        selectedOptions: Array<{
+          name: string;
+          value: string;
+        }>;
       };
     }>;
   };
@@ -155,6 +161,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Shopi
         id
         title
         handle
+        vendor
         description
         descriptionHtml
         availableForSale
@@ -164,7 +171,7 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Shopi
             currencyCode
           }
         }
-        images(first: 5) {
+        images(first: 10) {
           edges {
             node {
               url
@@ -185,6 +192,11 @@ export async function fetchShopifyProductByHandle(handle: string): Promise<Shopi
               sku
               image {
                 url
+                altText
+              }
+              selectedOptions {
+                name
+                value
               }
             }
           }

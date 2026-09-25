@@ -1,19 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import { ProductReviews } from '../components/ProductReviews/ProductReviews';
-import { CartEnhancer } from '../components/CartEnhancer/CartEnhancer';
 import { SizeChart } from '../components/SizeChart/SizeChart';
 import { ProductDescription } from '../components/ProductDescription/ProductDescription';
-import { forceLoadAllVariants, refreshProductData } from '../utils/shopifyVariantLoader';
 import { fetchShopifyProductByHandle } from '../services/shopify-products';
+import { useCart } from '../contexts/CartContext';
+import { loadPickrrScript } from '../utils/pickrr-loader';
+import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-shopify';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
-// Fake review data with images
+// ─── Fake review data ────────────────────────────────────────────────────────
 const fakeReviews = [
   {
     id: 1,
@@ -33,7 +34,7 @@ const fakeReviews = [
     id: 2,
     name: "Hochanger",
     rating: 5,
-    date: "7 months ago", 
+    date: "7 months ago",
     comment: "I Got The Similar Product On They Are In My Then. They Are Very Light And Super Comfy. There's Lots Of Bounce For Energy Return As Proper Runners Like To Call It. Which Makes Upend The Pace Easier...",
     helpful: 4,
     avatar: "H",
@@ -43,318 +44,216 @@ const fakeReviews = [
   },
 ];
 
-const fakeRatingBreakdown = {
-  5: 14500,
-  4: 1430,
-  3: 244,
-  2: 103,
-  1: 44
-};
+const fakeRatingBreakdown = { 5: 14500, 4: 1430, 3: 244, 2: 103, 1: 44 };
 
+// ─── Helper ──────────────────────────────────────────────────────────────────
+function extractNumericVariantId(variantId: string): string {
+  if (variantId.includes('ProductVariant/')) {
+    return variantId.split('ProductVariant/').pop() || variantId;
+  }
+  const m = variantId.match(/\d{8,}/);
+  return m ? m[0] : variantId;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 export const ProductDetailPage = () => {
   const { handle } = useParams<{ handle: string }>();
+  const { addItem } = useCart();
+
+  // Product data
+  const [product, setProduct] = useState<any>(null);
+  const [productLoading, setProductLoading] = useState(true);
+
+  // UI state
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const [totalImages, setTotalImages] = useState(1);
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
-  const [descriptionHtml, setDescriptionHtml] = useState('');
-  const [productTitle, setProductTitle] = useState('');
-  
+  const [sizeError, setSizeError] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
+  // Derived
+  const variants: any[] = product?.variants?.edges?.map((e: any) => e.node) ?? [];
+  const images: any[] = product?.images?.edges?.map((e: any) => e.node) ?? [];
+  const selectedVariant = selectedVariantIndex !== null ? variants[selectedVariantIndex] : null;
+  const displayPrice =
+    selectedVariant?.price?.amount ??
+    product?.priceRange?.minVariantPrice?.amount ??
+    '0';
+  const currencyCode =
+    selectedVariant?.price?.currencyCode ??
+    product?.priceRange?.minVariantPrice?.currencyCode ??
+    'INR';
+
+  // Reviews
   const totalReviews = Object.values(fakeRatingBreakdown).reduce((a, b) => a + b, 0);
   const averageRating = (
-    (5 * fakeRatingBreakdown[5] + 4 * fakeRatingBreakdown[4] + 3 * fakeRatingBreakdown[3] + 2 * fakeRatingBreakdown[2] + 1 * fakeRatingBreakdown[1]) / totalReviews
+    (5 * fakeRatingBreakdown[5] + 4 * fakeRatingBreakdown[4] +
+     3 * fakeRatingBreakdown[3] + 2 * fakeRatingBreakdown[2] +
+     1 * fakeRatingBreakdown[1]) / totalReviews
   ).toFixed(1);
 
-  // Scroll to top on page load
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [handle]);
+  const formatPrice = (amount: string, currency: string) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(parseFloat(amount));
 
-  // Fetch product description from Shopify API
+  // ── Effects ─────────────────────────────────────────────────────────────────
+  useEffect(() => { window.scrollTo(0, 0); }, [handle]);
+
   useEffect(() => {
-    const fetchProductDescription = async () => {
-      if (!handle) return;
-      
-      console.log('Fetching product description for handle:', handle);
-      
-      try {
-        const product = await fetchShopifyProductByHandle(handle);
-        
-        if (product) {
-          console.log('Product fetched:', product.title);
-          console.log('Description HTML length:', product.descriptionHtml?.length);
-          
-          // Use Shopify's formatted HTML directly - preserves all formatting: bold, paragraphs, headings, etc.
-          setDescriptionHtml(product.descriptionHtml || '');
-          setProductTitle(product.title);
+    if (!handle) return;
+    setProductLoading(true);
+    setProduct(null);
+    setSelectedVariantIndex(null);
+    setSelectedImageIndex(0);
+
+    console.log('Fetching product for handle:', handle);
+    fetchShopifyProductByHandle(handle)
+      .then((p) => {
+        if (p) {
+          console.log('Product fetched:', p.title, '| variants:', p.variants?.edges?.length);
+          setProduct(p);
+          // Auto-select first available variant
+          const vs: any[] = p.variants?.edges?.map((e: any) => e.node) ?? [];
+          const firstAvailIdx = vs.findIndex((v: any) => v.availableForSale);
+          const autoIdx = firstAvailIdx >= 0 ? firstAvailIdx : vs.length > 0 ? 0 : null;
+          if (autoIdx !== null) {
+            setSelectedVariantIndex(autoIdx);
+            const numId = extractNumericVariantId(vs[autoIdx].id);
+            (window as any).selectedVariantId = numId;
+          }
         } else {
           console.log('Product not found for handle:', handle);
         }
-      } catch (error) {
-        console.error('Error fetching product description:', error);
-      }
-    };
-
-    fetchProductDescription();
+      })
+      .catch((err) => console.error('Error fetching product:', err))
+      .finally(() => setProductLoading(false));
   }, [handle]);
 
-  // Listen for size chart open event
   useEffect(() => {
-    const handleOpenSizeChart = () => {
-      setIsSizeChartOpen(true);
-    };
-
-    window.addEventListener('openSizeChart', handleOpenSizeChart);
-
-    return () => {
-      window.removeEventListener('openSizeChart', handleOpenSizeChart);
-    };
+    const handler = () => setIsSizeChartOpen(true);
+    window.addEventListener('openSizeChart', handler);
+    return () => window.removeEventListener('openSizeChart', handler);
   }, []);
 
-  // Force load all product variants
+  // Keyboard navigation for images
   useEffect(() => {
-    const ensureAllVariantsLoaded = async () => {
-      if (handle) {
-        // Try to refresh product data first
-        await refreshProductData(handle);
-      }
-      
-      // Force load all variants
-      const cleanup = forceLoadAllVariants();
-      
-      // Clean up after a delay
-      setTimeout(cleanup, 10000);
-    };
-
-    ensureAllVariantsLoaded();
-  }, [handle]);
-
-  // Track variant selection globally
-  useEffect(() => {
-    const trackVariantSelection = () => {
-      // Listen for clicks on variant buttons
-      const handleVariantClick = (e: Event) => {
-        const target = e.target as HTMLElement;
-        
-        // Check if it's a variant button or radio
-        if (target.matches('input[type="radio"][name*="variant"], button[data-variant-id], .product-detail__size-btn')) {
-          // Small delay to let Shopify update its state
-          setTimeout(() => {
-            // Try multiple methods to get the variant ID
-            let variantId = target.getAttribute('value') || 
-                           target.getAttribute('data-variant-id') ||
-                           (target as HTMLInputElement).value;
-            
-            // If not found on target, try to get from shopify-store
-            if (!variantId || variantId.length < 8) {
-              try {
-                const shopifyStore = document.querySelector('shopify-store');
-                if (shopifyStore) {
-                  const productData = (shopifyStore as any).product || 
-                                    (shopifyStore as any).__product ||
-                                    (shopifyStore as any).state?.product;
-                  
-                  if (productData?.selectedOrFirstAvailableVariant?.id) {
-                    const id = productData.selectedOrFirstAvailableVariant.id;
-                    variantId = typeof id === 'number' ? id.toString() : id;
-                  } else if (productData?.selectedVariant?.id) {
-                    const id = productData.selectedVariant.id;
-                    variantId = typeof id === 'number' ? id.toString() : id;
-                  }
-                }
-              } catch (e) {
-                console.warn('Could not get variant from shopify-store during click', e);
-              }
-            }
-            
-            // Try product-form
-            if (!variantId || variantId.length < 8) {
-              const form = document.querySelector('product-form form') as HTMLFormElement;
-              const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-              if (variantInput?.value && variantInput.value.length >= 8) {
-                variantId = variantInput.value;
-              }
-            }
-            
-            if (variantId && variantId.length >= 8) {
-              (window as any).selectedVariantId = variantId;
-              console.log('Variant selected (tracked):', variantId);
-            } else {
-              console.warn('Could not determine variant ID, got:', variantId);
-            }
-          }, 200); // Increased delay
-        }
-      };
-      
-      document.addEventListener('click', handleVariantClick, true);
-      document.addEventListener('change', handleVariantClick, true);
-      
-      return () => {
-        document.removeEventListener('click', handleVariantClick, true);
-        document.removeEventListener('change', handleVariantClick, true);
-      };
-    };
-    
-    const cleanup = trackVariantSelection();
-    return cleanup;
-  }, []);
-
-  // Initialize gallery and sync thumbnails with main image
-  useEffect(() => {
-    const updateMainImageFromThumbnail = (thumbnail: HTMLElement, index?: number) => {
-      let sourceImg = thumbnail.querySelector('img') as HTMLImageElement | null;
-      if (!sourceImg) {
-        const media = thumbnail.querySelector('shopify-media');
-        if (media) {
-          sourceImg = (media.querySelector('img') || media.shadowRoot?.querySelector('img')) as HTMLImageElement | null;
-        }
-      }
-
-      const rawSrc = sourceImg?.currentSrc || sourceImg?.src || sourceImg?.getAttribute('src');
-      if (!rawSrc) return;
-
-      // Active state styling
-      document.querySelectorAll('.product-detail__thumbnail').forEach(t => t.classList.remove('product-detail__thumbnail--active'));
-      thumbnail.classList.add('product-detail__thumbnail--active');
-
-      // Main image container & img element
-      const mainMedia = document.querySelector('#main-shopify-media');
-      if (!mainMedia) return;
-
-      let mainImg = mainMedia.querySelector('img') as HTMLImageElement | null;
-      if (!mainImg && mainMedia.shadowRoot) {
-        mainImg = mainMedia.shadowRoot.querySelector('img') as HTMLImageElement | null;
-      }
-
-      if (mainImg) {
-        // Generate high resolution image URL
-        let fullSizeUrl = rawSrc
-          .replace(/([?&])(width|height|w|h)=\d+/gi, '')
-          .replace(/\?&/g, '?')
-          .replace(/[\?&]$/, '');
-
-        fullSizeUrl += (fullSizeUrl.includes('?') ? '&' : '?') + 'width=800&height=800';
-
-        // Clear srcset so browser is forced to render the new src
-        mainImg.removeAttribute('srcset');
-        mainImg.srcset = '';
-        mainImg.src = fullSizeUrl;
-        mainImg.style.opacity = '1';
-      }
-
-      if (typeof index === 'number') {
-        setSelectedImageIndex(index);
-      }
-
-      thumbnail.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center'
-      });
-    };
-
-    // Global event delegation for thumbnail clicks
-    const handleGlobalClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const thumbnail = target.closest('.product-detail__thumbnail') as HTMLElement;
-      if (thumbnail) {
-        const thumbnails = Array.from(document.querySelectorAll<HTMLElement>('.product-detail__thumbnail'));
-        const idx = thumbnails.indexOf(thumbnail);
-        updateMainImageFromThumbnail(thumbnail, idx >= 0 ? idx : undefined);
-      }
-    };
-
-    document.addEventListener('click', handleGlobalClick);
-
-    // Initial check for total images and first active thumbnail
-    const checkInterval = setInterval(() => {
-      const thumbnails = document.querySelectorAll<HTMLElement>('.product-detail__thumbnail');
-      if (thumbnails.length > 0) {
-        setTotalImages(thumbnails.length);
-        if (!document.querySelector('.product-detail__thumbnail--active')) {
-          thumbnails[0].classList.add('product-detail__thumbnail--active');
-        }
-      }
-    }, 300);
-
-    // Keyboard navigation
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const thumbnails = document.querySelectorAll<HTMLElement>('.product-detail__thumbnail');
-      if (thumbnails.length === 0) return;
-
+    const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowLeft' && selectedImageIndex > 0) {
-        const prevThumbnail = thumbnails[selectedImageIndex - 1];
-        if (prevThumbnail) {
-          updateMainImageFromThumbnail(prevThumbnail, selectedImageIndex - 1);
-        }
-      } else if (e.key === 'ArrowRight' && selectedImageIndex < totalImages - 1) {
-        const nextThumbnail = thumbnails[selectedImageIndex + 1];
-        if (nextThumbnail) {
-          updateMainImageFromThumbnail(nextThumbnail, selectedImageIndex + 1);
-        }
+        setSelectedImageIndex(prev => prev - 1);
+      } else if (e.key === 'ArrowRight' && selectedImageIndex < images.length - 1) {
+        setSelectedImageIndex(prev => prev + 1);
       }
     };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [selectedImageIndex, images.length]);
 
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Touch swipe handler
-    const mainImageDisplay = document.getElementById('main-image-display');
-    if (mainImageDisplay) {
-      const handleTouchStart = (e: TouchEvent) => {
-        setTouchStart(e.touches[0].clientX);
-      };
-
-      const handleTouchMove = (e: TouchEvent) => {
-        setTouchEnd(e.touches[0].clientX);
-      };
-
-      const handleTouchEnd = () => {
-        if (!touchStart || !touchEnd) return;
-        
-        const distance = touchStart - touchEnd;
-        const thumbnails = document.querySelectorAll<HTMLElement>('.product-detail__thumbnail');
-
-        if (distance > 50 && selectedImageIndex < totalImages - 1) {
-          const nextThumbnail = thumbnails[selectedImageIndex + 1];
-          if (nextThumbnail) updateMainImageFromThumbnail(nextThumbnail, selectedImageIndex + 1);
-        } else if (distance < -50 && selectedImageIndex > 0) {
-          const prevThumbnail = thumbnails[selectedImageIndex - 1];
-          if (prevThumbnail) updateMainImageFromThumbnail(prevThumbnail, selectedImageIndex - 1);
-        }
-      };
-
-      mainImageDisplay.addEventListener('touchstart', handleTouchStart, false);
-      mainImageDisplay.addEventListener('touchmove', handleTouchMove, false);
-      mainImageDisplay.addEventListener('touchend', handleTouchEnd, false);
-
-      return () => {
-        document.removeEventListener('click', handleGlobalClick);
-        document.removeEventListener('keydown', handleKeyDown);
-        mainImageDisplay.removeEventListener('touchstart', handleTouchStart);
-        mainImageDisplay.removeEventListener('touchmove', handleTouchMove);
-        mainImageDisplay.removeEventListener('touchend', handleTouchEnd);
-        clearInterval(checkInterval);
-      };
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const handleVariantSelect = useCallback((index: number) => {
+    if (!variants[index]?.availableForSale) return;
+    setSelectedVariantIndex(index);
+    setSizeError(false);
+    const variant = variants[index];
+    const numId = extractNumericVariantId(variant.id);
+    (window as any).selectedVariantId = numId;
+    console.log('[ProductDetailPage] Variant selected:', numId, variant.title);
+    // Switch main image to variant image if it has one
+    if (variant.image?.url) {
+      const imgIdx = images.findIndex((img: any) => img.url === variant.image.url);
+      if (imgIdx >= 0) setSelectedImageIndex(imgIdx);
     }
+  }, [variants, images]);
 
-    return () => {
-      document.removeEventListener('click', handleGlobalClick);
-      document.removeEventListener('keydown', handleKeyDown);
-      clearInterval(checkInterval);
-    };
-  }, [selectedImageIndex, totalImages, touchStart, touchEnd]);
+  const handleAddToCart = useCallback(() => {
+    if (!selectedVariant) { setSizeError(true); return; }
+    const numId = extractNumericVariantId(selectedVariant.id);
+    const img = selectedVariant.image?.url ?? images[selectedImageIndex]?.url ?? '';
+    addItem({
+      id: `${handle ?? ''}-${numId}`,
+      title: product?.title ?? '',
+      price: parseFloat(selectedVariant.price.amount),
+      image: img,
+      variantId: numId,
+      variantTitle: selectedVariant.title,
+      handle: handle ?? '',
+    });
+    setIsAddingToCart(true);
+    setTimeout(() => setIsAddingToCart(false), 2000);
+  }, [selectedVariant, addItem, handle, product, images, selectedImageIndex]);
+
+  const handleBuyNow = useCallback(async () => {
+    if (!selectedVariant) { setSizeError(true); return; }
+    if (isBuyingNow) return;
+    const numId = extractNumericVariantId(selectedVariant.id);
+    (window as any).selectedVariantId = numId;
+    console.log('[ProductDetailPage] Buy Now:', numId, selectedVariant.title);
+    setIsBuyingNow(true);
+    try {
+      await loadPickrrScript();
+      const isReady = await waitForShiprocket(10000);
+      if (!isReady) throw new Error('Checkout service is unavailable. Please refresh and try again.');
+      checkoutWithProducts([{ variantId: numId, quantity: 1 }]);
+      setTimeout(() => setIsBuyingNow(false), 3000);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to initiate checkout. Please try again.');
+      setIsBuyingNow(false);
+    }
+  }, [selectedVariant, isBuyingNow]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (!touchStart || !touchEnd) return;
+    const dist = touchStart - touchEnd;
+    if (dist > 50 && selectedImageIndex < images.length - 1) setSelectedImageIndex(i => i + 1);
+    else if (dist < -50 && selectedImageIndex > 0) setSelectedImageIndex(i => i - 1);
+    setTouchStart(null);
+    setTouchEnd(null);
+  }, [touchStart, touchEnd, selectedImageIndex, images.length]);
+
+  // Main display image: prefer variant image, then selected thumbnail
+  const mainImageUrl =
+    (selectedVariant?.image?.url) ??
+    images[selectedImageIndex]?.url ??
+    '';
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+  if (productLoading) {
+    return (
+      <div className="product-detail">
+        <AnnouncementBar />
+        <Header />
+        <main className="product-detail__main">
+          <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="product-detail__loading-spinner" />
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="product-detail">
+        <AnnouncementBar />
+        <Header />
+        <main className="product-detail__main" style={{ padding: '4rem 24px', textAlign: 'center' }}>
+          <h2>Product not found</h2>
+          <Link to="/shop" style={{ color: '#111', textDecoration: 'underline' }}>← Back to shop</Link>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="product-detail">
-      <CartEnhancer />
       <AnnouncementBar />
       <Header />
 
-      <shopify-cart id="product-cart" />
-
       <main className="product-detail__main">
+        {/* Breadcrumb */}
         <div className="product-detail__breadcrumb">
           <div className="product-detail__container">
             <Link to="/" className="product-detail__back-link">
@@ -368,191 +267,229 @@ export const ProductDetailPage = () => {
           </div>
         </div>
 
-        <shopify-context type="product" handle={handle || 'default-product'}>
-          <template
-            dangerouslySetInnerHTML={{
-              __html: `
-                <div class="product-detail__container">
-                  <div class="product-detail__layout">
-                    <!-- Left side: Sticky Images -->
-                    <div class="product-detail__images">
-                      <div class="product-detail__thumbnails-container">
-                        <div class="product-detail__thumbnails" id="thumbnails-container">
-                          <shopify-list-context 
-                            type="image" 
-                            query="product.images"
-                            first="10"
-                          >
-                            <template>
-                              <div class="product-detail__thumbnail" role="button" tabindex="0" aria-label="Product image">
-                                <shopify-media
-                                  width="80"
-                                  height="80"
-                                  query="image"
-                                  layout="constrained"
-                                ></shopify-media>
-                              </div>
-                            </template>
-                          </shopify-list-context>
-                        </div>
-                      </div>
-                      
-                      <div class="product-detail__main-image" id="main-image-display">
-                        <shopify-media
-                          width="600"
-                          height="600"
-                          query="product.featuredImage"
-                          layout="constrained"
-                          id="main-shopify-media"
-                        ></shopify-media>
-                      </div>
+        {/* Product Layout */}
+        <div className="product-detail__container">
+          <div className="product-detail__layout">
+
+            {/* ── Left: Images ── */}
+            <div className="product-detail__images">
+              <div className="product-detail__thumbnails-container">
+                <div className="product-detail__thumbnails" id="thumbnails-container">
+                  {images.map((img: any, idx: number) => (
+                    <div
+                      key={idx}
+                      className={`product-detail__thumbnail${idx === selectedImageIndex ? ' product-detail__thumbnail--active' : ''}`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={img.altText ?? `Product image ${idx + 1}`}
+                      onClick={() => setSelectedImageIndex(idx)}
+                      onKeyDown={(e) => e.key === 'Enter' && setSelectedImageIndex(idx)}
+                    >
+                      <img
+                        src={img.url}
+                        alt={img.altText ?? product.title}
+                        width={80}
+                        height={80}
+                        loading="lazy"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
                     </div>
+                  ))}
+                </div>
+              </div>
 
-                    <!-- Right side: Scrollable Info -->
-                    <div class="product-detail__info">
-                      <div class="product-detail__header">
-                        <span class="product-detail__brand">
-                          <shopify-data query="product.vendor"></shopify-data>
-                        </span>
-                        <h1 class="product-detail__title">
-                          <shopify-data query="product.title"></shopify-data>
-                        </h1>
-                        
-                        <div class="product-detail__rating">
-                          <div class="product-detail__stars">
-                            <svg class="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                            <svg class="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                            <svg class="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                            <svg class="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                            <svg class="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
-                          </div>
-                          <span class="product-detail__rating-text">${averageRating} · ${totalReviews} reviews</span>
-                        </div>
+              <div
+                className="product-detail__main-image"
+                id="main-image-display"
+                onTouchStart={(e) => setTouchStart(e.touches[0].clientX)}
+                onTouchMove={(e) => setTouchEnd(e.touches[0].clientX)}
+                onTouchEnd={handleTouchEnd}
+              >
+                {mainImageUrl ? (
+                  <img
+                    id="main-shopify-media"
+                    src={mainImageUrl}
+                    alt={product.title}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '100%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>
+                    No image
+                  </div>
+                )}
+              </div>
+            </div>
 
-                        <div class="product-detail__price">
-                          <shopify-money
-                            query="product.selectedOrFirstAvailableVariant.price"
-                            format="money_with_currency"
-                          ></shopify-money>
-                        </div>
-                      </div>
+            {/* ── Right: Product Info ── */}
+            <div className="product-detail__info">
+              <div className="product-detail__header">
+                {product.vendor && (
+                  <span className="product-detail__brand">{product.vendor}</span>
+                )}
+                <h1 className="product-detail__title">{product.title}</h1>
 
-                      <div class="product-detail__variants">
-                        <div class="product-detail__size-selector">
-                          <div class="product-detail__size-header">
-                            <label class="product-detail__size-label">SELECT YOUR SIZE</label>
-                            <button 
-                              class="product-detail__size-chart-btn" 
-                              onclick="window.dispatchEvent(new CustomEvent('openSizeChart'))"
-                              type="button"
-                            >
-                              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z"/>
-                              </svg>
-                              Size chart
-                            </button>
-                          </div>
-                          <shopify-variant-selector 
-                            include-unavailable="true"
-                            show-unavailable="true"
-                            show-sold-out="true"
-                            show-price="false"
-                            auto-select="first-available"
-                            variant-style="button"
-                            size-first="true"
-                          ></shopify-variant-selector>
-                        </div>
-                      </div>
+                <div className="product-detail__rating">
+                  <div className="product-detail__stars">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <svg key={s} className="product-detail__star product-detail__star--filled" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" />
+                      </svg>
+                    ))}
+                  </div>
+                  <span className="product-detail__rating-text">{averageRating} · {totalReviews.toLocaleString()} reviews</span>
+                </div>
 
-                      <div class="product-detail__actions">
-                        <button
-                          class="product-detail__add-btn"
-                          onclick="document.getElementById('product-cart').addLine(event);"
-                          shopify-attr--disabled="!product.selectedOrFirstAvailableVariant.availableForSale"
-                        >
-                          Add to Cart
-                        </button>
-                        <button
-                          class="product-detail__buy-btn"
-                          onclick="window.handleBuyNow ? window.handleBuyNow(event) : document.querySelector('shopify-store').buyNow(event)"
-                          shopify-attr--disabled="!product.selectedOrFirstAvailableVariant.availableForSale"
-                        >
-                          Buy Now
-                        </button>
-                      </div>
+                <div className="product-detail__price">
+                  {formatPrice(displayPrice, currencyCode)}
+                </div>
+              </div>
 
-                      <div class="product-detail__section">
-                        <h3 class="product-detail__section-title">Delivery and Authentication</h3>
-                        <div class="product-detail__info-grid">
-                          <div class="product-detail__info-item">
-                            <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                            <div class="product-detail__info-content">
-                              <span class="product-detail__info-label">Fulfilled by THSIX</span>
-                              <p class="product-detail__info-text">Sourced verified seller</p>
-                            </div>
-                          </div>
-                          <div class="product-detail__info-item">
-                            <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                            <div class="product-detail__info-content">
-                              <span class="product-detail__info-label">THSIX verified Product</span>
-                              <p class="product-detail__info-text">Hand picked</p>
-                            </div>
-                          </div>
-                          
-                        </div>
-                      </div>
+              {/* Size Selector */}
+              <div className="product-detail__variants">
+                <div className="product-detail__size-selector">
+                  <div className="product-detail__size-header">
+                    <label className="product-detail__size-label">SELECT YOUR SIZE</label>
+                    <button
+                      className="product-detail__size-chart-btn"
+                      onClick={() => setIsSizeChartOpen(true)}
+                      type="button"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />
+                      </svg>
+                      Size chart
+                    </button>
+                  </div>
 
-                      <div class="product-detail__section">
-                        <h3 class="product-detail__section-title">Shop with Confidence</h3>
-                        <div class="product-detail__info-grid">
-                          <div class="product-detail__info-item">
-                            <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-                            <div class="product-detail__info-content">
-                              <span class="product-detail__info-label">Cash on delivery available</span>
-                            </div>
-                          </div>
-                          <div class="product-detail__info-item">
-                            <a href="https://wa.me/919022771696?text=Hi%20THSIX!" target="_blank" rel="noopener noreferrer" className="product-detail__whatsapp-link">
-                              <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
-                              <div class="product-detail__info-content">
-                                <span class="product-detail__info-label">Priority support via WhatsApp</span>
-                              </div>
-                            </a>
-                          </div>
-                          
-                          <div class="product-detail__info-item">
-                            <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-                            <div class="product-detail__info-content">
-                              <span class="product-detail__info-label">Insured Delivery promise</span>
-                            </div>
-                          </div>
-                          <div class="product-detail__info-item">
-                            <svg class="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                            <div class="product-detail__info-content">
-                              <span class="product-detail__info-label">Easy Exchange policy</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                  <div className="product-detail__size-options">
+                    {variants.map((variant: any, idx: number) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        className={[
+                          'product-detail__size-btn',
+                          selectedVariantIndex === idx ? 'product-detail__size-btn--selected' : '',
+                          !variant.availableForSale ? 'product-detail__size-btn--unavailable' : '',
+                        ].filter(Boolean).join(' ')}
+                        onClick={() => handleVariantSelect(idx)}
+                        disabled={!variant.availableForSale}
+                        aria-pressed={selectedVariantIndex === idx}
+                        aria-label={`Size ${variant.title}${!variant.availableForSale ? ' (sold out)' : ''}`}
+                      >
+                        {variant.title}
+                      </button>
+                    ))}
+                  </div>
+
+                  {sizeError && (
+                    <p className="product-detail__size-error">
+                      Please select a size to continue.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="product-detail__actions">
+                <button
+                  className="product-detail__add-btn"
+                  data-enhanced="true"
+                  type="button"
+                  onClick={handleAddToCart}
+                >
+                  {isAddingToCart ? 'Added ✓' : 'Add to Cart'}
+                </button>
+                <button
+                  className="product-detail__buy-btn"
+                  data-enhanced="true"
+                  type="button"
+                  onClick={handleBuyNow}
+                  disabled={isBuyingNow}
+                >
+                  {isBuyingNow ? 'Loading...' : 'Buy Now'}
+                </button>
+              </div>
+
+              {/* Delivery & Authentication */}
+              <div className="product-detail__section">
+                <h3 className="product-detail__section-title">Delivery and Authentication</h3>
+                <div className="product-detail__info-grid">
+                  <div className="product-detail__info-item">
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">Fulfilled by THSIX</span>
+                      <p className="product-detail__info-text">Sourced verified seller</p>
+                    </div>
+                  </div>
+                  <div className="product-detail__info-item">
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">THSIX verified Product</span>
+                      <p className="product-detail__info-text">Hand picked</p>
                     </div>
                   </div>
                 </div>
-              `,
-            }}
-          />
-        </shopify-context>
+              </div>
 
-        {/* Product Description - Rendered separately to preserve HTML formatting */}
-        <div className="product-detail__container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px' }}>
-          <div className="product-detail__description-section">
-            <h2 className="product-detail__description-heading">Product Description</h2>
-            <div className="product-detail__description-wrapper">
-              <ProductDescription html={descriptionHtml} />
+              {/* Shop with Confidence */}
+              <div className="product-detail__section">
+                <h3 className="product-detail__section-title">Shop with Confidence</h3>
+                <div className="product-detail__info-grid">
+                  <div className="product-detail__info-item">
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">Cash on delivery available</span>
+                    </div>
+                  </div>
+                  <div className="product-detail__info-item">
+                    <a href="https://wa.me/919022771696?text=Hi%20THSIX!" target="_blank" rel="noopener noreferrer" className="product-detail__whatsapp-link">
+                      <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                      </svg>
+                      <div className="product-detail__info-content">
+                        <span className="product-detail__info-label">Priority support via WhatsApp</span>
+                      </div>
+                    </a>
+                  </div>
+                  <div className="product-detail__info-item">
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">Insured Delivery promise</span>
+                    </div>
+                  </div>
+                  <div className="product-detail__info-item">
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">Easy Exchange policy</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Reviews Section */}
+        {/* Product Description */}
+        <div className="product-detail__container" style={{ maxWidth: '1400px', margin: '0 auto', padding: '0 24px' }}>
+          <div className="product-detail__description-section">
+            <h2 className="product-detail__description-heading">Product Description</h2>
+            <div className="product-detail__description-wrapper">
+              <ProductDescription html={product.descriptionHtml ?? ''} />
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews */}
         <div className="product-detail__container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
           <ProductReviews
             reviews={fakeReviews}
@@ -560,18 +497,12 @@ export const ProductDetailPage = () => {
             totalReviews={totalReviews}
             ratingBreakdown={fakeRatingBreakdown}
           />
-
-          {/* FAQ Section */}
           <Faqs01 />
         </div>
       </main>
 
       <Footer />
-      
-      {/* Size Chart Modal */}
       <SizeChart isOpen={isSizeChartOpen} onClose={() => setIsSizeChartOpen(false)} />
     </div>
   );
 };
-
-

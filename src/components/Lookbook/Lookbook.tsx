@@ -102,10 +102,6 @@ export const Lookbook = () => {
               REAL PEOPLE. REAL STYLE.
             </p>
           </div>
-          <a href="/lookbook" className="lookbook__view-link" ref={linkRef}>
-            <span>VIEW LOOKBOOK</span>
-            <ArrowRight size={13} strokeWidth={1.5} className="lookbook-link-arrow" />
-          </a>
         </div>
 
         <div className="lookbook__grid" ref={gridRef}>

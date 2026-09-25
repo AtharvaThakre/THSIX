@@ -47,33 +47,6 @@
 }
 
 /* ---- View Lookbook Link ---- */
-.lookbook__view-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.18em;
-  color: var(--black);
-  text-transform: uppercase;
-  text-decoration: none;
-  white-space: nowrap;
-  padding-bottom: 2px;
-  transition: opacity 0.3s ease;
-}
-
-.lookbook__view-link:hover {
-  opacity: 0.65;
-}
-
-.lookbook__view-link:hover .lookbook-link-arrow {
-  transform: translateX(4px);
-}
-
-.lookbook-link-arrow {
-  transition: transform 0.35s ease;
-}
-
 /* ---- Grid ---- */
 .lookbook__grid {
   display: grid;

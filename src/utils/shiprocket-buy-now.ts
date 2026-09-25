@@ -1,323 +1,442 @@
 /**
  * Shiprocket Buy Now Handler
  * Intercepts "Buy Now" clicks and routes them through Shiprocket instead of Shopify
+ *
+ * FIX (2026-09-25): The root cause of the "No selected variant found" error was that
+ * the handler polled `shopify-store.product` — but in Shopify Web Components, the
+ * per-product-page selected variant lives on `shopify-context[type="product"]`, not
+ * on the global shopify-store element.
+ *
+ * Three new detection mechanisms added:
+ *  1. variantchange custom event (Shopify Web Components fire this on every size change)
+ *  2. Click listener on variant-selector area + delayed shopify-context read
+ *  3. MutationObserver on shopify-context[type="product"] elements
  */
 
 import { loadPickrrScript } from './pickrr-loader';
-import { waitForShiprocket, checkoutFromCart } from '../services/shiprocket-shopify';
+import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-shopify';
 
 /**
- * Handle Buy Now button click
- * Prevents default Shopify behavior and uses Shiprocket instead
+ * Extract numeric variant ID from various Shopify variant ID formats
+ */
+function extractNumericVariantId(variantId: string | number): string {
+  if (typeof variantId === 'number') {
+    return variantId.toString();
+  }
+  
+  // Remove GID prefix: "gid://shopify/ProductVariant/123456" -> "123456"
+  if (variantId.includes('ProductVariant/')) {
+    return variantId.split('ProductVariant/').pop() || variantId;
+  }
+  
+  // Extract numeric part (variant IDs are 8+ digits)
+  const numericMatch = variantId.match(/\d{8,}/);
+  return numericMatch ? numericMatch[0] : variantId;
+}
+
+/**
+ * Read selected variant from shopify-context[type="product"].
+ * This is the authoritative source when using Shopify Web Components.
+ */
+function getVariantFromShopifyContext(): string | null {
+  try {
+    const contexts = Array.from(document.querySelectorAll('shopify-context[type="product"]'));
+    for (let i = 0; i < contexts.length; i++) {
+      const el = contexts[i] as any;
+      const productData =
+        el.product || el.__product || el._product ||
+        el.state?.product || el.context?.product;
+
+      if (!productData) continue;
+
+      const variant =
+        productData.selectedOrFirstAvailableVariant ||
+        productData.selectedVariant ||
+        productData.currentVariant;
+
+      if (variant?.id) {
+        const numericId = extractNumericVariantId(variant.id);
+        console.log('[ShiprocketBuyNow] Variant from shopify-context:', numericId, variant.title);
+        return numericId;
+      }
+    }
+  } catch (e) {
+    console.warn('[ShiprocketBuyNow] Could not read shopify-context:', e);
+  }
+  return null;
+}
+
+/**
+ * Get selected variant ID using all available methods in priority order.
+ */
+function getSelectedVariantId(): string | null {
+  console.log('[ShiprocketBuyNow] === Resolving selected variant ID ===');
+
+  // Priority 1: Global tracker (updated by event listeners)
+  const tracked = (window as any).selectedVariantId;
+  if (tracked && String(tracked).length >= 8) {
+    console.log('[ShiprocketBuyNow] P1 Global tracker:', tracked);
+    return extractNumericVariantId(tracked);
+  }
+
+  // Priority 2: shopify-context (NEW — correct source for Web Components)
+  const fromContext = getVariantFromShopifyContext();
+  if (fromContext && fromContext.length >= 8) {
+    console.log('[ShiprocketBuyNow] P2 shopify-context:', fromContext);
+    return fromContext;
+  }
+
+  // Priority 3: Checked radio button + variant lookup
+  try {
+    const checkedRadio = document.querySelector(
+      'input[type="radio"][name*="option-"]:checked'
+    ) as HTMLInputElement | null;
+
+    if (checkedRadio) {
+      const selectedSize = checkedRadio.value;
+      console.log('[ShiprocketBuyNow] P3 Checked radio size:', selectedSize);
+
+      const shopifyStore = document.querySelector('shopify-store') as any;
+      const productData =
+        shopifyStore?.product || shopifyStore?.__product || shopifyStore?.state?.product;
+
+      if (productData?.variants) {
+        const match = productData.variants.find((v: any) =>
+          v.options?.some((o: any) => o.value === selectedSize) ||
+          v.selectedOptions?.some((o: any) => o.value === selectedSize) ||
+          v.title?.includes(selectedSize)
+        );
+        if (match?.id) {
+          const id = extractNumericVariantId(match.id);
+          console.log('[ShiprocketBuyNow] P3 Found variant for size', selectedSize, ':', id);
+          return id;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[ShiprocketBuyNow] Could not resolve variant from radio:', e);
+  }
+
+  // Priority 4: shopify-store selectedOrFirstAvailableVariant
+  try {
+    const shopifyStore = document.querySelector('shopify-store') as any;
+    if (shopifyStore) {
+      const productData =
+        shopifyStore.product || shopifyStore.__product || shopifyStore.state?.product;
+      const variant =
+        productData?.selectedOrFirstAvailableVariant || productData?.selectedVariant;
+      if (variant?.id) {
+        console.log('[ShiprocketBuyNow] P4 shopify-store:', variant.id);
+        return extractNumericVariantId(variant.id);
+      }
+    }
+  } catch (e) {
+    console.warn('[ShiprocketBuyNow] Could not read shopify-store:', e);
+  }
+
+  // Priority 5: URL ?variant= param
+  const urlVariant = new URLSearchParams(window.location.search).get('variant');
+  if (urlVariant) {
+    console.log('[ShiprocketBuyNow] P5 URL param:', urlVariant);
+    return extractNumericVariantId(urlVariant);
+  }
+
+  // Priority 6: product-form hidden input
+  try {
+    const form = document.querySelector('product-form form') as HTMLFormElement | null;
+    const input = form?.querySelector('input[name="id"]') as HTMLInputElement | null;
+    if (input?.value && input.value.length >= 8) {
+      console.log('[ShiprocketBuyNow] P6 form input:', input.value);
+      return extractNumericVariantId(input.value);
+    }
+  } catch (e) {
+    console.warn('[ShiprocketBuyNow] Could not read form input:', e);
+  }
+
+  console.log('[ShiprocketBuyNow] No variant ID found from any source');
+  return null;
+}
+
+/**
+ * Handle Buy Now button click.
+ * Uses Shiprocket direct product checkout (type: 'product').
  */
 export async function handleBuyNow(event: Event): Promise<void> {
   event.preventDefault();
   event.stopPropagation();
 
+  const buyButton = event.target as HTMLButtonElement;
+  const originalText = buyButton.textContent;
+
+  // Prevent duplicate requests
+  if (buyButton.disabled) return;
+
   try {
-    console.log('Buy Now clicked - using Shiprocket checkout');
+    console.log('[ShiprocketBuyNow] Buy Now clicked - Shiprocket direct checkout');
 
-    // Step 1: Get the selected variant ID from multiple possible sources
-    let variantId = '';
-    
-    // First check if we tracked it globally
-    if ((window as any).selectedVariantId) {
-      const tracked = (window as any).selectedVariantId;
-      if (tracked && tracked.length >= 8) {
-        variantId = tracked;
-        console.log('Variant ID from global tracker:', variantId);
-      }
-    }
-    
-    // Method 1: Try shopify-store (most reliable)
-    if (!variantId || variantId.length < 8) {
-      try {
-        const shopifyStore = document.querySelector('shopify-store');
-        if (shopifyStore) {
-          // Try multiple ways to access the product data
-          const productData = (shopifyStore as any).product || 
-                            (shopifyStore as any).__product ||
-                            (shopifyStore as any).state?.product;
-          
-          if (productData?.selectedOrFirstAvailableVariant?.id) {
-            const id = productData.selectedOrFirstAvailableVariant.id;
-            variantId = typeof id === 'number' ? id.toString() : id;
-            console.log('Variant ID from shopify-store:', variantId);
-          } else if (productData?.selectedVariant?.id) {
-            const id = productData.selectedVariant.id;
-            variantId = typeof id === 'number' ? id.toString() : id;
-            console.log('Variant ID from shopify-store (selectedVariant):', variantId);
-          }
-        }
-      } catch (e) {
-        console.warn('Could not get variant from shopify-store', e);
-      }
-    }
-    
-    // Method 2: Try to get from product-form input
-    if (!variantId || variantId.length < 8) {
-      const form = document.querySelector('product-form form') as HTMLFormElement;
-      const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-      if (variantInput?.value && variantInput.value.length >= 8) {
-        variantId = variantInput.value;
-        console.log('Variant ID from form input:', variantId);
-      }
-    }
-    
-    // Method 2: Try to get from URL params (when variant is in URL)
+    // Step 1: Resolve selected variant
+    const variantId = getSelectedVariantId();
+
+    console.log('[ShiprocketBuyNow] Resolved variant ID:', variantId);
+
     if (!variantId) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlVariant = urlParams.get('variant');
-      if (urlVariant) {
-        variantId = urlVariant;
-        console.log('Variant ID from URL:', variantId);
-      }
-    }
-    
-    // Method 3: Try to get from Shopify context (product data)
-    if (!variantId) {
-      try {
-        const shopifyContext = document.querySelector('shopify-context[type="product"]');
-        if (shopifyContext) {
-          // Look for selected variant in shadow DOM or attributes
-          const shadowRoot = shopifyContext.shadowRoot;
-          if (shadowRoot) {
-            const variantEl = shadowRoot.querySelector('[data-variant-id]');
-            if (variantEl) {
-              variantId = variantEl.getAttribute('data-variant-id') || '';
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Could not get variant from Shopify context', e);
-      }
-    }
-    
-    // Method 4: Try to get from shopify-variant-selector
-    if (!variantId) {
-      const variantSelector = document.querySelector('shopify-variant-selector');
-      if (variantSelector) {
-        // Check shadow root for selected option
-        const shadowRoot = variantSelector.shadowRoot;
-        if (shadowRoot) {
-          const selected = shadowRoot.querySelector('input[type="radio"]:checked, button[aria-checked="true"]') as HTMLElement;
-          if (selected) {
-            variantId = selected.getAttribute('value') || 
-                       selected.getAttribute('data-variant-id') || 
-                       selected.getAttribute('data-value') || '';
-            console.log('Variant ID from variant selector:', variantId);
-          }
-        }
-        
-        // Also check regular DOM
-        if (!variantId) {
-          const selected = variantSelector.querySelector('input[type="radio"]:checked, button[aria-checked="true"]') as HTMLElement;
-          if (selected) {
-            variantId = selected.getAttribute('value') || 
-                       selected.getAttribute('data-variant-id') || 
-                       selected.getAttribute('data-value') || '';
-            console.log('Variant ID from variant selector (DOM):', variantId);
-          }
-        }
-      }
-    }
-    
-    // Method 5: Get the first available variant as fallback
-    if (!variantId || variantId.length < 8) {
-      try {
-        const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
-        if (productDataEl) {
-          const productData = JSON.parse(productDataEl.textContent || '{}');
-          if (productData.variants && productData.variants.length > 0) {
-            // Get first available variant
-            const firstAvailable = productData.variants.find((v: any) => v.available);
-            if (firstAvailable) {
-              variantId = firstAvailable.id.toString();
-              console.warn('No variant selected, using first available:', variantId);
-            } else {
-              // If no available, just use first variant
-              variantId = productData.variants[0].id.toString();
-              console.warn('Using first variant (may be unavailable):', variantId);
-            }
-          }
-        }
-      } catch (e) {
-        console.warn('Could not get first available variant', e);
-      }
-    }
-    
-    // Final validation and fallback - log but proceed
-    if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
-      console.error('Invalid or missing variant ID, attempting to proceed anyway:', {
-        variantId,
-        length: variantId?.length,
-        isNumeric: variantId ? !isNaN(Number(variantId)) : false,
-        globalTracker: (window as any).selectedVariantId,
-      });
-      
-      // Last resort: try to get ANY variant from the page
-      try {
-        const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
-        if (productDataEl) {
-          const productData = JSON.parse(productDataEl.textContent || '{}');
-          if (productData.variants && productData.variants.length > 0) {
-            variantId = productData.variants[0].id.toString();
-            console.warn('Using first variant as last resort:', variantId);
-          }
-        }
-      } catch (e) {
-        console.error('Failed to get any variant:', e);
-      }
-      
-      // If still no variant, we can't proceed
-      if (!variantId || variantId.length < 8 || isNaN(Number(variantId))) {
-        console.error('Cannot proceed without a valid variant ID');
-        alert('Unable to process checkout. Please contact support.');
-        return;
-      }
+      throw new Error('Please select a size before proceeding to checkout.');
     }
 
-    console.log('Final selected variant ID:', variantId);
+    if (variantId.length < 8 || isNaN(Number(variantId))) {
+      throw new Error('Invalid variant ID detected. Please refresh and try again.');
+    }
 
-    // Step 2: Show loading state on button
-    const buyButton = event.target as HTMLButtonElement;
-    const originalText = buyButton.textContent;
+    console.log('[ShiprocketBuyNow] Final variant ID:', variantId);
+
+    // Step 2: Show loading state
     buyButton.disabled = true;
     buyButton.textContent = 'Loading...';
 
-    // Step 3: Load Shiprocket script if not loaded
+    // Step 3: Load Shiprocket/Pickrr script
+    console.log('[ShiprocketBuyNow] Loading Shiprocket integration...');
     await loadPickrrScript();
 
     // Step 4: Wait for Shiprocket to be ready
     const isReady = await waitForShiprocket(10000);
-    
     if (!isReady) {
-      throw new Error('Checkout service is not available. Please refresh the page and try again.');
+      throw new Error('Checkout service is unavailable. Please refresh and try again.');
     }
 
-    console.log('Shiprocket ready, initiating Buy Now checkout');
+    console.log('[ShiprocketBuyNow] Shiprocket ready. Initiating checkout with variant:', variantId);
 
-    // Step 5: First sync to Shopify cart, then trigger Shiprocket
-    // Shiprocket reads from Shopify's cart, so we need to add the item there first
-    try {
-      const shopifyDomain = '19sjnp-gx.myshopify.com';
-      const response = await fetch(`https://${shopifyDomain}/cart/add.js`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          items: [{
-            id: variantId,
-            quantity: 1
-          }]
-        })
-      });
+    // Step 5: Trigger Shiprocket direct product checkout (bypasses cart)
+    checkoutWithProducts([{ variantId, quantity: 1 }]);
 
-      if (!response.ok) {
-        throw new Error('Failed to add to Shopify cart');
-      }
+    console.log('[ShiprocketBuyNow] Buy Now initiated successfully');
 
-      console.log('Added to Shopify cart, now triggering Shiprocket');
-      
-      // Small delay to let Shopify cart update
-      await new Promise(resolve => setTimeout(resolve, 300));
-    } catch (error) {
-      console.warn('Could not add to Shopify cart:', error);
-    }
-
-    // Step 6: Trigger Shiprocket checkout from cart
-    checkoutFromCart();
-
-    console.log('Shiprocket Buy Now initiated');
-
-    // Reset button after a delay
     setTimeout(() => {
       buyButton.disabled = false;
       buyButton.textContent = originalText || 'Buy Now';
     }, 3000);
 
   } catch (error) {
-    console.error('Buy Now error:', error);
+    console.error('[ShiprocketBuyNow] Error:', error);
+
     alert(
-      error instanceof Error 
-        ? error.message 
+      error instanceof Error
+        ? error.message
         : 'Failed to initiate checkout. Please try again.'
     );
 
-    // Reset button on error
-    const buyButton = event.target as HTMLButtonElement;
     buyButton.disabled = false;
-    buyButton.textContent = 'Buy Now';
+    buyButton.textContent = originalText || 'Buy Now';
   }
 }
 
 /**
- * Initialize Buy Now handler globally
- * Call this once when the app loads
+ * Initialize the Buy Now handler globally.
+ * Called once from App.tsx on mount.
  */
 export function initializeBuyNowHandler(): void {
   (window as any).handleBuyNow = handleBuyNow;
-  
-  // Also track selected variant globally for easy access
   (window as any).selectedVariantId = null;
-  
-  // DEBUG: Add a global function to check variant status
-  (window as any).checkVariant = () => {
-    console.log('=== VARIANT DEBUG INFO ===');
-    console.log('Global tracker:', (window as any).selectedVariantId);
-    
-    const shopifyStore = document.querySelector('shopify-store');
-    if (shopifyStore) {
-      console.log('Shopify store element found');
-      const pd1 = (shopifyStore as any).product;
-      const pd2 = (shopifyStore as any).__product;
-      const pd3 = (shopifyStore as any).state?.product;
-      console.log('Product data sources:', { pd1, pd2, pd3 });
-      
-      if (pd1?.selectedOrFirstAvailableVariant) {
-        console.log('Selected variant from pd1:', pd1.selectedOrFirstAvailableVariant);
+
+  console.log('[ShiprocketBuyNow] Initializing handler...');
+
+  // ─── Listener 1: variantchange custom event (Shopify Web Components) ─────────
+  // Shopify Web Components fire 'variantchange' on every user size selection.
+  const onVariantChange = (e: Event) => {
+    const detail = (e as CustomEvent).detail;
+    console.log('[ShiprocketBuyNow] variantchange event:', detail);
+
+    const variant = detail?.variant || detail?.selectedVariant || detail;
+    if (variant?.id) {
+      const id = extractNumericVariantId(variant.id);
+      if (id && id.length >= 8) {
+        (window as any).selectedVariantId = id;
+        console.log('[ShiprocketBuyNow] Variant from variantchange event:', id);
       }
-    } else {
-      console.log('Shopify store element NOT found');
     }
-    
-    const form = document.querySelector('product-form form') as HTMLFormElement;
-    const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-    console.log('Form variant input:', variantInput?.value);
-    
-    console.log('=== END DEBUG INFO ===');
   };
-  
-  // Listen for variant changes from Shopify web components
-  document.addEventListener('variant:change', (e: any) => {
-    if (e.detail?.variantId || e.detail?.id) {
-      (window as any).selectedVariantId = e.detail.variantId || e.detail.id;
-      console.log('Variant changed (event):', (window as any).selectedVariantId);
-    }
-  });
-  
-  // Also listen for shopify-variant-selector changes
-  const observeVariantSelector = () => {
-    const variantSelector = document.querySelector('shopify-variant-selector');
-    if (variantSelector) {
-      variantSelector.addEventListener('change', (e: any) => {
-        const target = e.target as HTMLElement;
-        const variantId = target.getAttribute('value') || 
-                         target.getAttribute('data-variant-id') ||
-                         (e.detail?.variantId);
-        if (variantId && variantId.length >= 8) {
-          (window as any).selectedVariantId = variantId;
-          console.log('Variant selector changed:', variantId);
+
+  document.addEventListener('variantchange', onVariantChange, true);
+  document.addEventListener('variant:change', onVariantChange, true);
+
+  // ─── Listener 2: Click on variant-selector options (shadow DOM-safe) ─────────
+  // shopify-variant-selector renders in shadow DOM; we capture at document level
+  // then read the updated state from shopify-context after a short delay.
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const isVariantOption =
+      target.closest('shopify-variant-selector') !== null ||
+      target.matches('[data-option-value], [data-variant-option]') ||
+      (target instanceof HTMLInputElement &&
+        target.type === 'radio' &&
+        target.name.includes('option'));
+
+    if (!isVariantOption) return;
+
+    setTimeout(() => {
+      // Try shopify-context first
+      const fromCtx = getVariantFromShopifyContext();
+      if (fromCtx && fromCtx.length >= 8) {
+        (window as any).selectedVariantId = fromCtx;
+        console.log('[ShiprocketBuyNow] Variant after option click (shopify-context):', fromCtx);
+        return;
+      }
+
+      // Fallback: shopify-store
+      try {
+        const store = document.querySelector('shopify-store') as any;
+        const pd = store?.product || store?.__product || store?.state?.product;
+        const v = pd?.selectedOrFirstAvailableVariant || pd?.selectedVariant;
+        if (v?.id) {
+          const id = extractNumericVariantId(v.id);
+          if (id && id.length >= 8) {
+            (window as any).selectedVariantId = id;
+            console.log('[ShiprocketBuyNow] Variant after option click (shopify-store):', id);
+          }
+        }
+      } catch (err) {
+        console.warn('[ShiprocketBuyNow] Could not read store after click:', err);
+      }
+    }, 200);
+  }, true);
+
+  // ─── Listener 3: change event on radio buttons (capture phase) ───────────────
+  document.addEventListener('change', (e) => {
+    const target = e.target as HTMLElement;
+    if (!(target instanceof HTMLInputElement) ||
+        target.type !== 'radio' ||
+        !target.name.includes('option-')) return;
+
+    console.log('[ShiprocketBuyNow] Radio changed:', target.value);
+
+    setTimeout(() => {
+      const fromCtx = getVariantFromShopifyContext();
+      if (fromCtx && fromCtx.length >= 8) {
+        (window as any).selectedVariantId = fromCtx;
+        console.log('[ShiprocketBuyNow] Variant after radio change (shopify-context):', fromCtx);
+        return;
+      }
+      try {
+        const store = document.querySelector('shopify-store') as any;
+        const pd = store?.product || store?.__product || store?.state?.product;
+        const v = pd?.selectedOrFirstAvailableVariant || pd?.selectedVariant;
+        if (v?.id) {
+          const id = extractNumericVariantId(v.id);
+          if (id && id.length >= 8) {
+            (window as any).selectedVariantId = id;
+            console.log('[ShiprocketBuyNow] Variant after radio change (shopify-store):', id);
+          }
+        }
+      } catch (err) { /* silent */ }
+    }, 150);
+  }, true);
+
+  // ─── Observer: shopify-context[type="product"] MutationObserver ──────────────
+  const setupContextObserver = (contexts: NodeListOf<Element>) => {
+    console.log('[ShiprocketBuyNow] Attaching observer to', contexts.length, 'shopify-context element(s)');
+
+    contexts.forEach((ctx) => {
+      const observer = new MutationObserver(() => {
+        const id = getVariantFromShopifyContext();
+        if (id && id.length >= 8 && id !== (window as any).selectedVariantId) {
+          (window as any).selectedVariantId = id;
+          console.log('[ShiprocketBuyNow] Variant from shopify-context observer:', id);
         }
       });
+      observer.observe(ctx, { attributes: true, subtree: true, childList: true });
+    });
+
+    // Capture any initially auto-selected variant
+    const initial = getVariantFromShopifyContext();
+    if (initial && initial.length >= 8) {
+      (window as any).selectedVariantId = initial;
+      console.log('[ShiprocketBuyNow] Initial variant from shopify-context:', initial);
     }
   };
-  
-  // Try to observe immediately and after a delay
-  observeVariantSelector();
-  setTimeout(observeVariantSelector, 1000);
-  
-  console.log('Shiprocket Buy Now handler initialized');
-  console.log('Run window.checkVariant() to debug variant detection');
+
+  // ─── Observer: shopify-store MutationObserver (legacy) ───────────────────────
+  const setupStoreObserver = (store: Element) => {
+    console.log('[ShiprocketBuyNow] Attaching observer to shopify-store');
+
+    const observer = new MutationObserver(() => {
+      try {
+        const pd = (store as any).product || (store as any).__product || (store as any).state?.product;
+        const v = pd?.selectedOrFirstAvailableVariant || pd?.selectedVariant;
+        if (v?.id) {
+          const id = extractNumericVariantId(v.id);
+          if (id && id !== (window as any).selectedVariantId) {
+            (window as any).selectedVariantId = id;
+            console.log('[ShiprocketBuyNow] Variant from shopify-store observer:', id);
+          }
+        }
+      } catch (e) { /* silent */ }
+    });
+
+    observer.observe(store, { attributes: true, subtree: true, childList: true });
+
+    // Check initial state
+    try {
+      const pd = (store as any).product || (store as any).__product || (store as any).state?.product;
+      const v = pd?.selectedOrFirstAvailableVariant || pd?.selectedVariant;
+      if (v?.id) {
+        const id = extractNumericVariantId(v.id);
+        if (id && !((window as any).selectedVariantId)) {
+          (window as any).selectedVariantId = id;
+          console.log('[ShiprocketBuyNow] Initial variant from shopify-store:', id);
+        }
+      }
+    } catch (e) { /* silent */ }
+  };
+
+  // ─── Poll for shopify-context and shopify-store ───────────────────────────────
+  let pollAttempts = 0;
+  let contextFound = false;
+  let storeFound = false;
+
+  const pollInterval = setInterval(() => {
+    pollAttempts++;
+
+    if (!contextFound) {
+      const contexts = document.querySelectorAll('shopify-context[type="product"]');
+      if (contexts.length > 0) {
+        contextFound = true;
+        setupContextObserver(contexts);
+      }
+    }
+
+    if (!storeFound) {
+      const store = document.querySelector('shopify-store');
+      if (store) {
+        storeFound = true;
+        setupStoreObserver(store);
+      }
+    }
+
+    if ((contextFound && storeFound) || pollAttempts >= 50) {
+      clearInterval(pollInterval);
+      if (!contextFound) {
+        console.warn('[ShiprocketBuyNow] shopify-context[type="product"] not found after 5s');
+      }
+    }
+  }, 100);
+
+  // ─── Debug helper ─────────────────────────────────────────────────────────────
+  (window as any).debugVariantSelection = () => {
+    console.group('[ShiprocketBuyNow] === Variant Selection Debug ===');
+    console.log('shopify-store:', !!document.querySelector('shopify-store'));
+    console.log('shopify-context[type=product]:', document.querySelectorAll('shopify-context[type="product"]').length);
+    console.log('shopify-variant-selector:', !!document.querySelector('shopify-variant-selector'));
+    console.log('selectedVariantId:', (window as any).selectedVariantId);
+    console.log('Shiprocket ready:', !!(window as any).shiprocketCheckoutEvents);
+
+    const fromCtx = getVariantFromShopifyContext();
+    console.log('Variant from shopify-context NOW:', fromCtx);
+
+    const radios = document.querySelectorAll('input[type="radio"]:checked');
+    radios.forEach((r: any) => console.log('Checked radio:', r.name, r.value));
+
+    console.log('Resolved variant ID:', getSelectedVariantId());
+    console.groupEnd();
+  };
+
+  console.log('[ShiprocketBuyNow] Handler initialized');
 }

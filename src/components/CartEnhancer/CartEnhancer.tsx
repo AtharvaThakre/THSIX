@@ -83,30 +83,124 @@ export const CartEnhancer = () => {
       });
     };
 
+    /**
+     * Extract numeric variant ID from various Shopify formats
+     */
+    const extractNumericVariantId = (rawId: string | number): string => {
+      if (typeof rawId === 'number') {
+        return rawId.toString();
+      }
+      
+      // Remove GID prefix if present
+      if (rawId.includes('ProductVariant/')) {
+        return rawId.split('ProductVariant/').pop() || rawId;
+      }
+      
+      // Extract numeric part
+      const numericMatch = rawId.match(/\d{8,}/);
+      return numericMatch ? numericMatch[0] : rawId;
+    };
+
+    /**
+     * Get selected variant ID with prioritized extraction
+     */
+    const getSelectedVariant = () => {
+      let variantId = '';
+      let variantTitle = '';
+
+      // Priority 1: shopify-store component
+      try {
+        const shopifyStore = document.querySelector('shopify-store');
+        if (shopifyStore) {
+          const productData = (shopifyStore as any).product;
+          const variant = productData?.selectedOrFirstAvailableVariant || 
+                         productData?.selectedVariant;
+          
+          if (variant?.id) {
+            variantId = extractNumericVariantId(variant.id);
+            variantTitle = variant.title || '';
+            console.log('Variant from shopify-store:', variantId, variantTitle);
+            return { variantId, variantTitle };
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get variant from shopify-store:', error);
+      }
+
+      // Priority 2: Global tracker
+      if ((window as any).selectedVariantId) {
+        variantId = extractNumericVariantId((window as any).selectedVariantId);
+        console.log('Variant from global tracker:', variantId);
+      }
+
+      // Priority 3: product-form input
+      if (!variantId) {
+        const form = document.querySelector('product-form form');
+        const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
+        if (variantInput?.value) {
+          variantId = extractNumericVariantId(variantInput.value);
+          console.log('Variant from form input:', variantId);
+        }
+      }
+
+      // Get variant title from product data if we have ID but no title
+      if (variantId && !variantTitle) {
+        try {
+          const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
+          if (productDataEl) {
+            const productData = JSON.parse(productDataEl.textContent || '{}');
+            const variant = productData.variants?.find((v: any) => 
+              extractNumericVariantId(v.id) === variantId
+            );
+            if (variant) {
+              variantTitle = variant.title || '';
+            }
+          }
+        } catch (error) {
+          console.warn('Could not get variant title from product data:', error);
+        }
+      }
+
+      // Fallback: Try to get from variant selector UI
+      if (!variantTitle) {
+        const variantSelector = document.querySelector('shopify-variant-selector');
+        if (variantSelector) {
+          const selectedRadio = variantSelector.shadowRoot?.querySelector('input[type="radio"]:checked') ||
+                               variantSelector.querySelector('input[type="radio"]:checked') ||
+                               variantSelector.shadowRoot?.querySelector('button[aria-checked="true"]') ||
+                               variantSelector.querySelector('button[aria-checked="true"]');
+          
+          if (selectedRadio) {
+            variantTitle = (selectedRadio as HTMLInputElement).value || 
+                          (selectedRadio as HTMLElement).textContent?.trim() || 
+                          (selectedRadio as HTMLElement).getAttribute('title') || '';
+          }
+        }
+      }
+
+      return { variantId, variantTitle };
+    };
+
     const extractProductDataAsync = async (_button: HTMLButtonElement) => {
-      // Try to get product data from the page context
+      // Get product title
       let productTitle = document.querySelector('[shopify-data*="product.title"]')?.textContent || 
                           document.querySelector('h1')?.textContent || 
                           document.querySelector('.product-detail__title')?.textContent ||
                           'Product';
       
-      // Clean up whitespace in title
       productTitle = productTitle.trim().replace(/\s+/g, ' ');
       
-      // Use the improved price extraction with wait
+      // Get price
       let price = extractPriceFromPage();
       
-      // If no price found immediately, wait a bit for dynamic content
       if (price === 0) {
-        price = await waitForPrice(10, 200); // Wait up to 2 seconds with more attempts
+        price = await waitForPrice(10, 200);
       }
       
-      // If still no price, try to get it from Shopify's product data
       if (price === 0) {
         try {
-          // Try to access Shopify's global data if available
           const shopifyData = (window as any).__SHOPIFY_DATA__;
-          if (shopifyData && shopifyData.product && shopifyData.product.selectedOrFirstAvailableVariant) {
+          if (shopifyData?.product?.selectedOrFirstAvailableVariant) {
             price = shopifyData.product.selectedOrFirstAvailableVariant.price / 100;
           }
         } catch (error) {
@@ -114,102 +208,14 @@ export const CartEnhancer = () => {
         }
       }
       
+      // Get image
       const imageElement = document.querySelector('#main-shopify-media img') as HTMLImageElement;
       const image = imageElement?.src || imageElement?.currentSrc || '/placeholder.jpg';
       
-      // Get selected variant/size information and NUMERIC variant ID
-      const variantSelector = document.querySelector('shopify-variant-selector');
-      let selectedVariant = '';
-      let variantId = '';
+      // Get variant information
+      const { variantId, variantTitle } = getSelectedVariant();
       
-      // Priority 1: Try shopify-store (most reliable)
-      try {
-        const shopifyStore = document.querySelector('shopify-store');
-        if (shopifyStore) {
-          const productData = (shopifyStore as any).product;
-          if (productData?.selectedOrFirstAvailableVariant) {
-            variantId = productData.selectedOrFirstAvailableVariant.id.toString();
-            selectedVariant = productData.selectedOrFirstAvailableVariant.title || '';
-            console.log('Variant from shopify-store:', variantId, selectedVariant);
-          }
-        }
-      } catch (error) {
-        console.warn('Could not get variant from shopify-store:', error);
-      }
-      
-      if (variantSelector && !variantId) {
-        // Try to get the NUMERIC variant ID from Shopify's product JSON
-        try {
-          const productDataEl = document.querySelector('script[type="application/json"][data-product-json]');
-          if (productDataEl) {
-            const productData = JSON.parse(productDataEl.textContent || '{}');
-            const urlParams = new URLSearchParams(window.location.search);
-            const urlVariantId = urlParams.get('variant');
-            
-            // If variant ID in URL, use that
-            if (urlVariantId && productData.variants) {
-              const variant = productData.variants.find((v: any) => v.id.toString() === urlVariantId);
-              if (variant) {
-                variantId = variant.id.toString();
-                selectedVariant = variant.title || '';
-              }
-            }
-            
-            // Otherwise, try to get the selected variant from the form
-            if (!variantId) {
-              const form = document.querySelector('product-form form');
-              const variantInput = form?.querySelector('input[name="id"]') as HTMLInputElement;
-              if (variantInput?.value) {
-                variantId = variantInput.value;
-                const variant = productData.variants?.find((v: any) => v.id.toString() === variantId);
-                if (variant) {
-                  selectedVariant = variant.title || '';
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.warn('Could not get numeric variant ID:', error);
-        }
-        
-        // Fallback: Try to get selected variant title from UI elements
-        if (!selectedVariant) {
-          const selectedRadio = variantSelector.shadowRoot?.querySelector('input[type="radio"]:checked') ||
-                               variantSelector.querySelector('input[type="radio"]:checked') ||
-                               variantSelector.shadowRoot?.querySelector('button[aria-checked="true"]') ||
-                               variantSelector.querySelector('button[aria-checked="true"]');
-          
-          if (selectedRadio) {
-            selectedVariant = (selectedRadio as HTMLInputElement).value || 
-                             (selectedRadio as HTMLInputElement).getAttribute('data-variant-title') ||
-                             (selectedRadio as HTMLElement).textContent?.trim() || 
-                             (selectedRadio as HTMLElement).getAttribute('title') ||
-                             '';
-            
-            // Try to get variant ID from data attribute
-            const dataVariantId = (selectedRadio as HTMLElement).getAttribute('data-variant-id');
-            if (dataVariantId) {
-              variantId = dataVariantId;
-            }
-          }
-          
-          // Alternative: check for select elements
-          if (!selectedVariant) {
-            const selectedOption = variantSelector.shadowRoot?.querySelector('select option:checked') ||
-                                  variantSelector.querySelector('select option:checked');
-            if (selectedOption) {
-              selectedVariant = (selectedOption as HTMLOptionElement).textContent?.trim() || '';
-              const dataVariantId = (selectedOption as HTMLElement).getAttribute('data-variant-id') ||
-                                   (selectedOption as HTMLOptionElement).value;
-              if (dataVariantId && !isNaN(Number(dataVariantId))) {
-                variantId = dataVariantId;
-              }
-            }
-          }
-        }
-      }
-      
-      // Generate a consistent ID with proper cleaning
+      // Generate consistent product ID
       const productHandle = window.location.pathname.split('/').pop() || '';
       const cleanTitle = productTitle
         .replace(/\s+/g, '-')
@@ -218,8 +224,8 @@ export const CartEnhancer = () => {
         .toLowerCase()
         .replace(/^-|-$/g, '');
       
-      const cleanVariant = selectedVariant 
-        ? selectedVariant
+      const cleanVariant = variantTitle 
+        ? variantTitle
             .replace(/\s+/g, '-')
             .replace(/[^a-zA-Z0-9-]/g, '')
             .replace(/-+/g, '-')
@@ -227,7 +233,7 @@ export const CartEnhancer = () => {
             .replace(/^-|-$/g, '')
         : 'default';
       
-      const productId = selectedVariant ? 
+      const productId = variantTitle ? 
         `${productHandle}-${cleanTitle}-${cleanVariant}` : 
         `${productHandle}-${cleanTitle}`;
       
@@ -237,8 +243,8 @@ export const CartEnhancer = () => {
         price: price,
         image: image,
         handle: productHandle,
-        variantId: variantId, // NUMERIC ID for Shiprocket
-        variantTitle: selectedVariant, // Human-readable variant name for display
+        variantId: variantId,
+        variantTitle: variantTitle,
       });
       
       return {
@@ -247,8 +253,8 @@ export const CartEnhancer = () => {
         price: price,
         image: image,
         handle: productHandle,
-        variantId: variantId, // This is now the numeric ID
-        variantTitle: selectedVariant, // This is the display name
+        variantId: variantId,
+        variantTitle: variantTitle,
       };
     };
 

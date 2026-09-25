@@ -1287,3 +1287,66 @@
     padding: 0;
   }
 }
+
+/* ─── React Size Option Buttons (replaces shopify-variant-selector) ─── */
+.product-detail__size-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.product-detail__size-btn {
+  min-width: 64px;
+  height: 44px;
+  padding: 0 16px;
+  border: 1.5px solid #e0e0e0;
+  background: #fff;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  color: #111;
+}
+
+.product-detail__size-btn:hover:not(:disabled) {
+  border-color: #111;
+}
+
+.product-detail__size-btn--selected {
+  border-color: #111 !important;
+  background: #111;
+  color: #fff;
+}
+
+.product-detail__size-btn--unavailable,
+.product-detail__size-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  text-decoration: line-through;
+  pointer-events: none;
+}
+
+.product-detail__size-error {
+  color: #e53e3e;
+  font-size: 0.8125rem;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* ─── Loading spinner ─── */
+.product-detail__loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f0f0f0;
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: pdSpinner 0.7s linear infinite;
+}
+
+@keyframes pdSpinner {
+  to { transform: rotate(360deg); }
+}
