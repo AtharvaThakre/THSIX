@@ -1,6 +1,7 @@
 import { ShoppingBag, Menu } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
+import { openCart } from '../Cart/openCart';
 import './Header.css';
 
 export const Header = () => {
@@ -15,15 +16,6 @@ export const Header = () => {
       return () => clearTimeout(timer);
     }
   }, [totalItems]);
-
-  const handleOpenCart = () => {
-    const cart = (
-      document.getElementById('product-cart') || 
-      document.getElementById('global-cart') || 
-      document.getElementById('home-cart')
-    ) as any;
-    if (cart?.showModal) cart.showModal();
-  };
 
   const handleLogoClick = () => {
     window.location.href = '/';
@@ -55,7 +47,7 @@ export const Header = () => {
         <button
           className={`icon-btn cart-btn ${isPulsing ? 'cart-btn--notify' : ''} ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
           aria-label={`Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
-          onClick={handleOpenCart}
+          onClick={openCart}
           type="button"
         >
           <div className="cart-btn__icon-wrapper">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShoppingBag, Search } from 'lucide-react';
 import { CartEnhancer } from '../components/CartEnhancer/CartEnhancer';
+import { openCart } from '../components/Cart/openCart';
 import './ShopPage.css';
 
 const BRANDS = [
@@ -111,10 +112,7 @@ export const ShopPage = () => {
             <button
               className="shop-topbar__cart-btn"
               aria-label="Open cart"
-              onClick={() => {
-                const cart = document.getElementById('shop-cart') as any;
-                if (cart?.showModal) cart.showModal();
-              }}
+              onClick={openCart}
             >
               <ShoppingBag size={22} strokeWidth={1.8} />
             </button>
