@@ -7,7 +7,7 @@ const SELLER_DOMAIN = 'thsix.com';
 
 let loadPromise: Promise<void> | null = null;
 
-const isReady = () => typeof (window as any).HeadlessCheckout?.addToCart === 'function';
+const isReady = () => typeof (window as any).shiprocketCheckoutEvents !== 'undefined';
 
 export const loadPickrrScript = (): Promise<void> => {
   if (isReady()) return Promise.resolve();
