@@ -1,19 +1,16 @@
 /**
- * Shiprocket Checkout Service - Shopify Integration
- * Uses the Shopify + Shiprocket combined approach
+ * Shiprocket Checkout Service
+ *
+ * THSIX is set up in Shiprocket Checkout as a "Custom" store, not a Shopify one, so
+ * checkout starts from a token signed by our server (/api/checkout/token) and is opened
+ * with HeadlessCheckout.addToCart(). Shiprocket reads product data from our catalogue
+ * endpoints (/api/catalog/*), configured under Settings > Custom Endpoints.
  */
 
-interface ShiprocketCheckoutParams {
-  type: 'cart' | 'product';
-  products?: Array<{
-    variantId: string;  // Must be numeric Shopify variant ID
-    quantity: number;
-  }>;
-  couponCode?: string;
-  utmParams?: string;
-  cartAttributes?: Record<string, any>;
-  fallbackUrl?: string;
-}
+type CheckoutItem = {
+  variantId: string; // Numeric Shopify variant ID
+  quantity: number;
+};
 
 /**
  * Extract numeric variant ID from various formats
@@ -22,134 +19,84 @@ function extractNumericVariantId(variantId: string | number): string {
   if (typeof variantId === 'number') {
     return variantId.toString();
   }
-  
+
   // Remove GID prefix if present
   if (variantId.includes('ProductVariant/')) {
     return variantId.split('ProductVariant/').pop() || variantId;
   }
-  
+
   // Extract numeric part
   const numericMatch = variantId.match(/\d{8,}/);
   return numericMatch ? numericMatch[0] : variantId;
 }
 
 /**
- * Initiate Shiprocket checkout using the Shopify integration
- * This uses the shiprocketCheckoutEvents.buyDirect() function from their script
+ * Get a checkout token from our server and open the Shiprocket checkout.
  */
-export function initiateShiprocketCheckout(params: ShiprocketCheckoutParams): void {
-  // Check if the Shiprocket function is available
-  if (typeof (window as any).shiprocketCheckoutEvents === 'undefined') {
-    console.error('Shiprocket checkout script not loaded');
-    console.log('Available window properties:', Object.keys(window).filter(k => k.toLowerCase().includes('ship') || k.toLowerCase().includes('pickrr')));
+export async function initiateShiprocketCheckout(
+  products: CheckoutItem[],
+  fallbackUrl: string = window.location.href
+): Promise<void> {
+  const headless = (window as any).HeadlessCheckout;
+  if (typeof headless?.addToCart !== 'function') {
     throw new Error('Checkout service is not available. Please refresh the page and try again.');
   }
 
-  const shiprocketEvents = (window as any).shiprocketCheckoutEvents;
-
-  // Shiprocket's buyDirect() needs products for both 'product' and 'cart' types.
-  // Without them it builds its fallback URL from undefined and throws. This is a headless
-  // store, so it can't read the Shopify AJAX cart (/cart.js) the way a theme would.
-  if (!params.products || params.products.length === 0) {
+  if (!products || products.length === 0) {
     throw new Error('Your cart is empty.');
   }
 
-  for (const product of params.products) {
-    if (!product.variantId || extractNumericVariantId(product.variantId).length < 8) {
-      throw new Error('Invalid variant ID for checkout');
+  const items = products.map(p => ({
+    variant_id: extractNumericVariantId(p.variantId),
+    quantity: p.quantity,
+  }));
+
+  for (const item of items) {
+    if (!/^\d{8,}$/.test(item.variant_id)) {
+      throw new Error('Invalid product in cart. Please remove and re-add it.');
     }
-    if (!product.quantity || product.quantity < 1) {
-      throw new Error('Invalid quantity for checkout');
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) {
+      throw new Error('Invalid quantity for checkout.');
     }
   }
 
-  // Prepare the checkout parameters
-  const checkoutParams: any = {
-    type: params.type,
-    // Used for the "having to wait? Click here" link. Shiprocket's default is
-    // https://<sellerDomain>/cart/..., which on this headless site is a dead SPA route.
-    fallbackUrl: params.fallbackUrl ?? window.location.href,
-  };
+  const response = await fetch('/api/checkout/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      items,
+      redirect_url: `${window.location.origin}/checkout/success`,
+    }),
+  });
 
-  // Add products if provided (for product type)
-  // Ensure all variant IDs are in numeric format
-  if (params.products && params.products.length > 0) {
-    checkoutParams.products = params.products.map(item => ({
-      variantId: extractNumericVariantId(item.variantId),
-      quantity: item.quantity,
-    }));
-    
-    console.log('Product checkout - variant IDs:', checkoutParams.products.map((p: any) => p.variantId));
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.token) {
+    throw new Error(data?.message || 'Checkout is unavailable right now. Please try again.');
   }
 
-  // Add optional parameters
-  if (params.couponCode) {
-    checkoutParams.couponCode = params.couponCode;
-  }
-
-  if (params.utmParams) {
-    checkoutParams.utmParams = params.utmParams;
-  }
-
-  if (params.cartAttributes) {
-    checkoutParams.cartAttributes = params.cartAttributes;
-  }
-
-  console.log('Shiprocket buyDirect() params:', JSON.stringify(checkoutParams, null, 2));
-
-  try {
-    // Call the Shiprocket checkout function
-    shiprocketEvents.buyDirect(checkoutParams);
-    console.log('Shiprocket checkout initiated successfully');
-  } catch (error) {
-    console.error('Error initiating Shiprocket checkout:', error);
-    throw new Error('Failed to start checkout. Please try again.');
-  }
+  // fallbackUrl: where Shiprocket sends the shopper if its checkout can't load
+  headless.addToCart(null, data.token, { fallbackUrl });
 }
 
 /**
  * Start checkout from the React cart.
- * Items are passed straight to Shiprocket; the Shopify AJAX cart isn't reachable
- * from this domain (no CORS on /cart/*.js), so there is nothing to sync first.
  */
-export function checkoutFromCart(
-  products: Array<{ variantId: string; quantity: number }>,
-  couponCode?: string
-): void {
-  console.log('Initiating cart checkout...');
-  initiateShiprocketCheckout({
-    type: 'cart',
-    products,
-    couponCode,
-  });
+export function checkoutFromCart(products: CheckoutItem[]): Promise<void> {
+  return initiateShiprocketCheckout(products);
 }
 
 /**
  * Start checkout with specific products (Buy Now flow)
- * Directly passes product data without cart sync
  */
-export function checkoutWithProducts(
-  products: Array<{ variantId: string; quantity: number }>,
-  couponCode?: string
-): void {
-  console.log('Initiating direct product checkout...');
-  
-  if (!products || products.length === 0) {
-    throw new Error('No products provided for checkout');
-  }
-
-  initiateShiprocketCheckout({
-    type: 'product',
-    products,
-    couponCode,
-  });
+export function checkoutWithProducts(products: CheckoutItem[]): Promise<void> {
+  return initiateShiprocketCheckout(products);
 }
 
 /**
  * Check if Shiprocket is loaded and ready
  */
 export function isShiprocketReady(): boolean {
-  return typeof (window as any).shiprocketCheckoutEvents !== 'undefined';
+  return typeof (window as any).HeadlessCheckout?.addToCart === 'function';
 }
 
 /**

@@ -62,7 +62,7 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
         throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      checkoutFromCart(products);
+      await checkoutFromCart(products);
     } catch (error) {
       console.error('Checkout error:', error);
       setCheckoutError(

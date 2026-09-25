@@ -194,7 +194,7 @@ export const ProductDetailPage = () => {
       await loadPickrrScript();
       const isReady = await waitForShiprocket(10000);
       if (!isReady) throw new Error('Checkout service is unavailable. Please refresh and try again.');
-      checkoutWithProducts([{ variantId: numId, quantity: 1 }]);
+      await checkoutWithProducts([{ variantId: numId, quantity: 1 }]);
       setTimeout(() => setIsBuyingNow(false), 3000);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to initiate checkout. Please try again.');

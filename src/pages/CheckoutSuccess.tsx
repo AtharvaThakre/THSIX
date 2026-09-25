@@ -1,29 +1,46 @@
 import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { CheckCircle, ArrowRight } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import './CheckoutSuccess.css';
 
 export const CheckoutSuccess = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { clearCart } = useCart();
 
+  // Shiprocket redirects back with ?oid=<order id>&ost=<SUCCESS|FAILED>
+  const orderId = searchParams.get('oid');
+  const failed = searchParams.get('ost')?.toUpperCase() === 'FAILED';
+
   useEffect(() => {
-    // Reaching this page means the order went through, so always empty the cart.
-    // Order details come from Shiprocket's confirmation email/SMS.
-    clearCart();
-  }, [clearCart]);
+    // Keep the cart when payment failed so the shopper can retry
+    if (!failed) clearCart();
+  }, [failed, clearCart]);
 
   return (
     <div className="checkout-success">
       <div className="checkout-success__content">
-        <CheckCircle size={64} className="success-icon" />
-
-        <h1>Order Placed Successfully!</h1>
-
-        <p className="success-message">
-          Thank you for your order. We'll send you a confirmation email shortly.
-        </p>
+        {failed ? (
+          <>
+            <XCircle size={64} className="success-icon" />
+            <h1>Payment Not Completed</h1>
+            <p className="success-message">
+              Your order wasn't placed. Your cart has been saved, so you can try again.
+            </p>
+          </>
+        ) : (
+          <>
+            <CheckCircle size={64} className="success-icon" />
+            <h1>Order Placed Successfully!</h1>
+            <p className="success-message">
+              Thank you for your order. We'll send you a confirmation email shortly.
+            </p>
+            {orderId && (
+              <p className="success-message">Order ID: {orderId}</p>
+            )}
+          </>
+        )}
 
         <div className="success-actions">
           <button onClick={() => navigate('/')} className="continue-shopping-btn">
