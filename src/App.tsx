@@ -24,6 +24,7 @@ const InstagramReels = lazy(() => import('./components/InstagramReels/InstagramR
 // Lazy load page components
 const ProductDetailPage = lazy(() => import('./pages/ProductDetailPage').then(m => ({ default: m.ProductDetailPage })));
 const CheckoutSuccess = lazy(() => import('./pages/CheckoutSuccess').then(m => ({ default: m.CheckoutSuccess })));
+const PolicyPage = lazy(() => import('./pages/PolicyPage').then(m => ({ default: m.PolicyPage })));
 const BrandCollectionPage = lazy(() => import('./pages/BrandCollectionPage').then(m => ({ default: m.BrandCollectionPage })));
 
 // Loading fallback component
@@ -183,6 +184,11 @@ function App() {
             <Route path="/product/:handle" element={<ProductDetailPage />} />
             <Route path="/brands/:brandId" element={<BrandCollectionPage />} />
             <Route path="/checkout/success" element={<CheckoutSuccess />} />
+            <Route path="/shipping" element={<PolicyPage policy="shippingPolicy" />} />
+            <Route path="/returns" element={<PolicyPage policy="refundPolicy" />} />
+            <Route path="/terms" element={<PolicyPage policy="termsOfService" />} />
+            <Route path="/privacy" element={<PolicyPage policy="privacyPolicy" />} />
+            <Route path="/payment-policy" element={<PolicyPage policy="termsOfService" section="Payment" />} />
             {/* Shopify's primary domain is thsix.com, so its order-status and cart-permalink
                 links (used by Shiprocket after payment / as a fallback) land on this app */}
             <Route path="/:shopId/orders/:token" element={<CheckoutSuccess />} />

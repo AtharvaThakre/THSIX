@@ -115,11 +115,9 @@ export const ProductDetailPage = () => {
         if (p) {
           console.log('Product fetched:', p.title, '| variants:', p.variants?.edges?.length);
           setProduct(p);
-          // Auto-select first available variant
+          // Shoppers must pick their size; only a single-size product is pre-selected
           const vs: any[] = p.variants?.edges?.map((e: any) => e.node) ?? [];
-          const firstAvailIdx = vs.findIndex((v: any) => v.availableForSale);
-          const autoIdx = firstAvailIdx >= 0 ? firstAvailIdx : vs.length > 0 ? 0 : null;
-          if (autoIdx !== null) setSelectedVariantIndex(autoIdx);
+          if (vs.length === 1 && vs[0].availableForSale) setSelectedVariantIndex(0);
         } else {
           console.log('Product not found for handle:', handle);
         }
@@ -162,8 +160,13 @@ export const ProductDetailPage = () => {
     }
   }, [variants, images]);
 
+  const requireSize = () => {
+    setSizeError(true);
+    document.getElementById('size-picker')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
   const handleAddToCart = useCallback(() => {
-    if (!selectedVariant) { setSizeError(true); return; }
+    if (!selectedVariant) { requireSize(); return; }
     const numId = extractNumericVariantId(selectedVariant.id);
     const img = selectedVariant.image?.url ?? images[selectedImageIndex]?.url ?? '';
     addItem({
@@ -180,7 +183,7 @@ export const ProductDetailPage = () => {
   }, [selectedVariant, addItem, handle, product, images, selectedImageIndex]);
 
   const handleBuyNow = useCallback(async () => {
-    if (!selectedVariant) { setSizeError(true); return; }
+    if (!selectedVariant) { requireSize(); return; }
     if (isBuyingNow) return;
     setCheckoutError(null);
     const numId = extractNumericVariantId(selectedVariant.id);
@@ -342,7 +345,7 @@ export const ProductDetailPage = () => {
               </div>
 
               {/* Size Selector */}
-              <div className="product-detail__variants">
+              <div className="product-detail__variants" id="size-picker">
                 <div className="product-detail__size-selector">
                   <div className="product-detail__size-header">
                     <label className="product-detail__size-label">SELECT YOUR SIZE</label>
