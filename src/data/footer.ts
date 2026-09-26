@@ -18,19 +18,19 @@ export const footerColumns: FooterColumn[] = [
   {
     title: 'SHOP',
     links: [
-      { label: 'New Drops', href: '/new-drops' },
-      { label: 'Best sellers', href: '/best-sellers' },
-      { label: 'Categories', href: '/categories' },
-      { label: 'All products', href: '/all-products' },
+      { label: 'New Drops', href: '/#shop' },
+      { label: 'Best sellers', href: '/#shop' },
+      { label: 'Brands', href: '/#brands' },
+      { label: 'All products', href: '/brands/adidas' },
     ],
   },
   {
     title: 'HELP',
     links: [
-      { label: 'Track Order', href: '/track-order' },
-      { label: 'Contact us via call', href: 'tel:+919876543210' },
+      { label: 'Track Order', href: 'https://www.shiprocket.in/shipment-tracking/' },
+      { label: 'Contact us via call', href: 'tel:+919022771696' },
       { label: 'Contact us via mail', href: 'mailto:support@thsix.com' },
-      { label: 'about us', href: '/about' },
+      { label: 'About us', href: '/#about' },
     ],
   },
   {

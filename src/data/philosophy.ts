@@ -8,7 +8,7 @@ export const philosophyData = {
   ],
   description: "THSIX is a lifestyle and fashion destination for those who value clean design, premium quality and self-expression. We bring you iconic sneakers and accessories from the world's best brands — starting with a legend.",
   cta: "OUR STORY",
-  ctaHref: "/about",
+  ctaHref: "https://www.instagram.com/thsix.official/",
   imageOverlay: ["SNEAKERS", "PEOPLE", "CULTURE", "THSIX"],
   cornerText: ["STYLE", "BEYOND", "BASICS."]
 };

@@ -59,15 +59,13 @@ export const BrandsShowcase = () => {
   }, []);
 
   return (
-    <section className="brands-showcase">
+    <section className="brands-showcase" id="brands">
       <div className="brands-showcase__header">
         <div className="brands-showcase__header-left">
           <h2 className="brands-showcase__title">MORE BRANDS. A BIGGER TOMORROW.</h2>
           <p className="brands-showcase__subtitle">SAMBA IS JUST THE BEGINNING.</p>
         </div>
 
-        <a href="/brands" className="brands-showcase__explore">
-        </a>
       </div>
 
       {/* Horizontal scroll container with navigation */}

@@ -23,6 +23,8 @@
   width: 100%;
   max-width: 480px;
   height: 100vh;
+  /* Visible height on mobile (100vh sits partly behind the browser toolbars) */
+  height: 100dvh;
   background: #ffffff;
   display: flex;
   flex-direction: column;
@@ -86,7 +88,9 @@
 /* Content */
 .cart-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 0;
 }
 
@@ -317,7 +321,9 @@
 
 /* Footer */
 .cart-footer {
+  flex-shrink: 0;
   padding: 20px 24px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid #f0f0ed;
   background: #ffffff;
 }
@@ -402,6 +408,7 @@
 
   .cart-footer {
     padding: 16px 20px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
 

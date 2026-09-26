@@ -62,7 +62,7 @@ export const ProductShowcase = () => {
   }, []);
 
   return (
-    <section className="product-showcase">
+    <section className="product-showcase" id="shop">
 
       <ShopifyGuard>
         {/* Global cart (home page) */}

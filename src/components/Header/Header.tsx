@@ -21,14 +21,14 @@ export const Header = () => {
     window.location.href = '/';
   };
 
-  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetSelector: string) => {
-    e.preventDefault();
-    const element = document.querySelector(targetSelector);
-    if (element) {
-      element.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
+  // On the home page scroll to the section; elsewhere the /#id link loads home and
+  // HomePage scrolls to the hash
+  const handleSectionLink = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    const element = document.getElementById(id);
+    if (window.location.pathname === '/' && element) {
+      e.preventDefault();
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.history.replaceState(null, '', `/#${id}`);
     }
   };
 
@@ -38,10 +38,10 @@ export const Header = () => {
         <strong>THSIX</strong>
       </div>
       <nav className="header-center">
-        <a href="#shop" className="nav-link">SHOP</a>
-        <a href="#brands" onClick={(e) => handleSmoothScroll(e, '.brands-showcase')} className="nav-link">BRANDS</a>
-        <a href="#about" className="nav-link">ABOUT</a>
-        <a href="#contact" className="nav-link">CONTACT US</a>
+        <a href="/#shop" onClick={(e) => handleSectionLink(e, 'shop')} className="nav-link">SHOP</a>
+        <a href="/#brands" onClick={(e) => handleSectionLink(e, 'brands')} className="nav-link">BRANDS</a>
+        <a href="/#about" onClick={(e) => handleSectionLink(e, 'about')} className="nav-link">ABOUT</a>
+        <a href="/#contact" onClick={(e) => handleSectionLink(e, 'contact')} className="nav-link">CONTACT US</a>
       </nav>
       <div className="header-right">
         <button

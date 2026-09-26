@@ -34,6 +34,21 @@ const SectionFallback = () => (
 );
 
 function HomePage() {
+  // Links like /#shop from other pages: scroll once the section has rendered
+  useEffect(() => {
+    const id = window.location.hash.slice(1);
+    if (!id) return;
+    let tries = 0;
+    const timer = setInterval(() => {
+      const element = document.getElementById(id);
+      if (element || ++tries > 20) {
+        clearInterval(timer);
+        element?.scrollIntoView({ block: 'start' });
+      }
+    }, 150);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     // Skip smooth scroll if user prefers reduced motion
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -103,6 +118,21 @@ function HomePage() {
   );
 }
 
+function NotFoundPage() {
+  return (
+    <>
+      <AnnouncementBar />
+      <Header />
+      <main style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '16px', padding: '64px 16px', textAlign: 'center' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 800, letterSpacing: '-0.02em' }}>PAGE NOT FOUND</h1>
+        <p style={{ color: '#666' }}>This page doesn't exist yet.</p>
+        <a href="/" style={{ padding: '14px 28px', background: '#111', color: '#fff', fontSize: '13px', letterSpacing: '0.1em', fontWeight: 600 }}>BACK TO HOME</a>
+      </main>
+      <Footer />
+    </>
+  );
+}
+
 // Scroll to top on route change
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -158,6 +188,7 @@ function App() {
             <Route path="/:shopId/orders/:token" element={<CheckoutSuccess />} />
             <Route path="/checkouts/*" element={<CheckoutSuccess />} />
             <Route path="/cart/*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>
       </ShopifyProvider>

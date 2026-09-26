@@ -4,7 +4,7 @@ import './Philosophy.css';
 
 export const Philosophy = () => {
   return (
-    <section className="philosophy">
+    <section className="philosophy" id="about">
       {/* Full-bleed background image */}
       {philosophyData.image ? (
         <picture>

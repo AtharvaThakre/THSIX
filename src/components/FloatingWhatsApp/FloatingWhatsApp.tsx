@@ -5,7 +5,7 @@ interface FloatingWhatsAppProps {
 }
 
 export const FloatingWhatsApp = ({ 
-  whatsappUrl = 'https://wa.me/1234567890' // Placeholder - will be updated later
+  whatsappUrl = 'https://wa.me/919022771696?text=Hi%20THSIX!'
 }: FloatingWhatsAppProps) => {
   return (
     <a

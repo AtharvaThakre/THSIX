@@ -207,10 +207,11 @@ export const ProductDetailPage = () => {
     setTouchEnd(null);
   }, [touchStart, touchEnd, selectedImageIndex, images.length]);
 
-  // Main display image: prefer variant image, then selected thumbnail
+  // Main display image follows the selected thumbnail. Picking a size jumps to that
+  // size's photo (handleVariantSelect), but thumbnails must still be able to change it.
   const mainImageUrl =
-    (selectedVariant?.image?.url) ??
     images[selectedImageIndex]?.url ??
+    selectedVariant?.image?.url ??
     '';
 
   // ── Render ───────────────────────────────────────────────────────────────────
@@ -257,7 +258,7 @@ export const ProductDetailPage = () => {
               <span>Home</span>
             </Link>
             <span className="product-detail__breadcrumb-sep">/</span>
-            <Link to="/shop" className="product-detail__breadcrumb-link">Shop</Link>
+            <a href="/#shop" className="product-detail__breadcrumb-link">Shop</a>
             <span className="product-detail__breadcrumb-sep">/</span>
             <span className="product-detail__breadcrumb-current">Product</span>
           </div>

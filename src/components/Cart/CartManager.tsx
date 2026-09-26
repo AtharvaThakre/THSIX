@@ -16,7 +16,7 @@ export const CartManager = () => {
 
   return (
     <>
-      <FloatingWhatsApp whatsappUrl="https://wa.me/1234567890" />
+      <FloatingWhatsApp />
       <Cart isOpen={isCartOpen} onClose={closeCart} />
     </>
   );

@@ -5,7 +5,7 @@ import './Footer.css';
 
 export const Footer = () => {
   return (
-    <footer className="footer">
+    <footer className="footer" id="contact">
       {/* Gradient banner with THSIX text centered */}
       <div className="footer__gradient-banner">
         <div className="footer__banner-text">
