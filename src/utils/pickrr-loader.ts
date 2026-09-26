@@ -1,13 +1,13 @@
-// Load the Pickrr/Shiprocket checkout script exactly once.
+// Load the Shiprocket checkout script exactly once (production URL from Shiprocket's Custom channel docs).
 // index.html already includes it, so this normally just waits for that copy.
 // Injecting a second copy registers every listener twice and breaks the checkout modal.
-const SCRIPT_SRC = 'https://fastrr-boost-ui.pickrr.com/assets/js/channels/shopify.js';
-const STYLE_HREF = 'https://fastrr-boost-ui.pickrr.com/assets/styles/shopify.css';
+const SCRIPT_SRC = 'https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js';
+const STYLE_HREF = 'https://checkout-ui.shiprocket.com/assets/styles/shopify.css';
 const SELLER_DOMAIN = 'thsix.com';
 
 let loadPromise: Promise<void> | null = null;
 
-const isReady = () => typeof (window as any).shiprocketCheckoutEvents !== 'undefined';
+const isReady = () => typeof (window as any).HeadlessCheckout?.addToCart === 'function';
 
 export const loadPickrrScript = (): Promise<void> => {
   if (isReady()) return Promise.resolve();

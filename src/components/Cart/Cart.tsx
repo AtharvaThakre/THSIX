@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
-import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-shopify';
+import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-checkout';
 import { loadPickrrScript } from '../../utils/pickrr-loader';
 import './Cart.css';
 
@@ -62,7 +62,7 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
         throw new Error('Checkout service is not available. Please refresh the page and try again.');
       }
 
-      checkoutFromCart(products);
+      await checkoutFromCart(products);
     } catch (error) {
       console.error('Checkout error:', error);
       setCheckoutError(

@@ -14,11 +14,17 @@ const config = {
   shiprocketApiKey: shiprocketApiKey || '',
   shiprocketApiSecret: shiprocketApiSecret || '',
   shiprocketBaseUrl: shiprocketBaseUrl || 'https://checkout-api.shiprocket.com',
-  websiteBaseUrl: websiteBaseUrl || 'https://thsix.vercel.app',
+  websiteBaseUrl: websiteBaseUrl || 'https://www.thsix.com',
   checkoutSuccessUrl: checkoutSuccessUrl || '/checkout/success',
   checkoutFailureUrl: checkoutFailureUrl || '/checkout/failure',
   shopifyStoreDomain: shopifyStoreDomain || 'https://19sjnp-gx.myshopify.com',
   shopifyStorefrontToken: shopifyStorefrontToken || 'be59fa0cf086500d7b6456e64f233866',
+  // Shopify has no weights entered for these products; couriers need one to price shipping
+  defaultWeightGrams: parseInt(process.env.SHIPROCKET_DEFAULT_WEIGHT_GRAMS || '', 10) || 1000,
+  // Optional: lets the order webhook create the order in Shopify (write_orders scope)
+  shopifyAdminToken: process.env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
+  // Protects /api/catalog/sync; Vercel Cron sends it as a Bearer token
+  cronSecret: process.env.CRON_SECRET || '',
   defaultPageLimit: 100,
   maxPageLimit: 250,
 };

@@ -24,5 +24,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/catalog/sync",
+      "schedule": "30 20 * * *"
+    }
   ]
 }

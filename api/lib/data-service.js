@@ -1,3 +1,4 @@
+const { config } = require('./config');
 /**
  * Shopify Storefront API client for fetching real products
  */
@@ -128,6 +129,13 @@ async function fetchCollectionsFromShopify(limit = 250) {
   return data.data.collections.edges.map(edge => transformShopifyCollection(edge.node));
 }
 
+const WEIGHT_TO_GRAMS = { GRAMS: 1, KILOGRAMS: 1000, OUNCES: 28.3495, POUNDS: 453.592 };
+
+function toGrams(weight, unit) {
+  if (!weight) return 0;
+  return Math.round(weight * (WEIGHT_TO_GRAMS[unit] || 1000));
+}
+
 /**
  * Transform Shopify product to Shiprocket format
  */
@@ -149,6 +157,7 @@ function transformShopifyProduct(shopifyProduct) {
     variants: shopifyProduct.variants.edges.map(variantEdge => {
       const variant = variantEdge.node;
       const variantId = variant.id.split('/').pop();
+      const grams = toGrams(variant.weight, variant.weightUnit) || config.defaultWeightGrams;
       
       return {
         id: variantId,
@@ -162,14 +171,14 @@ function transformShopifyProduct(shopifyProduct) {
         // The Storefront token can't read stock levels; expose sold-out variants as 0 so
         // Shiprocket won't sell them
         quantity: variant.availableForSale === false ? 0 : 999,
-        grams: variant.weight ? Math.round(variant.weight * 1000) : 0,
+        grams,
         image: variant.image ? { src: variant.image.url } : null,
         option_values: variant.selectedOptions.reduce((acc, opt) => {
           acc[opt.name] = opt.value;
           return acc;
         }, {}),
-        weight: variant.weight || 0,
-        weight_unit: variant.weightUnit ? variant.weightUnit.toLowerCase() : 'kg'
+        weight: grams / 1000,
+        weight_unit: 'kg'
       };
     }),
     options: shopifyProduct.options.map(opt => ({
@@ -343,8 +352,57 @@ async function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
   }
 }
 
+/**
+ * Look up variants by numeric ID for checkout: the live price, title and image come from
+ * Shopify, never from the browser. Returns a Map of numeric ID -> variant (missing IDs absent).
+ */
+async function fetchVariantsByIds(variantIds) {
+  const query = `
+    query ($ids: [ID!]!) {
+      nodes(ids: $ids) {
+        ... on ProductVariant {
+          id
+          title
+          availableForSale
+          price { amount }
+          image { url }
+          product { title featuredImage { url } }
+        }
+      }
+    }
+  `;
+
+  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
+    },
+    body: JSON.stringify({
+      query,
+      variables: { ids: variantIds.map(id => `gid://shopify/ProductVariant/${id}`) },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  if (data.errors) {
+    throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
+  }
+
+  const variants = new Map();
+  for (const node of data.data.nodes) {
+    if (node && node.id) variants.set(node.id.split('/').pop(), node);
+  }
+  return variants;
+}
+
 module.exports = {
   fetchProducts,
   fetchCollections,
-  fetchProductsByCollection
+  fetchProductsByCollection,
+  fetchVariantsByIds
 };
