@@ -87,7 +87,7 @@ export const ProductShowcase = () => {
           <br></br>   
           <span className="product-showcase__eyebrow">THE STORE</span>
           <h2 className="product-showcase__title">LATEST DROPS</h2>
-          <p className="product-showcase__subtitle">CURATED. MINIMAL. YOURS.</p>
+          <p className="product-showcase__subtitle">SNEKER. CULTURE. COMMUNITY.</p>
         </div>
       </div>
 

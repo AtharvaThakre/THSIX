@@ -1,4 +1,3 @@
-import { ArrowRight } from 'lucide-react';
 import { philosophyData } from '../../data/philosophy';
 import './Philosophy.css';
 
@@ -40,7 +39,7 @@ export const Philosophy = () => {
       </div>
 
       {/* Bottom-anchored content */}
-      <div className="philosophy__content">
+      <section className="philosophy__content">
         <span className="philosophy__eyebrow">{philosophyData.eyebrow}</span>
 
         <h2 className="philosophy__title">
@@ -50,12 +49,7 @@ export const Philosophy = () => {
         </h2>
 
         <p className="philosophy__description">{philosophyData.description}</p>
-
-        <a href={philosophyData.ctaHref} className="philosophy__cta">
-          <span>{philosophyData.cta}</span>
-          <ArrowRight size={14} strokeWidth={1.5} className="philosophy-cta-arrow" />
-        </a>
-      </div>
+      </section>
     </section>
   );
 };

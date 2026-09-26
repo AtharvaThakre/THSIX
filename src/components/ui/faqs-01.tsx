@@ -7,16 +7,16 @@ import {
 
 const faqs = [
   {
-    q: "THSIX Verified",
-    a: "All items are verified by THSIX, confirming their authenticity and quality through rigorous testing and verification processes.",
+    q: "What is THSIX Verified",
+    a: "THSIX Verified means every product listed on THSIX goes through our verification process before reaching you. We focus on product quality, details, and condition so you can shop with confidence premium footwear without the premium hit to your pocket.",
   },
   {
     q: "Our Promise",
     a: "We guarantee authenticity on every purchase. If any item is found to be inauthentic, we offer a full refund with no questions asked.",
   },
   {
-    q: "Money Back Guarantee",
-    a: "Shop with confidence knowing that all purchases are backed by our money-back guarantee. Your satisfaction is our priority.",
+    q: "Is Cash on Delivery Available?",
+    a: "Yes, Cash on Delivery is available for All Types o Orders",
   },
   {
     q: "Shippings & EMIs",

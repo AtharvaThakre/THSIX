@@ -257,7 +257,7 @@ export const ProductDetailPage = () => {
         <div className="product-detail__breadcrumb">
           <div className="product-detail__container">
             <Link to="/" className="product-detail__back-link">
-              <ArrowLeft size={18} />
+              <ArrowLeft size={16} />
               <span>Home</span>
             </Link>
             <span className="product-detail__breadcrumb-sep">/</span>
@@ -449,14 +449,12 @@ export const ProductDetailPage = () => {
                     </div>
                   </div>
                   <div className="product-detail__info-item">
-                    <a href="https://wa.me/919022771696?text=Hi%20THSIX!" target="_blank" rel="noopener noreferrer" className="product-detail__whatsapp-link">
-                      <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                      </svg>
-                      <div className="product-detail__info-content">
-                        <span className="product-detail__info-label">Priority support via WhatsApp</span>
-                      </div>
-                    </a>
+                    <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                    </svg>
+                    <div className="product-detail__info-content">
+                      <span className="product-detail__info-label">Priority support via WhatsApp</span>
+                    </div>
                   </div>
                   <div className="product-detail__info-item">
                     <svg className="product-detail__info-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">

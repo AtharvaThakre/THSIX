@@ -28,10 +28,10 @@ export const lookbookItems: LookbookItem[] = [
   {
     id: '03',
     title: 'CLEAN & CLASSIC',
-    image: '/assets/lookbook/clean-and-classic.jpg?v=2',
-    webp: '/assets/lookbook/clean-and-classic.webp',
-    webp2x: '/assets/lookbook/clean-and-classic@2x.webp',
-    fallback: '/assets/lookbook/clean-and-classic-fallback.jpg',
+    image: '/assets/lookbook/clean-and-classic.jpg?v=3',
+    webp: '/assets/lookbook/clean-and-classic.webp?v=3',
+    webp2x: '/assets/lookbook/clean-and-classic@2x.webp?v=3',
+    fallback: '/assets/lookbook/clean-and-classic-fallback.jpg?v=3',
     alt: 'Clean & Classic THSIX lookbook',
   },
   {

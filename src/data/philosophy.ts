@@ -1,12 +1,12 @@
 export const philosophyData = {
   image: '/assets/philosophy-lifestyle.jpg?v=2',
-  eyebrow: "OUR PHILOSOPHY",
+  eyebrow: "THSIX PHILOSOPHY",
   title: [
-    "WE DON'T",
-    "FOLLOW THE CULTURE.",
-    "WE BUILD IT."
+    "To Make",
+    "Premium",
+    "Accessible."
   ],
-  description: "THSIX is a lifestyle and fashion destination for those who value clean design, premium quality and self-expression. We bring you iconic sneakers and accessories from the world's best brands — starting with a legend.",
+  description: "At THSIX, we believe premium style shouldn’t come at the cost of your pocket. We make premium footwear more accessible, so you can wear what you love without overspending. Because looking premium should feel good without hurting your wallet.",
   cta: "OUR STORY",
   ctaHref: "https://www.instagram.com/thsix.official/",
   imageOverlay: ["SNEAKERS", "PEOPLE", "CULTURE", "THSIX"],
