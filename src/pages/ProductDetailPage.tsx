@@ -71,6 +71,7 @@ export const ProductDetailPage = () => {
   const [sizeError, setSizeError] = useState(false);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isBuyingNow, setIsBuyingNow] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
 
@@ -118,11 +119,7 @@ export const ProductDetailPage = () => {
           const vs: any[] = p.variants?.edges?.map((e: any) => e.node) ?? [];
           const firstAvailIdx = vs.findIndex((v: any) => v.availableForSale);
           const autoIdx = firstAvailIdx >= 0 ? firstAvailIdx : vs.length > 0 ? 0 : null;
-          if (autoIdx !== null) {
-            setSelectedVariantIndex(autoIdx);
-            const numId = extractNumericVariantId(vs[autoIdx].id);
-            (window as any).selectedVariantId = numId;
-          }
+          if (autoIdx !== null) setSelectedVariantIndex(autoIdx);
         } else {
           console.log('Product not found for handle:', handle);
         }
@@ -157,7 +154,6 @@ export const ProductDetailPage = () => {
     setSizeError(false);
     const variant = variants[index];
     const numId = extractNumericVariantId(variant.id);
-    (window as any).selectedVariantId = numId;
     console.log('[ProductDetailPage] Variant selected:', numId, variant.title);
     // Switch main image to variant image if it has one
     if (variant.image?.url) {
@@ -186,8 +182,8 @@ export const ProductDetailPage = () => {
   const handleBuyNow = useCallback(async () => {
     if (!selectedVariant) { setSizeError(true); return; }
     if (isBuyingNow) return;
+    setCheckoutError(null);
     const numId = extractNumericVariantId(selectedVariant.id);
-    (window as any).selectedVariantId = numId;
     console.log('[ProductDetailPage] Buy Now:', numId, selectedVariant.title);
     setIsBuyingNow(true);
     try {
@@ -197,7 +193,7 @@ export const ProductDetailPage = () => {
       await checkoutWithProducts([{ variantId: numId, quantity: 1 }]);
       setTimeout(() => setIsBuyingNow(false), 3000);
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to initiate checkout. Please try again.');
+      setCheckoutError(err instanceof Error ? err.message : 'Failed to initiate checkout. Please try again.');
       setIsBuyingNow(false);
     }
   }, [selectedVariant, isBuyingNow]);
@@ -393,7 +389,6 @@ export const ProductDetailPage = () => {
               <div className="product-detail__actions">
                 <button
                   className="product-detail__add-btn"
-                  data-enhanced="true"
                   type="button"
                   onClick={handleAddToCart}
                 >
@@ -401,7 +396,6 @@ export const ProductDetailPage = () => {
                 </button>
                 <button
                   className="product-detail__buy-btn"
-                  data-enhanced="true"
                   type="button"
                   onClick={handleBuyNow}
                   disabled={isBuyingNow}
@@ -409,6 +403,9 @@ export const ProductDetailPage = () => {
                   {isBuyingNow ? 'Loading...' : 'Buy Now'}
                 </button>
               </div>
+              {checkoutError && (
+                <p className="product-detail__size-error" role="alert">{checkoutError}</p>
+              )}
 
               {/* Delivery & Authentication */}
               <div className="product-detail__section">

@@ -1,74 +1,49 @@
 const { config } = require('./config');
-/**
- * Shopify Storefront API client for fetching real products
- */
-
-const SHOPIFY_STORE_DOMAIN = process.env.SHOPIFY_STORE_DOMAIN || 'https://19sjnp-gx.myshopify.com';
-const SHOPIFY_STOREFRONT_TOKEN = process.env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || 'be59fa0cf086500d7b6456e64f233866';
 
 /**
- * Fetch products from Shopify Storefront API
+ * Shopify Storefront API reads, shaped the way Shiprocket's catalogue APIs expect.
  */
-async function fetchProductsFromShopify(limit = 250) {
-  const query = `
-    {
-      products(first: ${limit}) {
-        edges {
-          node {
-            id
-            title
-            descriptionHtml
-            vendor
-            productType
-            handle
-            createdAt
-            updatedAt
-            tags
-            variants(first: 250) {
-              edges {
-                node {
-                  id
-                  title
-                  price {
-                    amount
-                  }
-                  compareAtPrice {
-                    amount
-                  }
-                  sku
-                  availableForSale
-                  weight
-                  weightUnit
-                  image {
-                    url
-                  }
-                  selectedOptions {
-                    name
-                    value
-                  }
-                }
-              }
-            }
-            options {
-              name
-              values
-            }
-            featuredImage {
-              url
-            }
-          }
-        }
+
+const STOREFRONT_API = '2024-01';
+
+const PRODUCT_FIELDS = `
+  id
+  title
+  descriptionHtml
+  vendor
+  productType
+  handle
+  createdAt
+  updatedAt
+  tags
+  variants(first: 250) {
+    edges {
+      node {
+        id
+        title
+        price { amount }
+        compareAtPrice { amount }
+        sku
+        availableForSale
+        weight
+        weightUnit
+        image { url }
+        selectedOptions { name value }
       }
     }
-  `;
+  }
+  options { name values }
+  featuredImage { url }
+`;
 
-  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
+async function storefrontQuery(query, variables = {}) {
+  const response = await fetch(`${config.shopifyStoreDomain}/api/${STOREFRONT_API}/graphql.json`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
+      'X-Shopify-Storefront-Access-Token': config.shopifyStorefrontToken,
     },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, variables }),
   });
 
   if (!response.ok) {
@@ -76,57 +51,23 @@ async function fetchProductsFromShopify(limit = 250) {
   }
 
   const data = await response.json();
-  
   if (data.errors) {
     throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
   }
-
-  return data.data.products.edges.map(edge => transformShopifyProduct(edge.node));
+  return data.data;
 }
 
-/**
- * Fetch collections from Shopify Storefront API
- */
-async function fetchCollectionsFromShopify(limit = 250) {
-  const query = `
-    {
-      collections(first: ${limit}) {
-        edges {
-          node {
-            id
-            title
-            handle
-            descriptionHtml
-            updatedAt
-            image {
-              url
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
-    },
-    body: JSON.stringify({ query }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  
-  if (data.errors) {
-    throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
-  }
-
-  return data.data.collections.edges.map(edge => transformShopifyCollection(edge.node));
+// Follows Storefront cursors so stores with more than 250 items are read in full
+async function fetchAllPages(query, variables, getConnection) {
+  const nodes = [];
+  let after = null;
+  do {
+    const connection = getConnection(await storefrontQuery(query, { ...variables, after }));
+    if (!connection) break;
+    nodes.push(...connection.edges.map(edge => edge.node));
+    after = connection.pageInfo.hasNextPage ? connection.pageInfo.endCursor : null;
+  } while (after);
+  return nodes;
 }
 
 const WEIGHT_TO_GRAMS = { GRAMS: 1, KILOGRAMS: 1000, OUNCES: 28.3495, POUNDS: 453.592 };
@@ -136,220 +77,112 @@ function toGrams(weight, unit) {
   return Math.round(weight * (WEIGHT_TO_GRAMS[unit] || 1000));
 }
 
-/**
- * Transform Shopify product to Shiprocket format
- */
-function transformShopifyProduct(shopifyProduct) {
-  // Extract numeric ID from Shopify's global ID (gid://shopify/Product/123456)
-  const id = shopifyProduct.id.split('/').pop();
-  
+const numericId = gid => gid.split('/').pop();
+
+function transformProduct(product) {
   return {
-    id: id,
-    title: shopifyProduct.title,
-    body_html: shopifyProduct.descriptionHtml || '',
-    vendor: shopifyProduct.vendor || '',
-    product_type: shopifyProduct.productType || '',
-    created_at: shopifyProduct.createdAt,
-    handle: shopifyProduct.handle,
-    updated_at: shopifyProduct.updatedAt,
-    tags: shopifyProduct.tags.join(', '),
+    id: numericId(product.id),
+    title: product.title,
+    body_html: product.descriptionHtml || '',
+    vendor: product.vendor || '',
+    product_type: product.productType || '',
+    created_at: product.createdAt,
+    handle: product.handle,
+    updated_at: product.updatedAt,
+    tags: product.tags.join(', '),
     status: 'active',
-    variants: shopifyProduct.variants.edges.map(variantEdge => {
-      const variant = variantEdge.node;
-      const variantId = variant.id.split('/').pop();
+    variants: product.variants.edges.map(({ node: variant }) => {
       const grams = toGrams(variant.weight, variant.weightUnit) || config.defaultWeightGrams;
-      
       return {
-        id: variantId,
+        id: numericId(variant.id),
         title: variant.title,
         price: parseFloat(variant.price.amount).toFixed(2),
         compare_at_price: variant.compareAtPrice ? parseFloat(variant.compareAtPrice.amount).toFixed(2) : null,
         sku: variant.sku || '',
-        created_at: shopifyProduct.createdAt,
-        updated_at: shopifyProduct.updatedAt,
+        created_at: product.createdAt,
+        updated_at: product.updatedAt,
         taxable: true,
         // The Storefront token can't read stock levels; expose sold-out variants as 0 so
         // Shiprocket won't sell them
         quantity: variant.availableForSale === false ? 0 : 999,
         grams,
         image: variant.image ? { src: variant.image.url } : null,
-        option_values: variant.selectedOptions.reduce((acc, opt) => {
-          acc[opt.name] = opt.value;
-          return acc;
-        }, {}),
+        option_values: Object.fromEntries(variant.selectedOptions.map(opt => [opt.name, opt.value])),
         weight: grams / 1000,
-        weight_unit: 'kg'
+        weight_unit: 'kg',
       };
     }),
-    options: shopifyProduct.options.map(opt => ({
-      name: opt.name,
-      values: opt.values
-    })),
-    image: shopifyProduct.featuredImage ? { src: shopifyProduct.featuredImage.url } : null
+    options: product.options.map(opt => ({ name: opt.name, values: opt.values })),
+    image: product.featuredImage ? { src: product.featuredImage.url } : null,
   };
 }
 
-/**
- * Transform Shopify collection to Shiprocket format
- */
-function transformShopifyCollection(shopifyCollection) {
-  const id = shopifyCollection.id.split('/').pop();
-  
+function transformCollection(collection) {
   return {
-    id: id,
-    updated_at: shopifyCollection.updatedAt,
-    body_html: shopifyCollection.descriptionHtml || '',
-    handle: shopifyCollection.handle,
-    image: shopifyCollection.image ? { src: shopifyCollection.image.url } : null,
-    title: shopifyCollection.title,
-    created_at: shopifyCollection.updatedAt
+    id: numericId(collection.id),
+    updated_at: collection.updatedAt,
+    body_html: collection.descriptionHtml || '',
+    handle: collection.handle,
+    image: collection.image ? { src: collection.image.url } : null,
+    title: collection.title,
+    // Storefront API has no collection createdAt
+    created_at: collection.updatedAt,
   };
 }
 
-/**
- * Fetch all products with pagination
- */
+function paginate(items, page, limit) {
+  const start = (page - 1) * limit;
+  return { total: items.length, items: items.slice(start, start + limit) };
+}
+
 async function fetchProducts(page = 1, limit = 100) {
-  try {
-    const allProducts = await fetchProductsFromShopify(250);
-    
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedProducts = allProducts.slice(startIndex, endIndex);
-
-    return {
-      total: allProducts.length,
-      products: paginatedProducts
-    };
-  } catch (error) {
-    console.error('Error fetching products from Shopify:', error);
-    throw error;
-  }
+  const products = await fetchAllPages(
+    `query ($after: String) {
+      products(first: 250, after: $after) {
+        edges { node { ${PRODUCT_FIELDS} } }
+        pageInfo { hasNextPage endCursor }
+      }
+    }`,
+    {},
+    data => data.products
+  );
+  const { total, items } = paginate(products.map(transformProduct), page, limit);
+  return { total, products: items };
 }
 
-/**
- * Fetch all collections with pagination
- */
 async function fetchCollections(page = 1, limit = 100) {
-  try {
-    const allCollections = await fetchCollectionsFromShopify(250);
-    
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedCollections = allCollections.slice(startIndex, endIndex);
-
-    return {
-      total: allCollections.length,
-      collections: paginatedCollections
-    };
-  } catch (error) {
-    console.error('Error fetching collections from Shopify:', error);
-    throw error;
-  }
+  const collections = await fetchAllPages(
+    `query ($after: String) {
+      collections(first: 250, after: $after) {
+        edges { node { id title handle descriptionHtml updatedAt image { url } } }
+        pageInfo { hasNextPage endCursor }
+      }
+    }`,
+    {},
+    data => data.collections
+  );
+  const { total, items } = paginate(collections.map(transformCollection), page, limit);
+  return { total, collections: items };
 }
 
 /**
- * Fetch products by collection ID with pagination
+ * collectionId must be numeric (validated by the caller); unknown IDs return an empty list.
  */
 async function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
-  try {
-    const query = `
-      {
-        collection(id: "gid://shopify/Collection/${collectionId}") {
-          products(first: 250) {
-            edges {
-              node {
-                id
-                title
-                descriptionHtml
-                vendor
-                productType
-                handle
-                createdAt
-                updatedAt
-                tags
-                variants(first: 250) {
-                  edges {
-                    node {
-                      id
-                      title
-                      price {
-                        amount
-                      }
-                      compareAtPrice {
-                        amount
-                      }
-                      sku
-                      availableForSale
-                      weight
-                      weightUnit
-                      image {
-                        url
-                      }
-                      selectedOptions {
-                        name
-                        value
-                      }
-                    }
-                  }
-                }
-                options {
-                  name
-                  values
-                }
-                featuredImage {
-                  url
-                }
-              }
-            }
-          }
+  const products = await fetchAllPages(
+    `query ($id: ID!, $after: String) {
+      collection(id: $id) {
+        products(first: 250, after: $after) {
+          edges { node { ${PRODUCT_FIELDS} } }
+          pageInfo { hasNextPage endCursor }
         }
       }
-    `;
-
-    const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
-      },
-      body: JSON.stringify({ query }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    
-    if (data.errors) {
-      throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
-    }
-
-    if (!data.data.collection) {
-      return {
-        total: 0,
-        products: []
-      };
-    }
-
-    const allProducts = data.data.collection.products.edges.map(edge => transformShopifyProduct(edge.node));
-    
-    // Apply pagination
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + limit;
-    const paginatedProducts = allProducts.slice(startIndex, endIndex);
-
-    return {
-      total: allProducts.length,
-      products: paginatedProducts
-    };
-  } catch (error) {
-    console.error('Error fetching products by collection from Shopify:', error);
-    throw error;
-  }
+    }`,
+    { id: `gid://shopify/Collection/${collectionId}` },
+    data => data.collection && data.collection.products
+  );
+  const { total, items } = paginate(products.map(transformProduct), page, limit);
+  return { total, products: items };
 }
 
 /**
@@ -357,8 +190,8 @@ async function fetchProductsByCollection(collectionId, page = 1, limit = 100) {
  * Shopify, never from the browser. Returns a Map of numeric ID -> variant (missing IDs absent).
  */
 async function fetchVariantsByIds(variantIds) {
-  const query = `
-    query ($ids: [ID!]!) {
+  const data = await storefrontQuery(
+    `query ($ids: [ID!]!) {
       nodes(ids: $ids) {
         ... on ProductVariant {
           id
@@ -369,33 +202,13 @@ async function fetchVariantsByIds(variantIds) {
           product { title featuredImage { url } }
         }
       }
-    }
-  `;
-
-  const response = await fetch(`${SHOPIFY_STORE_DOMAIN}/api/2024-01/graphql.json`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Storefront-Access-Token': SHOPIFY_STOREFRONT_TOKEN,
-    },
-    body: JSON.stringify({
-      query,
-      variables: { ids: variantIds.map(id => `gid://shopify/ProductVariant/${id}`) },
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Shopify API error: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  if (data.errors) {
-    throw new Error(`Shopify GraphQL error: ${JSON.stringify(data.errors)}`);
-  }
+    }`,
+    { ids: variantIds.map(id => `gid://shopify/ProductVariant/${id}`) }
+  );
 
   const variants = new Map();
-  for (const node of data.data.nodes) {
-    if (node && node.id) variants.set(node.id.split('/').pop(), node);
+  for (const node of data.nodes) {
+    if (node && node.id) variants.set(numericId(node.id), node);
   }
   return variants;
 }
@@ -404,5 +217,5 @@ module.exports = {
   fetchProducts,
   fetchCollections,
   fetchProductsByCollection,
-  fetchVariantsByIds
+  fetchVariantsByIds,
 };

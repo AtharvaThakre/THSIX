@@ -1,6 +1,5 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
-import { CartEnhancer } from '../CartEnhancer/CartEnhancer';
 import { ShopifyGuard } from '../ShopifyGuard';
 import ScrollVelocity from '../ScrollVelocity/ScrollVelocity';
 import './ProductShowcase.css';
@@ -64,7 +63,6 @@ export const ProductShowcase = () => {
 
   return (
     <section className="product-showcase">
-      <CartEnhancer />
 
       <ShopifyGuard>
         {/* Global cart (home page) */}
@@ -169,17 +167,6 @@ export const ProductShowcase = () => {
                             <shopify-money query="product.selectedOrFirstAvailableVariant.price"></shopify-money>
                           </p>
                         </div>
-                        <button
-                          class="product-card__action"
-                          aria-label="Quick add to cart"
-                          onclick="
-                            event.preventDefault();
-                            event.stopPropagation();
-                            document.getElementById('global-cart').addLine(event);
-                          "
-                          shopify-attr--disabled="!product.selectedOrFirstAvailableVariant.availableForSale"
-                        />
-
                       </div>
                     </a>
                   </div>

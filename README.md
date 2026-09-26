@@ -1,160 +1,42 @@
-# THSIX - Shopify Headless E-commerce Store
+# THSIX
 
-![THSIX Logo](./Assets/brand%20logos/logo-Photoroom.png)
+Headless sneaker store at [www.thsix.com](https://www.thsix.com): a React + Vite frontend on Vercel, products from Shopify, and checkout through Shiprocket Checkout.
 
-A modern, high-performance headless e-commerce store built with React, Vite, and Shopify's Web Components. Features real-time product updates, advanced cart functionality, and seamless user experience.
+## How it fits together
 
-## 🚀 Live Demo
+- **Products:** the browser reads Shopify through the Storefront API and Shopify Web Components.
+- **Cart:** kept in the browser (`src/contexts/CartContext.tsx`).
+- **Checkout:** THSIX is a **Custom channel** seller in Shiprocket Checkout, not a Shopify one. Don't use `shiprocketCheckoutEvents.buyDirect()`: it fails with "catalogue service response is null". Instead:
+  1. The browser posts the cart to `/api/checkout/token`.
+  2. The server looks up live prices in Shopify, signs the request with the Shiprocket API secret and returns a checkout token.
+  3. The browser opens checkout with `HeadlessCheckout.addToCart(null, token, { fallbackUrl })`.
+  4. After payment, Shiprocket redirects to `/checkout/success?oid=<order id>&ost=SUCCESS|FAILED`.
 
-**Production Site**: [Your Vercel URL will be here]
+## API (`/api`, Vercel functions)
 
-## ✨ Features
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/checkout/token` | Body `{ items: [{ variant_id, quantity }], redirect_url? }` → `{ ok, token, order_id }` |
+| `GET /api/checkout/health` | Checks the Shiprocket keys are set and accepted (never reveals them) |
+| `GET /api/catalog/products?page&limit` | Shiprocket catalogue: products |
+| `GET /api/catalog/collections?page&limit` | Shiprocket catalogue: collections |
+| `GET /api/catalog/products-by-collection?collection_id&page&limit` | Shiprocket catalogue: products in a collection |
+| `GET /api/catalog/sync` | Pushes the catalogue to Shiprocket's webhooks. Needs `Authorization: Bearer $CRON_SECRET`; Vercel Cron runs it daily |
+| `POST /api/webhooks/order` | Shiprocket order webhook. Checks the order with Shiprocket and, if `SHOPIFY_ADMIN_ACCESS_TOKEN` is set, creates it in Shopify |
 
-### 🛒 **Shopping Experience**
-- **Real-time Product Data** - Live sync with Shopify inventory
-- **Advanced Cart System** - Persistent cart with quantity controls
-- **Size Chart Modal** - Comprehensive sizing guide
-- **Variant Selection** - Complete size/color options
-- **Price Calculations** - Subtotal, shipping, tax, total
+Shiprocket's API reference: https://documenter.getpostman.com/view/25617008/2sB34bL3ig
 
-### 🎨 **Modern UI/UX**
-- **Responsive Design** - Mobile-first approach
-- **Smooth Animations** - Framer Motion & GSAP
-- **3D Product Views** - Three.js integration
-- **Infinite Scroll** - Seamless product browsing
-- **Loading States** - Enhanced user feedback
+## Setup
 
-### ⚡ **Performance**
-- **Vite Build System** - Lightning-fast development
-- **Code Splitting** - Optimized bundle sizes
-- **Image Optimization** - WebP format with fallbacks
-- **Lazy Loading** - Performance-optimized loading
-- **PWA Ready** - Offline support capabilities
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 19, TypeScript, Vite
-- **Styling**: TailwindCSS, Custom CSS
-- **Animation**: Framer Motion, GSAP, Lenis
-- **3D Graphics**: Three.js, React Three Fiber
-- **E-commerce**: Shopify Web Components
-- **Deployment**: Vercel
-- **State Management**: React Context
-- **Routing**: React Router DOM
-
-## 📦 Installation
-
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/THSIX.git
-   cd THSIX
-   ```
-
-2. **Install dependencies**:
-   ```bash
-   npm install
-   ```
-
-3. **Set up environment variables**:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your Shopify credentials
-   ```
-
-4. **Start development server**:
-   ```bash
-   npm run dev
-   ```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file with:
-
-```env
-VITE_SHOPIFY_STORE_DOMAIN=https://your-store.myshopify.com
-VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN=your-storefront-token
-VITE_APP_TITLE=THSIX
+```bash
+npm install
+npm run dev      # http://localhost:5173, /api is proxied to production
+npm run build
+npm run lint
 ```
 
-### Shopify Setup
+Environment variables are listed in `.env.example`. Set the server ones (`SHIPROCKET_*`, `CRON_SECRET`, `SHOPIFY_ADMIN_ACCESS_TOKEN`) in the Vercel dashboard.
 
-1. **Storefront API Access**:
-   - Go to Shopify Admin → Apps → Develop apps
-   - Create private app with Storefront API access
-   - Copy the Storefront access token
-
-2. **Required Permissions**:
-   - `unauthenticated_read_products`
-   - `unauthenticated_read_collections`
-   - `unauthenticated_write_checkouts`
-
-## 🚀 Deployment
-
-### Quick Deploy to Vercel
-
-1. **One-click deploy**:
-   [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/YOUR_USERNAME/THSIX)
-
-2. **Manual deployment**:
-   ```bash
-   # Install Vercel CLI
-   npm install -g vercel
-   
-   # Deploy
-   vercel --prod
-   ```
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
-## 📱 Features Deep Dive
-
-### Cart System
-- **Persistent Storage** - Cart saves across sessions
-- **Real-time Calculations** - Dynamic pricing updates
-- **Variant Support** - Size/color tracking
-- **Quantity Controls** - Easy increment/decrement
-- **Checkout Integration** - Direct Shopify checkout
-
-### Product Pages
-- **Dynamic Routing** - SEO-friendly URLs
-- **Image Gallery** - Swipeable product images
-- **Variant Selection** - Visual size/color picker
-- **Size Chart** - Detailed sizing information
-- **Reviews Integration** - Customer feedback display
-
-### Performance Optimizations
-- **Bundle Splitting** - Vendor, UI, 3D libraries separated
-- **Image Optimization** - WebP with fallbacks
-- **Preloading** - Critical resources loaded early
-- **Caching Strategy** - Optimized for speed and freshness
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing-feature`)
-5. Open Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Shopify** - E-commerce platform and Web Components
-- **Vercel** - Hosting and deployment platform
-- **React Team** - Amazing frontend framework
-- **Vite** - Next generation build tool
-
-## 📞 Support
-
-For support and questions:
-- **Email**: support@thsix.com
-- **Documentation**: [DEPLOYMENT.md](./DEPLOYMENT.md)
-
----
-
-Built with ❤️ by the THSIX team
+In Shiprocket Checkout settings, set:
+- Order webhook: `https://www.thsix.com/api/webhooks/order`
+- Catalogue URLs: the three `/api/catalog/*` endpoints above

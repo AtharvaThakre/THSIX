@@ -187,12 +187,6 @@ export function BrandCollectionPage() {
     return `₹ ${numPrice.toLocaleString('en-IN')}`;
   };
 
-  const formatComparePrice = (comparePrice?: string | null): string | null => {
-    if (!comparePrice) return null;
-    const numPrice = parseFloat(comparePrice);
-    return `₹ ${numPrice.toLocaleString('en-IN')}`;
-  };
-
   if (!brand) {
     return (
       <div className="brand-not-found">

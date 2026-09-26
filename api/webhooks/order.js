@@ -9,22 +9,43 @@ const SHOPIFY_ADMIN_API = '2024-10';
  * Shiprocket Checkout calls this after an order is placed (register the URL in
  * Shiprocket Checkout > Settings > Webhooks). It may be sent more than once and expects 200.
  *
- * The webhook is unsigned, so the order is first confirmed with Shiprocket's signed
- * Order Details API. If SHOPIFY_ADMIN_ACCESS_TOKEN is set, a matching Shopify order is
- * created (tagged sr-<order id>, so repeats are skipped) to decrement stock and keep
- * orders in Shopify admin.
+ * The webhook is unsigned, so only its order_id is used: the order itself is read from
+ * Shiprocket's signed Order Details API. If SHOPIFY_ADMIN_ACCESS_TOKEN is set, paid/COD
+ * orders are created in Shopify (tagged sr-<order id>, so repeats are skipped) to
+ * decrement stock and keep orders in Shopify admin.
  */
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ ok: false, message: 'Method not allowed' });
   }
 
-  const order = typeof req.body === 'string' ? safeParse(req.body) : req.body;
-  if (!order || !order.order_id) {
+  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body;
+  const orderId = body && body.order_id ? String(body.order_id) : '';
+  if (!/^[a-f0-9]{24}$/i.test(orderId)) {
     return res.status(400).json({ ok: false, message: 'order_id is required' });
   }
 
-  console.log('[order-webhook] Received', JSON.stringify({
+  console.log('[order-webhook] Received', orderId, body.status);
+
+  if (!isConfigured()) {
+    console.error('[order-webhook] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set; cannot verify order');
+    return res.status(500).json({ ok: false });
+  }
+
+  // The webhook is unsigned: use Shiprocket's signed Order Details API as the source of truth
+  const verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
+    order_id: orderId,
+    timestamp: new Date().toISOString(),
+  }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
+
+  const order = verified.ok && verified.data && verified.data.ok !== false && verified.data.result;
+  if (!order || String(order.order_id) !== orderId) {
+    console.error('[order-webhook] Could not verify order with Shiprocket:', verified.status, String(verified.text).slice(0, 500));
+    // 5xx makes Shiprocket retry later; a 4xx from them means the order doesn't exist
+    return res.status(verified.status >= 400 && verified.status < 500 ? 400 : 502).json({ ok: false });
+  }
+
+  console.log('[order-webhook] Verified', JSON.stringify({
     order_id: order.order_id,
     status: order.status,
     payment_type: order.payment_type,
@@ -34,23 +55,7 @@ module.exports = async function handler(req, res) {
   }));
 
   if (String(order.status).toUpperCase() !== 'SUCCESS') {
-    return res.status(200).json({ ok: true, skipped: 'order not successful' });
-  }
-
-  if (!isConfigured()) {
-    console.error('[order-webhook] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set; cannot verify order');
-    return res.status(500).json({ ok: false });
-  }
-
-  const verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
-    order_id: order.order_id,
-    timestamp: new Date().toISOString(),
-  }).catch(error => ({ ok: false, status: 0, text: error.message }));
-
-  if (!verified.ok) {
-    console.error('[order-webhook] Could not verify order with Shiprocket:', verified.status, String(verified.text).slice(0, 500));
-    // 5xx makes Shiprocket retry later; a 4xx from them means the order doesn't exist
-    return res.status(verified.status >= 400 && verified.status < 500 ? 400 : 502).json({ ok: false });
+    return res.status(200).json({ ok: true, skipped: `order status is ${order.status}` });
   }
 
   if (!config.shopifyAdminToken) {
@@ -58,8 +63,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const shopifyOrderId = await createShopifyOrder(order);
-    return res.status(200).json({ ok: true, shopify_order_id: shopifyOrderId });
+    const shopifyOrder = await createShopifyOrder(order);
+    return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed:', error);
     return res.status(500).json({ ok: false });
@@ -134,8 +139,9 @@ async function createShopifyOrder(order) {
     throw new Error(`Shopify ${response.status}: ${text.slice(0, 500)}`);
   }
   const created = safeParse(text);
-  console.log('[order-webhook] Created Shopify order', created && created.order && created.order.name);
-  return created && created.order && created.order.id;
+  const name = created && created.order && created.order.name;
+  console.log('[order-webhook] Created Shopify order', name);
+  return name;
 }
 
 async function findShopifyOrderByTag(tag) {

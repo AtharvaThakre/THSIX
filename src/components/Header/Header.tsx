@@ -1,4 +1,4 @@
-import { ShoppingBag, Menu } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { openCart } from '../Cart/openCart';

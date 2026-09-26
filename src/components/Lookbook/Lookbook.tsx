@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { ArrowRight } from 'lucide-react';
 import { lookbookItems } from '../../data/lookbook';
 import { LookbookCard } from './LookbookCard';
 import './Lookbook.css';

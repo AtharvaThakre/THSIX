@@ -1,5 +1,5 @@
 const { config } = require('../lib/config');
-const { isConfigured, shiprocketPost } = require('../lib/shiprocket');
+const { isConfigured, shiprocketPost, safeParse } = require('../lib/shiprocket');
 const { fetchVariantsByIds } = require('../lib/data-service');
 
 // Where Shiprocket may send the shopper after payment. It appends ?oid=<order id>&ost=<status>.
@@ -133,13 +133,5 @@ function resolveRedirectUrl(requested) {
     return ALLOWED_REDIRECT_HOSTS.includes(url.hostname) ? url.toString() : fallback;
   } catch {
     return fallback;
-  }
-}
-
-function safeParse(text) {
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
   }
 }

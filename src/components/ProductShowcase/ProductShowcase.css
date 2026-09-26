@@ -357,22 +357,6 @@
   margin-top: 2px;
 }
 
-.product-card__action {
-  color: var(--black);
-  padding: 2px;
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-.product-card__action:hover {
-  opacity: 0.6;
-  transform: translateY(-1px);
-}
-
-.product-card__action:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
 /* ─── Legacy Grid Styles (Hidden) ─────────────────────────── */
 .product-showcase__grid {
   display: none; /* Hide old grid layout */

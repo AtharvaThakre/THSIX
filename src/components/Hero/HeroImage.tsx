@@ -107,14 +107,7 @@ export const HeroImage = () => {
             transition: 'opacity 0.5s ease-in-out'
           }}
         >
-          {/* Primary source: existing herovideo.mp4 */}
           <source src="/assets/herovideo.mp4" type="video/mp4" />
-          {/* Optimized WebM fallback (best compression) */}
-          <source src="/assets/videos/herovideo.webm" type="video/webm" />
-          {/* Desktop MP4 fallback (1920x1080) */}
-          <source src="/assets/videos/herovideo-desktop.mp4" type="video/mp4" />
-          {/* Mobile MP4 fallback (1280x720, lower bandwidth) */}
-          <source src="/assets/videos/herovideo-mobile.mp4" type="video/mp4" />
         </video>
       )}
     </div>

@@ -20,15 +20,9 @@ export const useShopify = () => {
 
 interface ShopifyProviderProps {
   children: ReactNode;
-  storeDomain: string;
-  accessToken: string;
 }
 
-export const ShopifyProvider = ({ 
-  children, 
-  storeDomain, 
-  accessToken 
-}: ShopifyProviderProps) => {
+export const ShopifyProvider = ({ children }: ShopifyProviderProps) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

@@ -13,7 +13,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://thsix.com',
+        target: 'https://www.thsix.com',
         changeOrigin: true,
         secure: true,
       }
@@ -34,11 +34,6 @@ export default defineConfig({
       input: path.resolve(import.meta.dirname, './index.html'),
       output: {
         manualChunks: (id) => {
-          // Exclude api folder from client bundle
-          if (id.includes('api/')) {
-            return null;
-          }
-          
           // Core React libraries
           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'vendor-react';
@@ -52,18 +47,6 @@ export default defineConfig({
           // Animation libraries - separate chunk
           if (id.includes('node_modules/gsap') || id.includes('node_modules/lenis')) {
             return 'vendor-animation';
-          }
-          
-          // Framer Motion
-          if (id.includes('node_modules/framer-motion')) {
-            return 'vendor-framer';
-          }
-          
-          // Three.js and 3D libraries
-          if (id.includes('node_modules/three') || 
-              id.includes('node_modules/@react-three') ||
-              id.includes('node_modules/maath')) {
-            return 'vendor-3d';
           }
           
           // UI libraries
@@ -119,7 +102,6 @@ export default defineConfig({
   // Optimize dependencies
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],
-    exclude: ['@react-three/fiber', '@react-three/drei', 'three'],
   },
 })
 

@@ -1,4 +1,3 @@
-import { MessageCircle } from "lucide-react";
 import {
   Accordion,
   AccordionContent,

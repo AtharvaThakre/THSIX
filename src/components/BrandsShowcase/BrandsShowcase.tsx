@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { brandsData } from '../../data/brands';
 import { BrandCard } from './BrandCard';
 import './BrandsShowcase.css';

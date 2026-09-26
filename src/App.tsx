@@ -127,7 +127,7 @@ function App() {
 
   return (
     <CartProvider>
-      <ShopifyProvider storeDomain={storeDomain} accessToken={accessToken}>
+      <ShopifyProvider>
         {/* Preloader - shown on initial page load */}
         <Preloader />
 

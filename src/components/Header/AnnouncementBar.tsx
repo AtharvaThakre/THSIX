@@ -1,4 +1,3 @@
-import { ArrowLeft, ArrowRight } from 'lucide-react';
 import './AnnouncementBar.css';
 
 const announcementItems = {
