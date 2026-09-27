@@ -238,9 +238,27 @@
   .footer__gradient-banner {
     height: clamp(300px, 50vw, 600px);
   }
+
+  .footer__gradient-banner::before {
+    background: linear-gradient(
+      to bottom,
+      #ffffff           0%,
+      #e8e8e8          15%,
+      #b3b3b3          30%,
+      #808080          45%,
+      #404040          60%,
+      #050508          75%,
+      #050508         100%
+    );
+  }
   
   .footer__brand-text {
     font-size: clamp(60px, 20vw, 300px);
+    padding-bottom: 0;
+  }
+  
+  .footer__banner-text {
+    padding-bottom: 0;
   }
   
   .footer__container {
@@ -284,7 +302,6 @@
   
   .footer__brand-text {
     font-size: clamp(50px, 18vw, 150px);
-    padding-bottom: clamp(20px, 5vw, 30px);
   }
   
   .footer__top {

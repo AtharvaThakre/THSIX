@@ -161,8 +161,17 @@
 /* Locked blur and teaser styling for Coming Soon cards */
 .brand-card--locked .brand-card__product-image {
   filter: grayscale(100%) blur(8px);
-  transform: scale(1.08);
+  transform: scale(1.04);
   opacity: 0.75;
+}
+
+/* Specific zoom adjustments for shoes with tight bounds */
+.brand-card__product-image--nike {
+  transform: scale(0.92);
+}
+
+.brand-card--locked .brand-card__product-image--nike {
+  transform: scale(0.96);
 }
 
 .brand-card--available:hover .brand-card__product-image {

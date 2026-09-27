@@ -18,7 +18,7 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
 
   return (
     <div 
-      className={`brand-card ${brand.available ? 'brand-card--available' : 'brand-card--locked'}`}
+      className={`brand-card brand-card--${brand.id} ${brand.available ? 'brand-card--available' : 'brand-card--locked'}`}
       onClick={brand.available ? handleClick : undefined}
       style={{ cursor: brand.available ? 'pointer' : 'default' }}
     >
@@ -31,7 +31,7 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
           <img 
             src={brand.productImage} 
             alt={`${brand.name} product`} 
-            className="brand-card__product-image" 
+            className={`brand-card__product-image brand-card__product-image--${brand.id}`} 
             loading="lazy"
             decoding="async"
             width="400"

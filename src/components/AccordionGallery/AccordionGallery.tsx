@@ -70,7 +70,18 @@ const AccordionGallery = ({
   const firstRunRef = useRef(true);
   const mediaSizeRef = useRef(320);
 
-  const vertical = orientation === 'vertical';
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 640px)');
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  const vertical = orientation === 'vertical' || isMobile;
   const count = items.length;
   const [active, setActive] = useState(Math.min(Math.max(defaultIndex, 0), count - 1));
 
@@ -183,6 +194,37 @@ const AccordionGallery = ({
     []
   );
 
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const index = panelRefs.current.findIndex((el) => el === entry.target);
+            if (index !== -1) {
+              setActive(index);
+            }
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '-40% 0px -40% 0px', // Triggers when item reaches ~center 20% of screen
+        threshold: 0
+      }
+    );
+
+    const validRefs = panelRefs.current.filter(Boolean);
+    validRefs.forEach((panel) => {
+      if (panel) observer.observe(panel as Element);
+    });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [isMobile, count]);
+
   const handleEnter = (i: number) => {
     if (trigger === 'hover') setActive(i);
   };
@@ -225,7 +267,9 @@ const AccordionGallery = ({
         return (
           <Tag
             key={i}
-            ref={(el: any) => (panelRefs.current[i] = el)}
+            ref={(el: any) => {
+              panelRefs.current[i] = el;
+            }}
             className={`ag-panel${isActive ? ' ag-panel--active' : ''}`}
             style={{ borderRadius: `${radius}px` }}
             href={item.link || undefined}
@@ -239,15 +283,15 @@ const AccordionGallery = ({
             aria-label={item.label}
           >
             <span className="ag-panel__frame">
-              <span className="ag-panel__media" ref={el => (mediaRefs.current[i] = el)}>
+              <span className="ag-panel__media" ref={el => { mediaRefs.current[i] = el; }}>
                 <img src={item.image} alt={item.alt || item.label || ''} draggable="false" />
               </span>
               <span className="ag-panel__overlay" aria-hidden="true" />
             </span>
             {showLabels && (
               <span className="ag-panel__label" aria-hidden="true">
-                <span className="ag-panel__bar" ref={el => (barRefs.current[i] = el)} />
-                <span className="ag-panel__text" ref={el => (textRefs.current[i] = el)}>
+                <span className="ag-panel__bar" ref={el => { barRefs.current[i] = el; }} />
+                <span className="ag-panel__text" ref={el => { textRefs.current[i] = el; }}>
                   {item.label}
                 </span>
               </span>

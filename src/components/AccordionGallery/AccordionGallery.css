@@ -121,22 +121,6 @@
   text-shadow: 0 2px 14px rgba(0, 0, 0, 0.55);
 }
 
-@media (max-width: 520px) {
-  .accordion-gallery {
-    flex-direction: column;
-    perspective: none;
-    height: auto !important;
-  }
-  .ag-panel {
-    min-height: 84px;
-    transform: none !important;
-  }
-  .accordion-gallery .ag-panel__media {
-    width: 100%;
-    height: var(--ag-media-size);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .ag-panel,
   .ag-panel__media {
