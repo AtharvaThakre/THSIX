@@ -1,5 +1,12 @@
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600;700;800;900&family=Caveat:wght@500;600;700&display=swap');
+
+/*
+ * Google Fonts: loaded async via <link> below instead of blocking @import.
+ * This avoids ~750ms of render-blocking font chain.
+ * Only load weights we actually use: Inter 600-900, Caveat 500-700.
+ * font-display: swap is appended to the URL so text is visible immediately.
+ */
+
 
 @theme {
   --color-border: hsl(var(--border));

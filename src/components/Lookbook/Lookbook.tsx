@@ -65,7 +65,12 @@ export const Lookbook = () => {
   const galleryItems = lookbookItems.map(item => ({
     image: item.image,
     label: item.title,
-    alt: item.alt
+    alt: item.alt,
+    // Pass optimized WebP srcSet for <picture> in AccordionGallery
+    webpSrcSet: item.webp && item.webp2x
+      ? `${item.webp} 850w, ${item.webp2x} 1700w`
+      : undefined,
+    fallback: item.fallback || item.image,
   }));
 
   return (

@@ -8,6 +8,10 @@ interface GalleryItem {
   label?: string;
   link?: string;
   alt?: string;
+  /** WebP srcSet string, e.g. "img.webp 800w, img@2x.webp 1600w" */
+  webpSrcSet?: string;
+  /** Fallback src for browsers that don't support WebP */
+  fallback?: string;
 }
 
 interface AccordionGalleryProps {
@@ -284,7 +288,22 @@ const AccordionGallery = ({
           >
             <span className="ag-panel__frame">
               <span className="ag-panel__media" ref={el => { mediaRefs.current[i] = el; }}>
-                <img src={item.image} alt={item.alt || item.label || ''} draggable="false" />
+                <picture>
+                  {item.webpSrcSet && (
+                    <source
+                      srcSet={item.webpSrcSet}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 850px"
+                      type="image/webp"
+                    />
+                  )}
+                  <img
+                    src={item.fallback || item.image}
+                    alt={item.alt || item.label || ''}
+                    draggable="false"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </picture>
               </span>
               <span className="ag-panel__overlay" aria-hidden="true" />
             </span>

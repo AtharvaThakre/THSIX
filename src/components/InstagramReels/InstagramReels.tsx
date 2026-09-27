@@ -6,6 +6,10 @@ interface ReelData {
   id: string;
   videoUrl: string;
   thumbnail?: string;
+  /** Optimized WebP poster 1x */
+  posterWebp?: string;
+  /** Optimized WebP poster 2x */
+  posterWebp2x?: string;
   instagramUrl?: string; // Optional Instagram URL for reference
 }
 
@@ -14,18 +18,24 @@ const reelsData: ReelData[] = [
     id: 'reel-1',
     videoUrl: '/assets/reels/igexport-Ddbk0pvtkZL.mp4',
     thumbnail: '/assets/reels/reel_1_cover.png',
+    posterWebp: '/assets/reels/reel_1_cover.webp',
+    posterWebp2x: '/assets/reels/reel_1_cover@2x.webp',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-2', 
     videoUrl: '/assets/reels/igexport-DdeO8usNeZP.mp4',
     thumbnail: '/assets/reels/reel_2_cover.png',
+    posterWebp: '/assets/reels/reel_2_cover.webp',
+    posterWebp2x: '/assets/reels/reel_2_cover@2x.webp',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
     id: 'reel-3',
     videoUrl: '/assets/reels/igexport-DdWc5pAt43Y.mp4',
     thumbnail: '/assets/reels/reel_3_cover.png',
+    posterWebp: '/assets/reels/reel_3_cover.webp',
+    posterWebp2x: '/assets/reels/reel_3_cover@2x.webp',
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   }
 ];
@@ -35,24 +45,46 @@ export const InstagramReels = () => {
   const [carouselState, setCarouselState] = useState([0, 1, 2]);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Start with muted
+  const [isVisible, setIsVisible] = useState(false);
   
   // Refs for video elements
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
+  const sectionRef = useRef<HTMLElement>(null);
+
+  // Only start loading videos when the section enters the viewport
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '200px' } // Start loading slightly before visible
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
 
   // Control video playback based on position
   useEffect(() => {
+    if (!isVisible) return;
+
     const centerReelId = reelsData[carouselState[1]]?.id;
     
-    // Pause all videos and show poster
+    // Pause all videos
     Object.entries(videoRefs.current).forEach(([id, video]) => {
       if (video) {
         if (!video.paused) {
           video.pause();
         }
-        // Reset to show poster for non-center videos
+        // Reset non-center videos (but don't call .load() — that's expensive)
         if (id !== centerReelId) {
           video.currentTime = 0;
-          video.load(); // Force reload to show poster
         }
       }
     });
@@ -63,13 +95,13 @@ export const InstagramReels = () => {
       if (centerVideo) {
         centerVideo.muted = isMuted;
         centerVideo.currentTime = 0;
-        // ponytail: eager play for UX, but catch to handle autoplay policy
+        // eager play for UX, but catch to handle autoplay policy
         centerVideo.play().catch(() => {
           // Silently handle autoplay block; user can tap to play
         });
       }
     }
-  }, [carouselState, isMuted]);
+  }, [carouselState, isMuted, isVisible]);
 
   // Rotate carousel right: [1,2,3] → [2,3,1]
   const rotateRight = () => {
@@ -78,7 +110,6 @@ export const InstagramReels = () => {
     setIsTransitioning(true);
     setCarouselState(prev => {
       const [left, center, right] = prev;
-      // Reel 1 moves LEFT → RIGHT, Reel 3 moves RIGHT → CENTER, Reel 2 moves CENTER → LEFT
       return [center, right, left];
     });
     
@@ -93,7 +124,6 @@ export const InstagramReels = () => {
     setIsTransitioning(true);
     setCarouselState(prev => {
       const [left, center, right] = prev;
-      // Reel 1 moves CENTER → RIGHT, Reel 2 moves RIGHT → LEFT, Reel 3 moves LEFT → CENTER
       return [right, left, center];
     });
     
@@ -121,7 +151,7 @@ export const InstagramReels = () => {
   const isCenter = (reelIndex: number) => carouselState[1] === reelIndex;
 
   return (
-    <section className="instagram-reels">
+    <section className="instagram-reels" ref={sectionRef}>
       <div className="instagram-reels__container">
         
         {/* Header with title and Instagram button */}
@@ -166,7 +196,7 @@ export const InstagramReels = () => {
                     {!isCenterCard && (
                       <div 
                         className="reel-card__cover-overlay"
-                        style={{ backgroundImage: `url(${reel.thumbnail})` }}
+                        style={{ backgroundImage: `url(${reel.posterWebp || reel.thumbnail})` }}
                       />
                     )}
                     
@@ -186,18 +216,41 @@ export const InstagramReels = () => {
                       </button>
                     )}
                     
-                    <video
-                      ref={setVideoRef(reel.id)}
-                      className="reel-card__video"
-                      src={reel.videoUrl}
-                      poster={reel.thumbnail}
-                      playsInline
-                      loop
-                      preload="metadata"
-                      onContextMenu={(e) => e.preventDefault()}
-                    >
-                      Your browser does not support the video tag.
-                    </video>
+                    {/* Only render video elements when section is visible */}
+                    {isVisible ? (
+                      <video
+                        ref={setVideoRef(reel.id)}
+                        className="reel-card__video"
+                        src={reel.videoUrl}
+                        poster={reel.posterWebp || reel.thumbnail}
+                        playsInline
+                        loop
+                        muted
+                        preload="none"
+                        onContextMenu={(e) => e.preventDefault()}
+                      >
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : (
+                      /* Static poster image before videos are loaded */
+                      <picture>
+                        {reel.posterWebp && (
+                          <source
+                            srcSet={`${reel.posterWebp} 400w${reel.posterWebp2x ? `, ${reel.posterWebp2x} 800w` : ''}`}
+                            sizes="390px"
+                            type="image/webp"
+                          />
+                        )}
+                        <img
+                          className="reel-card__video"
+                          src={reel.thumbnail}
+                          alt=""
+                          loading="lazy"
+                          decoding="async"
+                          style={{ objectFit: 'cover', width: '100%', height: '100%' }}
+                        />
+                      </picture>
+                    )}
                   </div>
                 </div>
               );

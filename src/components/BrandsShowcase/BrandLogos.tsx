@@ -1,15 +1,29 @@
+import { brandLogoImages } from '../../data/brands';
+
 export const BrandLogo = ({ brandId, name, customLogo }: { brandId: string; name: string; customLogo: string | null }) => {
+  // Use optimized WebP images for logos that have custom images
   if (customLogo) {
+    const logoSet = brandLogoImages[brandId];
+    
     return (
-      <img 
-        src={customLogo} 
-        alt={name} 
-        className="brand-card__logo-img"
-        width="150"
-        height="80"
-        loading="lazy"
-        decoding="async"
-      />
+      <picture>
+        {logoSet && (
+          <source
+            srcSet={`${logoSet.webp} 200w, ${logoSet.webp2x} 400w`}
+            sizes="150px"
+            type="image/webp"
+          />
+        )}
+        <img 
+          src={logoSet?.fallback || customLogo} 
+          alt={name} 
+          className="brand-card__logo-img"
+          width="150"
+          height="80"
+          loading="lazy"
+          decoding="async"
+        />
+      </picture>
     );
   }
 

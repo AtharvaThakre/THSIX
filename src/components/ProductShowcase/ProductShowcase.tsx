@@ -151,8 +151,9 @@ export const ProductShowcase = () => {
                         <shopify-media
                           query="product.selectedOrFirstAvailableVariant.image"
                           layout="fullWidth"
-                          width="320"
-                          height="320"
+                          width="371"
+                          height="371"
+                          sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 371px"
                         ></shopify-media>
                       </div>
                       <div class="product-card__info">

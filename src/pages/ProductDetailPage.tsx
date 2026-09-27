@@ -11,6 +11,7 @@ import { fetchShopifyProductByHandle } from '../services/shopify-products';
 import { useCart } from '../contexts/CartContext';
 import { loadPickrrScript } from '../utils/pickrr-loader';
 import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-checkout';
+import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
@@ -212,10 +213,12 @@ export const ProductDetailPage = () => {
 
   // Main display image follows the selected thumbnail. Picking a size jumps to that
   // size's photo (handleVariantSelect), but thumbnails must still be able to change it.
-  const mainImageUrl =
+  const mainImageUrl = transformShopifyImageUrl(
     images[selectedImageIndex]?.url ??
     selectedVariant?.image?.url ??
-    '';
+    '',
+    { width: PRODUCT_IMAGE_SIZES.detail }
+  );
 
   // ── Render ───────────────────────────────────────────────────────────────────
   if (productLoading) {
@@ -286,7 +289,7 @@ export const ProductDetailPage = () => {
                       onKeyDown={(e) => e.key === 'Enter' && setSelectedImageIndex(idx)}
                     >
                       <img
-                        src={img.url}
+                        src={transformShopifyImageUrl(img.url, { width: PRODUCT_IMAGE_SIZES.thumbnail })}
                         alt={img.altText ?? product.title}
                         width={80}
                         height={80}

@@ -94,7 +94,7 @@ export const HeroImage = () => {
           muted
           autoPlay
           playsInline
-          preload="auto"
+          preload="none"
           poster="/assets/hero-shoes-desktop.webp"
           style={{
             position: 'absolute',

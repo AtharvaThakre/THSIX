@@ -27,15 +27,22 @@ export const Preloader = () => {
     <div className="preloader" role="status" aria-label="Loading page">
       <div className="preloader__overlay">
         <div className="preloader__logo-container">
-          <img
-            src="/assets/logo-Photoroom.png"
-            alt="THSIX Logo"
-            className="preloader__logo"
-            loading="eager"
-            decoding="async"
-            width="200"
-            height="200"
-          />
+          <picture>
+            <source
+              srcSet="/assets/logo-Photoroom.webp 280w, /assets/logo-Photoroom@2x.webp 560w"
+              sizes="200px"
+              type="image/webp"
+            />
+            <img
+              src="/assets/logo-Photoroom.png"
+              alt="THSIX Logo"
+              className="preloader__logo"
+              loading="eager"
+              decoding="async"
+              width="200"
+              height="200"
+            />
+          </picture>
         </div>
       </div>
     </div>

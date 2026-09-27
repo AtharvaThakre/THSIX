@@ -5,15 +5,76 @@
     <link rel="icon" type="image/png" href="/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>THSIX</title>
-    <script type="module" src="https://cdn.shopify.com/storefront/web-components.js"></script>
+
+    <!-- Preconnect to critical external origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.shopify.com" crossorigin />
     
-    <!-- Shiprocket Checkout Integration -->
+    <!-- Only preconnect to checkout origins when needed (deferred below) -->
+    <!-- These are loaded on-demand via interaction -->
+
+    <!-- Google Fonts: optimized loading with font-display swap, reduced to essential weights -->
+    <!-- Only load Inter 700-900 (primary brand font) and Caveat 600-700 (accent) -->
+    <link 
+      rel="stylesheet" 
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Caveat:wght@600;700&display=swap" 
+      media="print" 
+      onload="this.media='all'" 
+    />
+    <noscript>
+      <link 
+        rel="stylesheet" 
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Caveat:wght@600;700&display=swap" 
+      />
+    </noscript>
+
+    <!-- Preload LCP hero poster for faster largest contentful paint -->
+    <link rel="preload" as="image" type="image/webp" href="/assets/hero-shoes-mobile.webp" media="(max-width: 767px)" />
+    <link rel="preload" as="image" type="image/webp" href="/assets/hero-shoes-desktop.webp" media="(min-width: 768px)" />
+
+    <!-- Shopify web components (module, non-render-blocking) -->
+    <script type="module" src="https://cdn.shopify.com/storefront/web-components.js"></script>
+
+    <!-- Shiprocket seller domain identifier -->
     <input type="hidden" value="thsix.com" id="sellerDomain"/>
-    <script src="https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js" defer></script>
-    <link rel="stylesheet" href="https://checkout-ui.shiprocket.com/assets/styles/shopify.css"/>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+
+    <!--
+      Shiprocket Checkout: Deferred loading
+      Load CSS + JS after first user interaction (scroll/click/touch) or after 4s,
+      whichever comes first. This removes ~760ms of render-blocking CSS and defers
+      ~75 KB of JS from the critical path.
+    -->
+    <script>
+      (function() {
+        var loaded = false;
+        function loadShiprocket() {
+          if (loaded) return;
+          loaded = true;
+          // CSS
+          var link = document.createElement('link');
+          link.rel = 'stylesheet';
+          link.href = 'https://checkout-ui.shiprocket.com/assets/styles/shopify.css';
+          document.head.appendChild(link);
+          // JS
+          var script = document.createElement('script');
+          script.src = 'https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js';
+          script.defer = true;
+          document.head.appendChild(script);
+        }
+        // Trigger on first interaction or after 4 seconds
+        var events = ['scroll', 'click', 'touchstart', 'mousemove', 'keydown'];
+        function onInteraction() {
+          loadShiprocket();
+          events.forEach(function(e) { window.removeEventListener(e, onInteraction); });
+        }
+        events.forEach(function(e) { window.addEventListener(e, onInteraction, { once: true, passive: true }); });
+        setTimeout(loadShiprocket, 4000);
+      })();
+    </script>
   </body>
 </html>
