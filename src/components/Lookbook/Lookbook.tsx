@@ -1,14 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { lookbookItems } from '../../data/lookbook';
-import { LookbookCard } from './LookbookCard';
+import AccordionGallery from '../AccordionGallery/AccordionGallery';
 import './Lookbook.css';
 
 export const Lookbook = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const headingRef = useRef<HTMLDivElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
-  const linkRef = useRef<HTMLAnchorElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const prefersReducedMotion = window.matchMedia(
@@ -30,7 +28,7 @@ export const Lookbook = () => {
       if (!section) return;
 
       // Header elements - single batch animation
-      const headerEls = [headingRef.current, subtitleRef.current, linkRef.current].filter(Boolean);
+      const headerEls = [headingRef.current, subtitleRef.current].filter(Boolean);
       const headerTrigger = gsap.fromTo(
         headerEls,
         { opacity: 0, y: 28 },
@@ -48,34 +46,9 @@ export const Lookbook = () => {
         }
       );
 
-      // Grid cards
-      const cards = gridRef.current?.querySelectorAll('.lookbook-card');
-      let cardsTrigger: gsap.core.Tween | undefined;
-      
-      if (cards && cards.length) {
-        cardsTrigger = gsap.fromTo(
-          cards,
-          { opacity: 0, y: 30 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.8,
-            stagger: 0.09,
-            ease: 'power3.out',
-            scrollTrigger: {
-              trigger: gridRef.current,
-              start: 'top 85%',
-              once: true, // Fire once and cleanup
-            },
-          }
-        );
-      }
-
       return () => {
         headerTrigger?.scrollTrigger?.kill();
         headerTrigger?.kill();
-        cardsTrigger?.scrollTrigger?.kill();
-        cardsTrigger?.kill();
       };
     };
 
@@ -88,6 +61,12 @@ export const Lookbook = () => {
       cleanup?.();
     };
   }, []);
+
+  const galleryItems = lookbookItems.map(item => ({
+    image: item.image,
+    label: item.title,
+    alt: item.alt
+  }));
 
   return (
     <section className="lookbook" ref={sectionRef}>
@@ -103,11 +82,12 @@ export const Lookbook = () => {
           </div>
         </div>
 
-        <div className="lookbook__grid" ref={gridRef}>
-          {lookbookItems.map((item) => (
-            <LookbookCard key={item.id} item={item} />
-          ))}
-        </div>
+        <AccordionGallery 
+          items={galleryItems} 
+          defaultIndex={0} 
+          expandRatio={0.52} 
+          trigger="hover" 
+        />
       </div>
     </section>
   );
