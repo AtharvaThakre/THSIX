@@ -1,6 +1,4 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { gsap } from 'gsap';
-
 import './AccordionGallery.css';
 
 interface GalleryItem {
@@ -70,7 +68,8 @@ const AccordionGallery = ({
   const mediaRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const barRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const textRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const tlRef = useRef<any>(null);
+  const gsapRef = useRef<typeof import('gsap').gsap | null>(null);
   const firstRunRef = useRef(true);
   const mediaSizeRef = useRef(320);
 
@@ -95,9 +94,17 @@ const AccordionGallery = ({
       : false;
 
   const applyLayout = useCallback(
-    (animate: boolean) => {
+    async (animate: boolean) => {
       const panels = panelRefs.current;
       if (!panels.length) return;
+
+      // Lazy-load GSAP only when needed
+      if (!gsapRef.current) {
+        const { gsap: gsapModule } = await import('gsap');
+        gsapRef.current = gsapModule;
+      }
+      
+      const gsap = gsapRef.current;
 
       const r = Math.min(Math.max(expandRatio, 0.2), 0.9);
       const grow = count > 1 ? (r * (count - 1)) / (1 - r) : 1;

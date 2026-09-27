@@ -9,7 +9,7 @@ export const BrandLogo = ({ brandId, name, customLogo }: { brandId: string; name
       <picture>
         {logoSet && (
           <source
-            srcSet={`${logoSet.webp} 200w, ${logoSet.webp2x} 400w`}
+            srcSet={`${logoSet.webp} 150w, ${logoSet.webp2x} 300w`}
             sizes="150px"
             type="image/webp"
           />

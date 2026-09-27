@@ -35,8 +35,8 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
           <picture>
             {imgSet && (
               <source
-                srcSet={`${imgSet.webp} 400w, ${imgSet.webp2x} 800w`}
-                sizes="(max-width: 640px) 90vw, 382px"
+                srcSet={`${imgSet.webp} 300w, ${imgSet.webp2x} 600w`}
+                sizes="(max-width: 767px) 250px, (max-width: 1099px) 280px, 300px"
                 type="image/webp"
               />
             )}
@@ -46,8 +46,8 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
               className={`brand-card__product-image brand-card__product-image--${brand.id}`} 
               loading="lazy"
               decoding="async"
-              width="400"
-              height="400"
+              width="300"
+              height="300"
               onError={(e) => {
                 console.error(`Failed to load image: ${brand.productImage}`);
                 e.currentTarget.style.display = 'none';

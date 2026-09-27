@@ -95,6 +95,9 @@ export const HeroImage = () => {
           autoPlay
           playsInline
           preload="none"
+          controls={false}
+          disablePictureInPicture
+          disableRemotePlayback
           poster="/assets/hero-shoes-desktop.webp"
           style={{
             position: 'absolute',
@@ -104,8 +107,10 @@ export const HeroImage = () => {
             height: '100%',
             objectFit: 'cover',
             opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.5s ease-in-out'
+            transition: 'opacity 0.5s ease-in-out',
+            pointerEvents: 'none'
           }}
+          onContextMenu={(e) => e.preventDefault()}
         >
           <source src="/assets/herovideo.mp4" type="video/mp4" />
         </video>
