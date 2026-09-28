@@ -7,26 +7,33 @@ import {
 
 const faqs = [
   {
-    q: "What is THSIX Verified",
-    a: "THSIX Verified means every product listed on THSIX goes through our verification process before reaching you. We focus on product quality, details, and condition so you can shop with confidence premium footwear without the premium hit to your pocket.",
+    q: "What is THSIX?",
+    a: "THSIX is a youth-focused footwear and culture brand built around self-expression, contemporary fashion, street culture, and modern styling. Our collection features *Premium inspired sneakers*, selected for customers who appreciate distinctive silhouettes and contemporary designs.",
   },
   {
-    q: "Our Promise",
-    a: "We guarantee authenticity on every purchase. If any item is found to be inauthentic, we offer a full refund with no questions asked.",
+    q: "What does “Premium inspired sneakers” mean?",
+    a: "“Premium inspired sneakers” refers to footwear designed with contemporary silhouettes, colour combinations, and styling influences from modern sneaker culture. THSIX products are presented under the THSIX brand and are not represented as products of any unrelated third-party brand.",
   },
   {
-    q: "Is Cash on Delivery Available?",
-    a: "Yes, Cash on Delivery is available for All Types o Orders",
+    q: "Do you offer Cash on Delivery (COD)?",
+    a: "Yes, COD is available on every THSIX product. Our COD orders follow a partial-payment model, where a fixed advance amount of ₹199 is paid at the time of placing the order and the remaining amount is payable at the time of delivery, if a product is priced at *₹3,499, you pay *₹199 online while placing the order*, and the remaining *₹3,300** is payable to the delivery partner upon delivery.The ₹199 advance is part of the order payment and is adjusted against the total product price.",
   },
   {
-    q: "Shippings & EMIs",
-    a: "We offer flexible shipping options and easy EMI plans to make your purchase convenient. Free standard shipping on all orders.",
+    q: "How does shipping work?",
+    a: "Orders are processed after successful order confirmation and are shipped to the delivery address provided by the customer. Delivery timelines may vary depending on the destination, courier service, weather, operational conditions, and other circumstances. Tracking details will be provided where available.",
   },
   {
-    q: "FAQ",
-    a: "Have more questions? Visit our FAQ page or contact our customer support team for detailed answers to common inquiries.",
+    q: "Can I cancel my order?",
+    a: "Cancellation may be requested before the order enters the shipping or fulfilment process. Once an order has been dispatched, cancellation may no longer be possible and the applicable return or delivery procedure will apply. Customers should contact THSIX support as soon as possible for cancellation requests.",
   },
-
+  {
+    q: "What is your return or exchange policy?",
+    a: "Returns or exchanges are subject to the eligibility conditions applicable to the order. Products generally need to be unused, in their original condition, and accompanied by the required packaging and order details. Damaged, incorrect, or defective products should be reported to THSIX within the specified timeframe with appropriate photographs or supporting information.",
+  },
+  {
+    q: "Where can I contact THSIX for support?",
+    a: "For questions regarding orders, shipping, cancellations, returns, payments, or other website-related matters, customers can contact the THSIX support team through *[support@thsix.com](mailto:support@thsix.com)*. Please include your order number and relevant details so that the team can assist efficiently.",
+  },
 ];
 
 export default function Faqs01({ defaultValue }: { defaultValue?: string }) {

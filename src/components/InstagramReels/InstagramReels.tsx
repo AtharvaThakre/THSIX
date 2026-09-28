@@ -156,7 +156,10 @@ export const InstagramReels = () => {
         
         {/* Header with title and Instagram button */}
         <div className="instagram-reels__header">
-          <h2 className="instagram-reels__title">Reels</h2>
+          <div className="instagram-reels__title-group">
+            <h2 className="instagram-reels__title">THE FEED.</h2>
+            <p className="instagram-reels__subtitle">The aesthetic in motion.</p>
+          </div>
           <a 
             href="https://www.instagram.com/thsix.official/" 
             target="_blank" 

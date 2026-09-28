@@ -23,6 +23,12 @@
   width: 100%;
 }
 
+.instagram-reels__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .instagram-reels__title {
   font-family: var(--font-primary);
   font-size: clamp(28px, 4vw, 42px);
@@ -31,6 +37,15 @@
   line-height: 1;
   color: var(--black, #111111);
   text-transform: uppercase;
+  margin: 0;
+}
+
+.instagram-reels__subtitle {
+  font-size: clamp(12px, 1vw, 14px);
+  font-weight: 400;
+  color: var(--gray, #777777);
+  letter-spacing: 0.02em;
+  line-height: 1.4;
   margin: 0;
 }
 

@@ -66,9 +66,16 @@
   margin-bottom: 6px;
 }
 
-.policy-page__body strong {
+.policy-page__body strong,
+.policy-page__body b {
   color: #111;
+  font-weight: 700;
   scroll-margin-top: 96px;
+}
+
+.policy-page__body em,
+.policy-page__body i {
+  font-style: italic;
 }
 
 .policy-page__body table {

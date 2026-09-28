@@ -43,14 +43,6 @@ const optimizations = [
     quality: 82,
     format: 'webp'
   },
-  {
-    name: 'style-beyond-basics',
-    src: path.join(assetsDir, 'lookbook/style-beyond-basics.jpg'),
-    outDir: path.join(assetsDir, 'lookbook'),
-    widths: [850, 1700],
-    quality: 82,
-    format: 'webp'
-  },
 
   // ── Priority 2: Large adidas.png product image (952 KB → ~30 KB) ──
   {

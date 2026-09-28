@@ -7,13 +7,13 @@ import './Hero.css';
 
 const heroData = {
   eyebrow: " ",
-  title: ["THE FIRST", "STEP.", "THE SAMBA."],
-  description: "An icon doesn't need an introduction.",
+  title: ["The evolution begins."],
+  description: "Samba was Chapter One. An expanding archive arrives next.",
   cta: "SHOP SAMBAS",
   tags: [" "],
   slide: "1st Drop",
   brandMeta: ["", " ", " "],
-  decoration: ["Good", "Shoes", "Better", "People."]
+  decoration: [" ", " ", " ", " ."]
 };
 
 export const Hero = () => {

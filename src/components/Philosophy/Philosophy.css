@@ -19,14 +19,14 @@
   object-fit: cover;
   object-position: center 30%;
   display: block;
-  /* slight desaturation for editorial feel */
-  filter: grayscale(18%) brightness(0.72);
-  transform: scale(1.02);
+  /* slight desaturation for editorial feel + soft cinematic blur */
+  filter: grayscale(18%) brightness(0.72) blur(4px);
+  transform: scale(1.06);
   transition: transform 8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
 .philosophy:hover .philosophy__image {
-  transform: scale(1.0);
+  transform: scale(1.03);
 }
 
 .philosophy__image-placeholder {
@@ -66,7 +66,7 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: clamp(36px, 5vw, 72px) clamp(32px, 6vw, 96px);
+  padding: clamp(36px, 5vw, 72px) clamp(32px, 6vw, 96px) clamp(64px, 7vw, 104px);
 }
 
 /* ---- Eyebrow ---- */
@@ -89,7 +89,7 @@
   letter-spacing: -0.04em;
   color: #fff;
   text-transform: uppercase;
-  margin-bottom: clamp(24px, 3vw, 40px);
+  margin-bottom: clamp(20px, 2.5vw, 36px);
   max-width: 14ch;
 }
 
@@ -101,9 +101,9 @@
 .philosophy__description {
   font-size: clamp(12px, 1vw, 14px);
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.65);
   max-width: 42ch;
-  margin-bottom: 0;
+  margin-bottom: clamp(8px, 1.2vw, 16px);
 }
 
 /* ---- Corner tag (top-right) ---- */
@@ -124,15 +124,25 @@
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .philosophy {
-    min-height: clamp(380px, 80vw, 560px);
+    min-height: clamp(420px, 85vw, 580px);
+  }
+
+  .philosophy__content {
+    padding: 36px 28px clamp(48px, 7vw, 68px);
   }
 
   .philosophy__title {
     font-size: clamp(2.2rem, 9vw, 4rem);
+    margin-bottom: 16px;
   }
 
   .philosophy__description {
-    display: none;
+    display: block;
+    font-size: clamp(12px, 3.2vw, 14px);
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.7);
+    max-width: 34ch;
+    margin-bottom: 8px;
   }
 
   .philosophy__corner-text {
@@ -141,12 +151,22 @@
 }
 
 @media (max-width: 480px) {
+  .philosophy {
+    min-height: clamp(400px, 95vw, 520px);
+  }
+
   .philosophy__content {
-    padding: 28px 24px;
+    padding: 28px 20px clamp(44px, 8vw, 58px);
   }
 
   .philosophy__title {
-    font-size: clamp(1.9rem, 11vw, 3rem);
+    font-size: clamp(1.9rem, 10vw, 2.8rem);
+    margin-bottom: 14px;
+  }
+
+  .philosophy__description {
+    font-size: 12px;
+    max-width: 30ch;
   }
 }
 

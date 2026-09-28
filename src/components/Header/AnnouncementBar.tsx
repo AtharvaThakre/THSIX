@@ -1,7 +1,7 @@
 import './AnnouncementBar.css';
 
 const announcementItems = {
-  left: "INDIA'S PREMIER SNEAKER DESTINATION",
+  left: "Premium Inspired Sneakers",
   center: "THE FIRST DROP IS HERE — ADIDAS SAMBAS",
   right: "FREE SHIPPING ON ALL ORDERS"
 };

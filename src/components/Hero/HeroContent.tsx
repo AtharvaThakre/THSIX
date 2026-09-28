@@ -9,7 +9,7 @@ export const HeroContent = ({ data }: { data: any }) => {
       )}
       <h1 className="hero-title">
         <BlurText
-          text="THE FIRST STEP. THE SAMBA."
+          text={Array.isArray(data.title) ? data.title.join(' ') : (data.title || "The evolution begins.")}
           animateBy="words"
           direction="top"
           delay={150}

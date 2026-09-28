@@ -79,10 +79,10 @@ export const Lookbook = () => {
         <div className="lookbook__header">
           <div className="lookbook__header-left">
             <h2 className="lookbook__heading" ref={headingRef}>
-              HOW THSIX IS WORN
+              The Styling Guide
             </h2>
             <p className="lookbook__subtitle" ref={subtitleRef}>
-              REAL PEOPLE. REAL STYLE.
+              Wear it your way
             </p>
           </div>
         </div>

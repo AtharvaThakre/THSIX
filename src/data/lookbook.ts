@@ -36,7 +36,7 @@ export const lookbookItems: LookbookItem[] = [
   },
   {
     id: '04',
-    title: 'STYLE BEYOND BASICS',
+    title: ' ',
     image: '/assets/lookbook/style-beyond-basics.jpg?v=2',
     webp: '/assets/lookbook/style-beyond-basics.webp',
     webp2x: '/assets/lookbook/style-beyond-basics@2x.webp',

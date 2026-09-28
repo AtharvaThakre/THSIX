@@ -2,23 +2,29 @@ import { philosophyData } from '../../data/philosophy';
 import './Philosophy.css';
 
 export const Philosophy = () => {
+  const imageSrc = philosophyData.image;
+  const isDefaultLifestyle = imageSrc?.includes('philosophy-lifestyle');
+  const versionParam = imageSrc?.includes('?') ? imageSrc.substring(imageSrc.indexOf('?')) : '';
+
   return (
     <section className="philosophy" id="about">
       {/* Full-bleed background image */}
-      {philosophyData.image ? (
+      {imageSrc ? (
         <picture>
+          {isDefaultLifestyle && (
+            <source
+              srcSet={`/assets/philosophy-lifestyle.webp${versionParam} 800w, /assets/philosophy-lifestyle@2x.webp${versionParam} 1600w`}
+              type="image/webp"
+              sizes="100vw"
+            />
+          )}
           <source
-            srcSet="/assets/philosophy-lifestyle.webp 800w, /assets/philosophy-lifestyle@2x.webp 1600w"
-            type="image/webp"
-            sizes="100vw"
-          />
-          <source
-            srcSet="/assets/philosophy-lifestyle-fallback.jpg 800w"
+            srcSet={`${imageSrc} 800w`}
             type="image/jpeg"
             sizes="100vw"
           />
           <img
-            src="/assets/philosophy-lifestyle-fallback.jpg"
+            src={imageSrc}
             alt="THSIX Philosophy"
             className="philosophy__image"
             loading="lazy"
@@ -32,11 +38,13 @@ export const Philosophy = () => {
       )}
 
       {/* Corner tag */}
-      <div className="philosophy__corner-text">
-        {philosophyData.cornerText.map((line, i) => (
-          <div key={i}>{line}</div>
-        ))}
-      </div>
+      {philosophyData.cornerText && philosophyData.cornerText.length > 0 && (
+        <div className="philosophy__corner-text">
+          {philosophyData.cornerText.map((line, i) => (
+            <div key={i}>{line}</div>
+          ))}
+        </div>
+      )}
 
       {/* Bottom-anchored content */}
       <section className="philosophy__content">
