@@ -112,7 +112,7 @@ export function BrandCollectionPage() {
           console.log('Using fallback data for Adidas collection');
           setCollection({
             id: 'adidas-fallback',
-            title: 'ADIDAS Collection',
+            title: 'Collections',
             handle: 'adidas',
             image: null,
             description: 'Explore our curated collection of Adidas sneakers and sportswear. From the iconic Samba OG to the classic Gazelle, discover timeless designs that blend heritage with modern style.'
@@ -210,14 +210,14 @@ export function BrandCollectionPage() {
         {/* Brand Header Section */}
         <section className="brand-collection__header">
           <div className="container">
-            <div className="brand-collection__logo">
+            {/* <div className="brand-collection__logo">
               <img
                 src={brand.logo || '/assets/logos/default-brand.png'}
                 alt={`${brand.name} Logo`}
                 className="brand-collection__logo-image"
               />
-            </div>
-            <h1 className="brand-collection__title">{brand.name} Collection</h1>
+            </div> */}
+            <h1 className="brand-collection__title">Collections</h1>
             {collection && collection.description && (
               <div className="brand-collection__description">
                 <p>{collection.description}</p>
