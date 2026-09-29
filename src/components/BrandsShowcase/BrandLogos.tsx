@@ -2,6 +2,8 @@ import { brandLogoImages } from '../../data/brands';
 
 export const BrandLogo = ({ brandId, name, customLogo }: { brandId: string; name: string; customLogo: string | null }) => {
   // Use optimized WebP images for logos that have custom images
+  // Commented out brand-card__logo-img for now
+  /*
   if (customLogo) {
     const logoSet = brandLogoImages[brandId];
     
@@ -26,6 +28,7 @@ export const BrandLogo = ({ brandId, name, customLogo }: { brandId: string; name
       </picture>
     );
   }
+  */
 
   switch (brandId) {
     case 'adidas':

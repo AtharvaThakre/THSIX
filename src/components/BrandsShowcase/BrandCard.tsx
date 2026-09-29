@@ -26,9 +26,9 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       onClick={brand.available ? handleClick : undefined}
       style={{ cursor: brand.available ? 'pointer' : 'default' }}
     >
-      <div className="brand-card__logo-wrapper">
+      {/* <div className="brand-card__logo-wrapper">
         <BrandLogo brandId={brand.id} name={brand.name} customLogo={brand.logo} />
-      </div>
+      </div> */}
 
       <div className="brand-card__image-container">
         {brand.productImage ? (
