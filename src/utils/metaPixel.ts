@@ -9,11 +9,18 @@
 type FbqParams = Record<string, any>;
 
 const fire = (type: 'track' | 'trackCustom', event: string, params?: FbqParams) => {
-  if (typeof window !== 'undefined' && typeof window.fbq === 'function') {
-    if (params) {
-      window.fbq(type, event, params);
+  if (typeof window !== 'undefined') {
+    if (import.meta.env.DEV) {
+      console.log(`[Meta Pixel] ${type}: ${event}`, params ?? '');
+    }
+    if (typeof window.fbq === 'function') {
+      if (params) {
+        window.fbq(type, event, params);
+      } else {
+        window.fbq(type, event);
+      }
     } else {
-      window.fbq(type, event);
+      console.warn(`[Meta Pixel] window.fbq is not defined. An ad blocker (uBlock, Brave Shields, AdBlock) might be blocking Meta Pixel.`);
     }
   }
 };
