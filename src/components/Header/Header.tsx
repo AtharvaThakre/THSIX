@@ -2,6 +2,7 @@ import { ShoppingBag } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { openCart } from '../Cart/openCart';
+import { trackCustomEvent } from '../../utils/metaPixel';
 import './Header.css';
 
 export const Header = () => {
@@ -18,12 +19,14 @@ export const Header = () => {
   }, [totalItems]);
 
   const handleLogoClick = () => {
+    trackCustomEvent('LogoClicked');
     window.location.href = '/';
   };
 
   // On the home page scroll to the section; elsewhere the /#id link loads home and
   // HomePage scrolls to the hash
   const handleSectionLink = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    trackCustomEvent('NavLinkClicked', { section: id });
     const element = document.getElementById(id);
     if (window.location.pathname === '/' && element) {
       e.preventDefault();
@@ -47,7 +50,7 @@ export const Header = () => {
         <button
           className={`icon-btn cart-btn ${isPulsing ? 'cart-btn--notify' : ''} ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
           aria-label={`Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
-          onClick={openCart}
+          onClick={() => { openCart(); trackCustomEvent('CartIconClicked', { item_count: totalItems }); }}
           type="button"
         >
           <div className="cart-btn__icon-wrapper">

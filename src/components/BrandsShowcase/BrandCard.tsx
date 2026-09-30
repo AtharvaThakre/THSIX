@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { Brand } from '../../types/brand';
 import { BrandLogo } from './BrandLogos';
 import { brandProductImages } from '../../data/brands';
+import { trackCustomEvent } from '../../utils/metaPixel';
 
 interface BrandCardProps {
   brand: Brand;
@@ -13,7 +14,10 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
 
   const handleClick = () => {
     if (brand.available && brand.id === 'adidas') {
+      trackCustomEvent('BrandClicked', { brand_name: brand.name, brand_id: brand.id });
       navigate(`/brands/${brand.id}`);
+    } else {
+      trackCustomEvent('LockedBrandClicked', { brand_name: brand.name, brand_id: brand.id });
     }
   };
 

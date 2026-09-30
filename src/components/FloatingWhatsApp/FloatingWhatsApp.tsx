@@ -1,4 +1,5 @@
 import './FloatingWhatsApp.css';
+import { trackCustomEvent } from '../../utils/metaPixel';
 
 interface FloatingWhatsAppProps {
   whatsappUrl?: string;
@@ -15,6 +16,7 @@ export const FloatingWhatsApp = ({
       className="floating-whatsapp-btn"
       aria-label="Contact us on WhatsApp"
       title="WhatsApp Support"
+      onClick={() => trackCustomEvent('Contact', { method: 'WhatsApp' })}
     >
       <svg 
         className="floating-whatsapp-btn__icon" 

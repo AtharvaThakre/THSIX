@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
+import { trackPurchase } from '../utils/metaPixel';
 import './CheckoutSuccess.css';
 
 export const CheckoutSuccess = () => {
@@ -15,8 +16,14 @@ export const CheckoutSuccess = () => {
 
   useEffect(() => {
     // Keep the cart when payment failed so the shopper can retry
-    if (!failed) clearCart();
-  }, [failed, clearCart]);
+    if (!failed) {
+      clearCart();
+      trackPurchase({
+        value: 0, // Actual order value not available client-side; update if you capture it
+        order_id: orderId || undefined,
+      });
+    }
+  }, [failed, clearCart, orderId]);
 
   return (
     <div className="checkout-success">

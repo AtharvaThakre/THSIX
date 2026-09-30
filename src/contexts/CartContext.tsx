@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react';
+import { trackAddToCart, trackCustomEvent } from '../utils/metaPixel';
 
 export interface CartItem {
   id: string;
@@ -169,10 +170,23 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
     dispatch({ type: 'ADD_ITEM', payload: item });
+    trackAddToCart({
+      content_name: item.title,
+      content_ids: [item.variantId || item.id],
+      value: item.price,
+    });
   };
 
   const removeItem = (id: string) => {
+    const item = state.items.find(i => i.id === id);
     dispatch({ type: 'REMOVE_ITEM', payload: id });
+    if (item) {
+      trackCustomEvent('RemoveFromCart', {
+        content_name: item.title,
+        content_ids: [item.variantId || item.id],
+        value: item.price,
+      });
+    }
   };
 
   const updateQuantity = (id: string, quantity: number) => {

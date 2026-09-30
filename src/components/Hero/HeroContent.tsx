@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import BlurText from './BlurText';
+import { trackCustomEvent } from '../../utils/metaPixel';
 
 export const HeroContent = ({ data }: { data: any }) => {
   return (
@@ -23,6 +24,7 @@ export const HeroContent = ({ data }: { data: any }) => {
         className="hero-cta"
         onClick={(e) => {
           e.preventDefault();
+          trackCustomEvent('HeroCTAClicked', { cta_text: data.cta });
           const section = document.querySelector('.product-showcase') as HTMLElement;
           if (section) {
             window.scrollTo({

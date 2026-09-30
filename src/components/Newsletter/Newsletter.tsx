@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { newsletterContent } from '../../data/newsletter';
+import { trackLead, trackCustomEvent } from '../../utils/metaPixel';
 import './Newsletter.css';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
@@ -17,6 +18,8 @@ export const Newsletter = () => {
     e.preventDefault();
     if (!email) return;
     setFormState('submitting');
+    trackLead({ content_name: 'Newsletter Signup', email_entered: true });
+    trackCustomEvent('NewsletterSignup', { email_entered: true });
     // Simulate async — wire up to email provider later
     setTimeout(() => {
       setFormState('success');
@@ -119,6 +122,7 @@ export const Newsletter = () => {
                   placeholder={newsletterContent.placeholder}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onFocus={() => trackCustomEvent('NewsletterEmailFocused')}
                   disabled={formState === 'submitting'}
                   autoComplete="email"
                 />

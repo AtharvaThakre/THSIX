@@ -12,6 +12,7 @@ import { useCart } from '../contexts/CartContext';
 import { loadPickrrScript } from '../utils/pickrr-loader';
 import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-checkout';
 import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
+import { trackViewContent, trackAddToCart, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
@@ -119,6 +120,15 @@ export const ProductDetailPage = () => {
           // Shoppers must pick their size; only a single-size product is pre-selected
           const vs: any[] = p.variants?.edges?.map((e: any) => e.node) ?? [];
           if (vs.length === 1 && vs[0].availableForSale) setSelectedVariantIndex(0);
+
+          // Track ViewContent for Meta Pixel
+          const firstVariant = vs[0];
+          const price = firstVariant?.price ? parseFloat(firstVariant.price.amount) : 0;
+          trackViewContent({
+            content_name: p.title,
+            content_ids: [p.id],
+            value: price,
+          });
         } else {
           console.log('Product not found for handle:', handle);
         }
@@ -154,12 +164,18 @@ export const ProductDetailPage = () => {
     const variant = variants[index];
     const numId = extractNumericVariantId(variant.id);
     console.log('[ProductDetailPage] Variant selected:', numId, variant.title);
+    // Track size selection
+    trackCustomEvent('SizeSelected', {
+      content_name: product?.title,
+      size: variant.title,
+      variant_id: numId,
+    });
     // Switch main image to variant image if it has one
     if (variant.image?.url) {
       const imgIdx = images.findIndex((img: any) => img.url === variant.image.url);
       if (imgIdx >= 0) setSelectedImageIndex(imgIdx);
     }
-  }, [variants, images]);
+  }, [variants, images, product]);
 
   const requireSize = () => {
     setSizeError(true);
@@ -179,6 +195,7 @@ export const ProductDetailPage = () => {
       variantTitle: selectedVariant.title,
       handle: handle ?? '',
     });
+    // trackAddToCart is also fired inside CartContext.addItem — no double-fire here
     setIsAddingToCart(true);
     setTimeout(() => setIsAddingToCart(false), 2000);
   }, [selectedVariant, addItem, handle, product, images, selectedImageIndex]);
@@ -190,6 +207,16 @@ export const ProductDetailPage = () => {
     const numId = extractNumericVariantId(selectedVariant.id);
     console.log('[ProductDetailPage] Buy Now:', numId, selectedVariant.title);
     setIsBuyingNow(true);
+    trackInitiateCheckout({
+      content_ids: [numId],
+      num_items: 1,
+      value: parseFloat(selectedVariant.price?.amount || '0'),
+    });
+    trackCustomEvent('BuyNowClicked', {
+      content_name: product?.title,
+      size: selectedVariant.title,
+      variant_id: numId,
+    });
     try {
       await loadPickrrScript();
       const isReady = await waitForShiprocket(10000);
@@ -354,7 +381,7 @@ export const ProductDetailPage = () => {
                     <label className="product-detail__size-label">SELECT YOUR SIZE</label>
                     <button
                       className="product-detail__size-chart-btn"
-                      onClick={() => setIsSizeChartOpen(true)}
+                      onClick={() => { setIsSizeChartOpen(true); trackCustomEvent('SizeChartOpened', { content_name: product?.title }); }}
                       type="button"
                     >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

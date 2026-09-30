@@ -3,6 +3,7 @@ import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-checkout';
 import { loadPickrrScript } from '../../utils/pickrr-loader';
+import { trackInitiateCheckout, trackCustomEvent } from '../../utils/metaPixel';
 import './Cart.css';
 
 interface CartProps {
@@ -45,6 +46,16 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
   const handleCheckout = async () => {
     setIsCheckingOut(true);
     setCheckoutError(null);
+
+    trackInitiateCheckout({
+      content_ids: items.map(item => item.variantId || item.id),
+      num_items: totalItems,
+      value: totalPrice,
+    });
+    trackCustomEvent('CartCheckoutClicked', {
+      num_items: totalItems,
+      value: totalPrice,
+    });
 
     try {
       const products = items.map(item => ({
