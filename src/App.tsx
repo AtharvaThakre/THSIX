@@ -1,4 +1,4 @@
-import { useEffect, lazy, Suspense } from 'react';
+import { useEffect, lazy, Suspense, useRef } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { CartProvider } from './contexts/CartContext';
 import { ShopifyProvider } from './contexts/ShopifyContext';
@@ -135,12 +135,23 @@ function NotFoundPage() {
   );
 }
 
-// Scroll to top on route change
+// Scroll to top on route change and track SPA page views with Meta Pixel
 function ScrollToTop() {
   const { pathname } = useLocation();
+  const isFirstRender = useRef(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+
+    // Skip initial render to avoid double-counting the initial PageView fired by index.html
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+
+    if (typeof window.fbq === 'function') {
+      window.fbq('track', 'PageView');
+    }
   }, [pathname]);
 
   return null;

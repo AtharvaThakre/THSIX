@@ -18,3 +18,8 @@ declare module '*.css' {
   const content: any;
   export default content;
 }
+
+interface Window {
+  fbq?: (...args: any[]) => void;
+  _fbq?: any;
+}
