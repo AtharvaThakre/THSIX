@@ -20,10 +20,17 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ ok: false, message: 'Method not allowed' });
   }
 
-  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body;
-  const orderId = body && body.order_id ? String(body.order_id) : '';
+  let rawBody = req.body;
+  if (Buffer.isBuffer(rawBody)) {
+    rawBody = rawBody.toString('utf8');
+  }
+  const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
+  let orderId = body.order_id || body.id || (body.payload && body.payload.order_id) || '';
+  orderId = String(orderId).trim();
+
   if (!/^[a-f0-9]{24}$/i.test(orderId)) {
-    return res.status(400).json({ ok: false, message: 'order_id is required' });
+    console.error('[order-webhook] Invalid or missing order_id. Received body:', JSON.stringify(body));
+    return res.status(400).json({ ok: false, message: 'order_id is required', received: orderId });
   }
 
   console.log('[order-webhook] Received', orderId, body.status);
