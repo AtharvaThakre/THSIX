@@ -4,6 +4,7 @@ import { useCart } from '../../contexts/CartContext';
 import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-checkout';
 import { loadPickrrScript } from '../../utils/pickrr-loader';
 import { trackInitiateCheckout, trackCustomEvent } from '../../utils/metaPixel';
+import { trackGA4BeginCheckout } from '../../utils/ga4';
 import './Cart.css';
 
 interface CartProps {
@@ -56,6 +57,23 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
       num_items: totalItems,
       value: totalPrice,
     });
+    // GA4 begin_checkout
+    const ga4Items = items.map(item => ({
+      item_id: item.variantId || item.id,
+      item_name: item.title,
+      item_variant: item.variantTitle || '',
+      price: item.price,
+      quantity: item.quantity,
+    }));
+    trackGA4BeginCheckout(ga4Items, totalPrice);
+    // Save checkout value so CheckoutSuccess can fire accurate purchase events
+    try {
+      sessionStorage.setItem('thsix_checkout_value', JSON.stringify({
+        value: totalPrice,
+        currency: 'INR',
+        items: ga4Items,
+      }));
+    } catch { /* sessionStorage unavailable */ }
 
     try {
       const products = items.map(item => ({

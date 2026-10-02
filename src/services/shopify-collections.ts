@@ -6,14 +6,8 @@
 const SHOPIFY_DOMAIN = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '19sjnp-gx.myshopify.com';
 const STOREFRONT_ACCESS_TOKEN = import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || 'be59fa0cf086500d7b6456e64f233866';
 
-// Debug logging
-console.log('Shopify Domain:', SHOPIFY_DOMAIN);
-console.log('Access Token Available:', !!STOREFRONT_ACCESS_TOKEN);
-
 if (!SHOPIFY_DOMAIN || !STOREFRONT_ACCESS_TOKEN) {
-  console.error('Shopify configuration missing!');
-  console.error('SHOPIFY_DOMAIN:', SHOPIFY_DOMAIN);
-  console.error('STOREFRONT_ACCESS_TOKEN:', STOREFRONT_ACCESS_TOKEN ? 'Present' : 'Missing');
+  console.error('Shopify configuration missing — check VITE_SHOPIFY_STORE_DOMAIN and VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN');
 }
 
 const SHOPIFY_STOREFRONT_API_URL = `https://${SHOPIFY_DOMAIN}/api/2024-01/graphql.json`;

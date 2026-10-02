@@ -1,6 +1,7 @@
 const { config } = require('../lib/config');
 const { isConfigured, shiprocketPost, safeParse } = require('../lib/shiprocket');
 const { fetchVariantsByIds } = require('../lib/data-service');
+const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../lib/shopify-admin');
 
 const SHOPIFY_ADMIN_API = '2024-10';
 
@@ -54,7 +55,33 @@ module.exports = async function handler(req, res) {
     items: order.cart_data && order.cart_data.items,
   }));
 
-  if (String(order.status).toUpperCase() !== 'SUCCESS') {
+  const status = String(order.status).toUpperCase();
+
+  if (status !== 'SUCCESS') {
+    const SHIPPING_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RTO_INITIATED', 'RTO_DELIVERED'];
+    if (SHIPPING_STATUSES.includes(status) && config.shopifyAdminToken) {
+      try {
+        const tag = `sr-${order.order_id}`;
+        const shopifyOrder = await findOrderByTagShared(tag);
+        if (shopifyOrder) {
+          console.log(`[order-webhook] Syncing status ${status} for ${shopifyOrder.name}`);
+          await addOrderNote(shopifyOrder.gid, `Shiprocket Checkout Status: ${status}`);
+          
+          const tracking = {
+            number: order.awb || order.tracking_number || '',
+            company: order.courier_name || order.courier || '',
+            url: order.tracking_url || (order.awb ? `https://www.shiprocket.co/tracking/${order.awb}` : '')
+          };
+          
+          if (['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status)) {
+             await syncFulfillment(shopifyOrder, tracking);
+          }
+          return res.status(200).json({ ok: true, synced_status: status });
+        }
+      } catch (err) {
+        console.error('[order-webhook] Status sync failed:', err.message);
+      }
+    }
     return res.status(200).json({ ok: true, skipped: `order status is ${order.status}` });
   }
 
@@ -66,8 +93,19 @@ module.exports = async function handler(req, res) {
     const shopifyOrder = await createShopifyOrder(order);
     return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
   } catch (error) {
-    console.error('[order-webhook] Creating Shopify order failed:', error);
-    return res.status(500).json({ ok: false });
+    console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
+
+    // Retry once after a short delay — covers transient Shopify 429/5xx errors
+    try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const shopifyOrder = await createShopifyOrder(order);
+      console.log('[order-webhook] Retry succeeded');
+      return res.status(200).json({ ok: true, shopify_order: shopifyOrder, retried: true });
+    } catch (retryError) {
+      console.error('[order-webhook] Retry also failed:', retryError.message || retryError);
+      // Return 500 so Shiprocket retries the webhook later
+      return res.status(500).json({ ok: false, message: 'Shopify order creation failed after retry' });
+    }
   }
 };
 
@@ -125,7 +163,10 @@ async function createShopifyOrder(order) {
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },
       ],
       inventory_behaviour: 'decrement_obeying_policy',
-      send_receipt: true,
+      // Shiprocket already sends the order-confirmation email; prevent Shopify from
+      // sending a duplicate. Shipping notifications still fire from fulfillment sync.
+      send_receipt: false,
+      send_fulfillment_receipt: true,
     },
   };
 

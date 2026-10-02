@@ -13,6 +13,7 @@ import { loadPickrrScript } from '../utils/pickrr-loader';
 import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-checkout';
 import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
 import { trackViewContent, trackAddToCart, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
+import { trackGA4ViewItem, trackGA4BeginCheckout } from '../utils/ga4';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
@@ -129,6 +130,13 @@ export const ProductDetailPage = () => {
             content_ids: [p.id],
             value: price,
           });
+          trackGA4ViewItem({
+            item_id: p.id,
+            item_name: p.title,
+            item_variant: firstVariant?.title || '',
+            price,
+            quantity: 1,
+          });
         } else {
           console.log('Product not found for handle:', handle);
         }
@@ -217,6 +225,19 @@ export const ProductDetailPage = () => {
       size: selectedVariant.title,
       variant_id: numId,
     });
+    const itemPrice = parseFloat(selectedVariant.price?.amount || '0');
+    trackGA4BeginCheckout(
+      [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
+      itemPrice
+    );
+    // Save checkout value so CheckoutSuccess can fire accurate purchase events
+    try {
+      sessionStorage.setItem('thsix_checkout_value', JSON.stringify({
+        value: itemPrice,
+        currency: currencyCode,
+        items: [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
+      }));
+    } catch { /* sessionStorage unavailable */ }
     try {
       await loadPickrrScript();
       const isReady = await waitForShiprocket(10000);

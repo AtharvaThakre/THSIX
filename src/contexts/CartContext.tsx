@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, type ReactNode } from 'react';
 import { trackAddToCart, trackCustomEvent } from '../utils/metaPixel';
+import { trackGA4AddToCart } from '../utils/ga4';
 
 export interface CartItem {
   id: string;
@@ -174,6 +175,13 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       content_name: item.title,
       content_ids: [item.variantId || item.id],
       value: item.price,
+    });
+    trackGA4AddToCart({
+      item_id: item.variantId || item.id,
+      item_name: item.title,
+      item_variant: item.variantTitle || '',
+      price: item.price,
+      quantity: 1,
     });
   };
 

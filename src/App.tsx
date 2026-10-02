@@ -1,4 +1,5 @@
 import { useEffect, lazy, Suspense, useRef } from 'react';
+import { initGA4, trackGA4PageView } from './utils/ga4';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { CartProvider } from './contexts/CartContext';
 import { ShopifyProvider } from './contexts/ShopifyContext';
@@ -152,6 +153,7 @@ function ScrollToTop() {
     if (typeof window.fbq === 'function') {
       window.fbq('track', 'PageView');
     }
+    trackGA4PageView(pathname);
   }, [pathname]);
 
   return null;
@@ -165,6 +167,9 @@ const PageFallback = () => (
 );
 
 function App() {
+  // Initialise GA4 once (no-op if VITE_GA4_MEASUREMENT_ID is not set)
+  useEffect(() => { initGA4(); }, []);
+
   const storeDomain = import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || "https://19sjnp-gx.myshopify.com";
   const accessToken = import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || "be59fa0cf086500d7b6456e64f233866";
 
@@ -181,7 +186,7 @@ function App() {
         <shopify-store
           store-domain={storeDomain}
           public-access-token={accessToken}
-          country="US"
+          country="IN"
           language="EN"
           cache-policy="cache-first-network-fallback"
         />
