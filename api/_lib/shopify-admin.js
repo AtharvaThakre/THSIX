@@ -7,7 +7,7 @@
 const { config } = require('./config');
 const { safeParse } = require('./shiprocket');
 
-const SHOPIFY_ADMIN_API = '2024-10';
+const SHOPIFY_ADMIN_API = '2026-10';
 
 // ── Low-level helpers ────────────────────────────────────────────────────────
 
