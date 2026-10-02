@@ -1,5 +1,5 @@
-const { fetchProductsByCollection } = require('../lib/data-service');
-const { catalogHandler } = require('../lib/response');
+const { fetchProductsByCollection } = require('../_lib/data-service');
+const { catalogHandler } = require('../_lib/response');
 
 /**
  * GET /api/catalog/products-by-collection?collection_id=123&page=1&limit=100

@@ -1,6 +1,6 @@
-const { config } = require('../lib/config');
-const { isConfigured, shiprocketPost, safeParse } = require('../lib/shiprocket');
-const { fetchVariantsByIds } = require('../lib/data-service');
+const { config } = require('../_lib/config');
+const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
+const { fetchVariantsByIds } = require('../_lib/data-service');
 
 // Where Shiprocket may send the shopper after payment. It appends ?oid=<order id>&ost=<status>.
 const ALLOWED_REDIRECT_HOSTS = ['www.thsix.com', 'thsix.com', 'localhost', '127.0.0.1'];

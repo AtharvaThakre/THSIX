@@ -32,9 +32,9 @@
  *   b. Adds a timestamped status note to the Shopify order timeline
  *   c. Returns 200 as quickly as possible so Shiprocket marks delivery successful
  */
-const { config } = require('../lib/config');
-const { safeParse } = require('../lib/shiprocket');
-const { findOrderByTag, syncFulfillment, addOrderNote, adminGraphQL } = require('../lib/shopify-admin');
+const { config } = require('../_lib/config');
+const { safeParse } = require('../_lib/shiprocket');
+const { findOrderByTag, syncFulfillment, addOrderNote, adminGraphQL } = require('../_lib/shopify-admin');
 
 // ── Shiprocket Shipping status mapping ───────────────────────────────────────
 

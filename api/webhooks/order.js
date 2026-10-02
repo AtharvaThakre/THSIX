@@ -1,7 +1,7 @@
-const { config } = require('../lib/config');
-const { isConfigured, shiprocketPost, safeParse } = require('../lib/shiprocket');
-const { fetchVariantsByIds } = require('../lib/data-service');
-const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../lib/shopify-admin');
+const { config } = require('../_lib/config');
+const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
+const { fetchVariantsByIds } = require('../_lib/data-service');
+const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../_lib/shopify-admin');
 
 const SHOPIFY_ADMIN_API = '2024-10';
 

@@ -1,5 +1,5 @@
-const { config } = require('../lib/config');
-const { isConfigured, shiprocketPost } = require('../lib/shiprocket');
+const { config } = require('../_lib/config');
+const { isConfigured, shiprocketPost } = require('../_lib/shiprocket');
 
 /**
  * GET /api/checkout/health

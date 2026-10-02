@@ -1,6 +1,6 @@
-const { config } = require('../lib/config');
-const { isConfigured, shiprocketPost } = require('../lib/shiprocket');
-const { fetchProducts, fetchCollections } = require('../lib/data-service');
+const { config } = require('../_lib/config');
+const { isConfigured, shiprocketPost } = require('../_lib/shiprocket');
+const { fetchProducts, fetchCollections } = require('../_lib/data-service');
 
 /**
  * GET /api/catalog/sync
