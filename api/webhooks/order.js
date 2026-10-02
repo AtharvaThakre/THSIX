@@ -25,7 +25,7 @@ module.exports = async function handler(req, res) {
     rawBody = rawBody.toString('utf8');
   }
   const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
-  let orderId = body.order_id || body.id || (body.payload && body.payload.order_id) || '';
+  let orderId = body.order_id || body.cart_id || body.id || (body.payload && body.payload.order_id) || '';
   orderId = String(orderId).trim();
 
   if (!/^[a-f0-9]{24}$/i.test(orderId)) {
