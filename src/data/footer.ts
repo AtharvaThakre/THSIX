@@ -36,9 +36,9 @@ export const footerColumns: FooterColumn[] = [
   {
     title: 'POLICIES',
     links: [
-      { label: 'Shipping policy', href: '/shipping' },
-      { label: 'Return and Refund policy', href: '/returns' },
-      { label: 'Payment policy', href: '/payment-policy' },
+      { label: 'Shipping Policy', href: '/shipping' },
+      { label: 'Return & Refund Policy', href: '/returns' },
+      { label: 'Privacy Policy', href: '/privacy' },
       { label: 'Terms and Conditions', href: '/terms' },
     ],
   },

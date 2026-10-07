@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
+import { STATIC_POLICIES } from '../data/policies';
 import './PolicyPage.css';
 
 /**
- * Store policies, read live from Shopify (Settings > Policies) so the site always shows
- * what's written there.
+ * Store policies, read from STATIC_POLICIES or live from Shopify (Settings > Policies).
  */
 export type PolicyKey = 'shippingPolicy' | 'refundPolicy' | 'termsOfService' | 'privacyPolicy';
 
@@ -16,6 +16,11 @@ const SHOPIFY_DOMAIN = (import.meta.env.VITE_SHOPIFY_STORE_DOMAIN || 'https://19
 const STOREFRONT_ACCESS_TOKEN = import.meta.env.VITE_SHOPIFY_STOREFRONT_ACCESS_TOKEN || 'be59fa0cf086500d7b6456e64f233866';
 
 type Policy = { title: string; body: string };
+
+function cleanBody(body: string): string {
+  // Strip duplicate h1 at the start of body if Shopify already has it in the title
+  return body.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>\s*/i, '');
+}
 
 async function fetchPolicy(key: PolicyKey): Promise<Policy | null> {
   const response = await fetch(`https://${SHOPIFY_DOMAIN}/api/2024-01/graphql.json`, {
@@ -28,7 +33,12 @@ async function fetchPolicy(key: PolicyKey): Promise<Policy | null> {
   });
   if (!response.ok) throw new Error(`Shopify ${response.status}`);
   const data = await response.json();
-  return data?.data?.shop?.[key] ?? null;
+  const policy = data?.data?.shop?.[key];
+  if (!policy) return null;
+  return {
+    title: policy.title,
+    body: cleanBody(policy.body),
+  };
 }
 
 interface PolicyPageProps {
@@ -38,10 +48,17 @@ interface PolicyPageProps {
 }
 
 export const PolicyPage = ({ policy, section }: PolicyPageProps) => {
-  const [content, setContent] = useState<Policy | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const staticContent = STATIC_POLICIES[policy];
+  const [content, setContent] = useState<Policy | null>(staticContent ?? null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(staticContent ? 'ready' : 'loading');
 
   useEffect(() => {
+    if (staticContent) {
+      setContent(staticContent);
+      setStatus('ready');
+      return;
+    }
+
     let cancelled = false;
     setStatus('loading');
     fetchPolicy(policy)
@@ -54,7 +71,7 @@ export const PolicyPage = ({ policy, section }: PolicyPageProps) => {
     return () => {
       cancelled = true;
     };
-  }, [policy]);
+  }, [policy, staticContent]);
 
   useEffect(() => {
     if (status !== 'ready' || !content) return;
