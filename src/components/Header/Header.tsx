@@ -44,7 +44,7 @@ export const Header = () => {
         <a href="/#shop" onClick={(e) => handleSectionLink(e, 'shop')} className="nav-link">SHOP</a>
         <a href="/#brands" onClick={(e) => handleSectionLink(e, 'brands')} className="nav-link">BRANDS</a>
         <a href="/#about" onClick={(e) => handleSectionLink(e, 'about')} className="nav-link">ABOUT</a>
-        <a href="/#contact" onClick={(e) => handleSectionLink(e, 'contact')} className="nav-link">CONTACT US</a>
+        <a href="/contactus" className="nav-link">CONTACT US</a>
       </nav>
       <div className="header-right">
         <button

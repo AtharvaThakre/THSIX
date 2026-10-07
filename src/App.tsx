@@ -28,6 +28,7 @@ const CheckoutSuccess = lazy(() => import('./pages/CheckoutSuccess').then(m => (
 const PolicyPage = lazy(() => import('./pages/PolicyPage').then(m => ({ default: m.PolicyPage })));
 const AboutPage = lazy(() => import('./pages/AboutPage').then(m => ({ default: m.AboutPage })));
 const BrandCollectionPage = lazy(() => import('./pages/BrandCollectionPage').then(m => ({ default: m.BrandCollectionPage })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then(m => ({ default: m.ContactPage })));
 
 // Loading fallback component
 const SectionFallback = () => (
@@ -209,6 +210,9 @@ function App() {
             <Route path="/about" element={<AboutPage />} />
             <Route path="/about-us" element={<Navigate to="/about" replace />} />
             <Route path="/about us" element={<Navigate to="/about" replace />} />
+            <Route path="/contactus" element={<ContactPage />} />
+            <Route path="/contact-us" element={<Navigate to="/contactus" replace />} />
+            <Route path="/contact" element={<Navigate to="/contactus" replace />} />
             {/* Shopify's primary domain is thsix.com, so its order-status and cart-permalink
                 links (used by Shiprocket after payment / as a fallback) land on this app */}
             <Route path="/:shopId/orders/:token" element={<CheckoutSuccess />} />
