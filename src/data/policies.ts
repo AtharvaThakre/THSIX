@@ -8,7 +8,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
     title: 'Return & Refund Policy',
     body: `
 <p><strong>Last Updated: October 2026</strong></p>
-<p>At <strong>thsix</strong>, we want you to be completely satisfied with your purchase. If you receive a product that is damaged, defective, incorrect, or does not meet your expectations, we’re here to help.</p>
+<p>At <strong>THSIX Powered by Wellnova life</strong>, we want you to be completely satisfied with your purchase. If you receive a product that is damaged, defective, incorrect, or does not meet your expectations, we’re here to help.</p>
 <p>Please read the following policy carefully before requesting a return or refund.</p>
 
 <h2>1. Return Eligibility</h2>
