@@ -194,9 +194,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 16px;
-  padding: 48px 0;
+  padding: 0;
   outline: none;
+  animation: contactFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .contact-page__success-icon {
@@ -210,20 +210,30 @@
   font-size: 22px;
   font-weight: 700;
   flex-shrink: 0;
+  margin-bottom: 24px;
 }
 
-.contact-page__success-title {
-  font-size: 26px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  color: var(--black);
+.contact-page__heading--success {
+  margin-bottom: 16px;
 }
 
-.contact-page__success-body {
+.contact-page__subheading--success {
   font-size: 15px;
   line-height: 1.7;
   color: var(--gray);
-  max-width: 420px;
+  margin-bottom: 40px;
+  max-width: 520px;
+}
+
+@keyframes contactFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ─── Info panel (right 30%) ────────────────────────────────────────── */
@@ -315,6 +325,12 @@
 
 .contact-anim {
   opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-anim {
+    opacity: 1 !important;
+  }
 }
 
 /* ─── Responsive ────────────────────────────────────────────────────── */

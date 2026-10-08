@@ -154,29 +154,19 @@ export const ContactPage = () => {
         <div className="contact-page__inner">
 
           {/* ── Left panel: Form (70%) ── */}
-          <div className="contact-page__form-panel">
-            <div className="contact-anim">
-              <p className="contact-page__eyebrow">GET IN TOUCH</p>
-              <h1 className="contact-page__heading">Contact Us</h1>
-              <p className="contact-page__subheading">
-                Have a question, feedback, or a collaboration idea?<br />
-                We'd love to hear from you.
-              </p>
-            </div>
-
+          <div className="contact-page__form-panel contact-anim">
             {formState === 'success' ? (
               <div
-                className="contact-page__success contact-anim"
+                className="contact-page__success"
                 ref={successRef}
                 tabIndex={-1}
                 role="status"
                 aria-live="polite"
               >
                 <div className="contact-page__success-icon" aria-hidden="true">✓</div>
-                <h2 className="contact-page__success-title">Message Sent</h2>
-                <p className="contact-page__success-body">
-                  Thank you for reaching out. We've received your message and will
-                  get back to you as soon as possible.
+                <h1 className="contact-page__heading contact-page__heading--success">Thank You</h1>
+                <p className="contact-page__subheading contact-page__subheading--success">
+                  Thank you for contacting, you should expect response under 48 Hours.
                 </p>
                 <button
                   className="contact-page__send-btn"
@@ -187,12 +177,22 @@ export const ContactPage = () => {
                 </button>
               </div>
             ) : (
-              <form
-                className="contact-page__form contact-anim"
-                onSubmit={handleSubmit}
-                noValidate
-                aria-label="Contact form"
-              >
+              <>
+                <div className="contact-page__header">
+                  <p className="contact-page__eyebrow">GET IN TOUCH</p>
+                  <h1 className="contact-page__heading">Contact Us</h1>
+                  <p className="contact-page__subheading">
+                    Have a question, feedback, or a collaboration idea?<br />
+                    We'd love to hear from you.
+                  </p>
+                </div>
+
+                <form
+                  className="contact-page__form"
+                  onSubmit={handleSubmit}
+                  noValidate
+                  aria-label="Contact form"
+                >
                 {/* First / Last name row */}
                 <div className="contact-page__row">
                   <div className="contact-page__field">
@@ -308,8 +308,9 @@ export const ContactPage = () => {
                   )}
                 </button>
               </form>
-            )}
-          </div>
+            </>
+          )}
+        </div>
 
           {/* ── Right panel: Details (30%) ── */}
           <aside className="contact-page__info-panel contact-anim" aria-label="Contact information">
