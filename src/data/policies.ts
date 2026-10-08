@@ -278,11 +278,42 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 
 <h2>20. Force Majeure</h2>
 <p>THSIX Powered by Wellnova life shall not be responsible for delays or failures caused by events beyond our reasonable control, including natural disasters, severe weather, transportation disruptions, government restrictions, strikes, technical failures, or other unforeseen circumstances.</p>
-
+<p></p>
 <h2>21. Privacy</h2>
 <p>Customer information is handled according to our <a href="/privacy">Privacy Policy</a>.</p>
 <p>By using our website and placing an order, you acknowledge that information may be processed for order fulfillment, payment processing, delivery, customer support, fraud prevention, and other purposes described in our Privacy Policy.</p>
-
+<br>
+<p>thsix shall not be responsible for delays or failures caused by events beyond our reasonable control, including natural disasters, severe weather, transportation disruptions, government restrictions, strikes, technical failures, or other unforeseen circumstances.
+Customer information is handled in accordance with our Privacy Policy and applicable law.
+By using the thsix website or placing an order, you acknowledge that information may be collected, used, stored, and processed for legitimate business purposes.
+Information may include your name, mobile number, email address, billing details, shipping address, order details, and other information you voluntarily provide.
+We may use customer information to create, confirm, process, and fulfill orders.
+We may use information to arrange shipping, delivery, returns, exchanges, refunds, and customer support.
+We may use information to process or facilitate payments through applicable payment service providers.
+Payment information may be processed by third-party payment providers according to their own terms and privacy practices.
+We may use information to communicate with customers about orders, delivery updates, service requests, and important transactional matters.
+We may use information to respond to questions, complaints, feedback, and customer-support requests.
+We may use information to help detect, investigate, prevent, or address fraud, misuse, abuse, unauthorized transactions, and other security risks.
+We may collect limited technical information such as IP address, browser type, device information, operating system, pages visited, and website interaction data where supported by our website or service providers.
+Technical and usage information may be used to maintain website security, improve functionality, troubleshoot issues, and understand how customers use the website.
+Cookies and similar technologies may be used where applicable to support website functionality, preferences, analytics, security, and other legitimate website operations.
+Customers may be able to manage certain cookie preferences through available browser or website controls, subject to technical limitations.
+We may share necessary information with service providers who help us operate the business, including payment processing, logistics, shipping, technology, hosting, customer support, analytics, and security providers.
+Service providers may receive only the information reasonably necessary to perform the services they provide to us, subject to applicable contractual or legal requirements.
+We may disclose information when required by law, regulation, court order, governmental authority, legal process, or to protect our legal rights and safety.
+We may retain customer information for as long as reasonably necessary to fulfill the purposes for which it was collected, comply with legal and accounting obligations, resolve disputes, and enforce agreements.
+We take reasonable administrative, technical, and organizational measures to protect customer information against unauthorized access, misuse, alteration, disclosure, or destruction.
+However, no website, electronic transmission, storage system, or internet-based service can be guaranteed to be completely secure.
+Customers are responsible for keeping their account credentials, devices, and other access information secure where applicable.
+Customers should promptly contact us if they believe their account, order information, or personal information has been accessed or used without authorization.
+We do not intentionally request sensitive personal information unless it is reasonably required for a lawful business purpose or specifically supported by the applicable service.
+Customers should avoid submitting unnecessary sensitive information through website forms, email, WhatsApp, or other communication channels.
+Where applicable, customers may have rights relating to access, correction, deletion, withdrawal of consent, restriction, or other handling of their personal information, subject to applicable law and legitimate business or legal requirements.
+Requests relating to personal information may be submitted using the contact details provided in the Contact Us or Grievance Redressal section.
+We may update our privacy practices from time to time to reflect changes in our services, technology, business operations, or applicable legal requirements.
+Any material changes to the Privacy Policy will be communicated or published through appropriate website updates where required.
+For complete information about the collection, use, storage, sharing, retention, and protection of personal information, customers should read the separate thsix Privacy Policy.
+THSIX Powered by Wellnova Life.</p>
 <h2>22. Customer Complaints &amp; Grievance Redressal</h2>
 <p>If you have a complaint regarding a product, order, payment, delivery, return, refund, or any other matter, please contact our customer support team.</p>
 <p>
