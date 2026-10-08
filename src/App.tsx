@@ -38,6 +38,10 @@ const SectionFallback = () => (
 );
 
 function HomePage() {
+  useEffect(() => {
+    document.title = 'THSIX - Premium Inspired Sneakers & Footwear | Upto 60% off';
+  }, []);
+
   // Links like /#shop from other pages: scroll once the section has rendered
   useEffect(() => {
     const id = window.location.hash.slice(1);

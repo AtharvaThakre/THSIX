@@ -275,6 +275,14 @@
   font-style: normal;
 }
 
+.contact-page__info-powered {
+  font-size: 13px;
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.75);
+  line-height: 1.5;
+  font-style: normal;
+}
+
 .contact-page__info-link {
   text-decoration: none;
   color: var(--white);

@@ -322,6 +322,7 @@ export const ContactPage = () => {
                   thsix.com
                 </a>
                 <span className="contact-page__info-value">Samyak Avinash Matre</span>
+                <span className="contact-page__info-powered">Powered By Wellnova</span>
               </div>
 
               <div className="contact-page__info-block">

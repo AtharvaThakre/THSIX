@@ -28,8 +28,7 @@ export const footerColumns: FooterColumn[] = [
     title: 'HELP',
     links: [
       { label: 'Track Order', href: 'https://www.shiprocket.in/shipment-tracking/' },
-      { label: 'Contact us via call', href: 'tel:+919022771696' },
-      { label: 'Contact us via mail', href: 'mailto:support@thsix.com' },
+      { label: 'Contact US', href: '/contactus' },
       { label: 'About us', href: '/about' },
     ],
   },

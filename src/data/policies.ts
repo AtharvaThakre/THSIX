@@ -100,6 +100,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <p>For return, exchange, or refund-related queries, please contact our customer support:</p>
 <p>
   <strong>Brand:</strong> thsix.com / Samyak Avinash Matre<br />
+  Powered By Wellnova<br />
   <strong>Email:</strong> <a href="mailto:support@thsix.com">support@thsix.com</a><br />
   <strong>Phone/WhatsApp:</strong> <a href="tel:+917758879173">+91 7758879173</a><br />
   <strong>Business Address:</strong> Flat No.201 Chintamani Ruby 8th Mile Amravati Road Nagpur Maharashtra - 440023
