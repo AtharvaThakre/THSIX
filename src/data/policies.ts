@@ -99,8 +99,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <h2>12. Contact Us</h2>
 <p>For return, exchange, or refund-related queries, please contact our customer support:</p>
 <p>
-  <strong>Brand:</strong> thsix.com / Samyak Avinash Matre<br />
-  Powered By Wellnova<br />
+  <strong>Brand:</strong> Samyak Avinash Matre / THSIX powered by Wellnova Life<br />
   <strong>Email:</strong> <a href="mailto:support@thsix.com">support@thsix.com</a><br />
   <strong>Phone/WhatsApp:</strong> <a href="tel:+917758879173">+91 7758879173</a><br />
   <strong>Business Address:</strong> Flat No.201 Chintamani Ruby 8th Mile Amravati Road Nagpur Maharashtra - 440023
@@ -112,15 +111,15 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
     title: 'Terms of Service',
     body: `
 <p><strong>Last Updated: September 8, 2026</strong></p>
-<p>Welcome to thsix. These Terms of Service govern your access to and use of the thsix website and your purchase of products through our online store.</p>
+<p>Welcome to THSIX Powered By Wellnova life. These Terms of Service govern your access to and use of the thsix website and your purchase of products through our online store.</p>
 <p>By visiting our website, browsing our products, or placing an order, you agree to these Terms of Service. Please read them carefully before making a purchase.</p>
 
-<h2>1. About thsix</h2>
-<p>thsix is an online footwear brand focused on providing stylish, comfortable, and affordable footwear to customers across India.</p>
+<h2>1. About THSIX</h2>
+<p>THSIX Powered By Wellnova life is an online footwear brand focused on providing stylish, comfortable, and affordable footwear to customers across India.</p>
 <p>Our goal is to make premium-looking footwear accessible at affordable prices without representing our products as genuine products of third-party brands.</p>
-
+<p>The website primarily offers non-branded products. Products listed on our website are independently sourced and are not affiliated with, endorsed by, or officially supplied by the respective brand</p>
 <h2>2. Product Quality &amp; Brand Disclosure</h2>
-<p>At thsix, we focus on offering high-quality, affordable footwear inspired by contemporary and premium footwear styles.</p>
+<p>At THSIX Powered By Wellnova life, we focus on offering high-quality, affordable footwear inspired by contemporary and premium footwear styles.</p>
 <p>Our products are selected based on factors such as:</p>
 <ul>
   <li>Appearance and design</li>
@@ -133,7 +132,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <p>Because our products are offered at significantly more affordable prices, customers should understand that they may not have the same materials, manufacturing process, durability, packaging, warranty, or specifications as products sold directly by premium international brands.</p>
 
 <h3>Important Brand Disclosure</h3>
-<p>thsix does not claim that its products are genuine, original, authentic, or officially manufactured by third-party brands such as Nike, Adidas, Puma, or any other brand unless expressly stated on the relevant product page.</p>
+<p>The website primarily offers non-branded products. Products listed on our website are independently sourced and are not affiliated with, endorsed by, or officially supplied by the respective brand</p>
 <p>Any product that resembles, takes inspiration from, or references the general style of a well-known brand should not be understood as being manufactured, sponsored, endorsed, affiliated with, or authorized by that brand.</p>
 <p>Third-party brand names, trademarks, logos, or other intellectual property remain the property of their respective owners.</p>
 <p>thsix does not intend to mislead customers regarding the origin or authenticity of products.</p>
@@ -196,7 +195,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <p>If an order is cancelled after payment has been received, an applicable refund will be processed.</p>
 
 <h2>9. Payment</h2>
-<p>thsix may offer prepaid payment methods and Cash on Delivery (COD), depending on location and availability.</p>
+<p>THSIX Powered by Wellnova life may offer prepaid payment methods and Cash on Delivery (COD), depending on location and availability.</p>
 <p>Customers must provide accurate payment and contact information when placing an order.</p>
 <p>Any applicable charges will be displayed during checkout before the order is completed.</p>
 
@@ -278,7 +277,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <p>Nothing in these Terms excludes or limits any liability or consumer right that cannot legally be excluded or limited under applicable law.</p>
 
 <h2>20. Force Majeure</h2>
-<p>thsix shall not be responsible for delays or failures caused by events beyond our reasonable control, including natural disasters, severe weather, transportation disruptions, government restrictions, strikes, technical failures, or other unforeseen circumstances.</p>
+<p>THSIX Powered by Wellnova life shall not be responsible for delays or failures caused by events beyond our reasonable control, including natural disasters, severe weather, transportation disruptions, government restrictions, strikes, technical failures, or other unforeseen circumstances.</p>
 
 <h2>21. Privacy</h2>
 <p>Customer information is handled according to our <a href="/privacy">Privacy Policy</a>.</p>
@@ -287,7 +286,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <h2>22. Customer Complaints &amp; Grievance Redressal</h2>
 <p>If you have a complaint regarding a product, order, payment, delivery, return, refund, or any other matter, please contact our customer support team.</p>
 <p>
-  <strong>Brand:</strong> Samyak Avinash Matre / thsix.com<br />
+  <strong>Brand:</strong> Samyak Avinash Matre / THSIX powered by Wellnova Life<br />
   <strong>Email:</strong> <a href="mailto:support@thsix.com">support@thsix.com</a><br />
   <strong>Phone/WhatsApp:</strong> <a href="tel:+917758879173">+91 7758879173</a><br />
   <strong>Business Address:</strong> Flat No.201 Chintamani Ruby 8th Mile Amravati Road Nagpur Maharashtra - 440023
@@ -295,7 +294,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <p>We will make reasonable efforts to review and resolve genuine customer complaints in accordance with applicable laws and our policies.</p>
 
 <h2>23. Changes to These Terms</h2>
-<p>thsix may update these Terms of Service from time to time to reflect changes in our business, products, policies, or applicable legal requirements.</p>
+<p>THSIX Powered by Wellnova life may update these Terms of Service from time to time to reflect changes in our business, products, policies, or applicable legal requirements.</p>
 <p>The updated version will be published on this page with the revised "Last Updated" date.</p>
 
 <h2>24. Governing Law</h2>
@@ -305,7 +304,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <h2>25. Contact Us</h2>
 <p>For questions regarding these Terms of Service, please contact us:</p>
 <p>
-  <strong>thsix</strong><br />
+  <strong>THSIX Powered by Wellnova Life</strong><br />
   <strong>Email:</strong> <a href="mailto:support@thsix.com">support@thsix.com</a><br />
   <strong>Phone/WhatsApp:</strong> <a href="tel:+917758879173">+91 7758879173</a><br />
   <strong>Business Address:</strong> Flat No.201 Chintamani Ruby 8th Mile Amravati Road Nagpur Maharashtra - 440023
@@ -317,7 +316,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
     title: 'Shipping Policy',
     body: `
 <p><strong>Last Updated: September 8, 2026</strong></p>
-<p>At <strong>thsix</strong>, we are committed to delivering your footwear safely and on time. We carefully pack every order before dispatch and work with trusted logistics partners to deliver across India.</p>
+<p>At <strong>THSIX</strong> Powered By Wellnova life, we are committed to delivering your footwear safely and on time. We carefully pack every order before dispatch and work with trusted logistics partners to deliver across India.</p>
 <p>Please read the following Shipping Policy for details regarding order processing, delivery timelines, shipping charges, and related matters.</p>
 
 <h2>1. Shipping Coverage</h2>
@@ -410,7 +409,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
 <h2>15. Contact Us</h2>
 <p>For questions regarding shipping, delivery, or order tracking, please contact our customer support:</p>
 <p>
-  <strong>Brand:</strong> thsix.com / Samyak Avinash Matre<br />
+  <strong>Brand:</strong> Samyak Avinash Matre / THSIX powered by Wellnova Life<br />
   <strong>Email:</strong> <a href="mailto:support@thsix.com">support@thsix.com</a><br />
   <strong>Phone/WhatsApp:</strong> <a href="tel:+917758879173">+91 7758879173</a><br />
   <strong>Business Address:</strong> Flat No.201 Chintamani Ruby 8th Mile Amravati Road Nagpur Maharashtra - 440023
@@ -422,7 +421,7 @@ export const STATIC_POLICIES: Record<string, PolicyContent> = {
     title: 'Privacy Policy',
     body: `
 <p><strong>Last updated: October 3, 2026</strong></p>
-<p>THSIX operates this store and website, including all related information, content, features, tools, products and services, in order to provide you, the customer, with a curated shopping experience (the "Services"). THSIX is powered by Shopify, which enables us to provide the Services to you. This Privacy Policy describes how we collect, use, and disclose your personal information when you visit, use, or make a purchase or other transaction using the Services or otherwise communicate with us. If there is a conflict between our Terms of Service and this Privacy Policy, this Privacy Policy controls with respect to the collection, processing, and disclosure of your personal information.</p>
+<p>THSIX operates this store and website, including all related information, content, features, tools, products and services, in order to provide you, the customer, with a curated shopping experience (the "Services"). THSIX is powered by WellNova Life, which enables us to provide the Services to you. This Privacy Policy describes how we collect, use, and disclose your personal information when you visit, use, or make a purchase or other transaction using the Services or otherwise communicate with us. If there is a conflict between our Terms of Service and this Privacy Policy, this Privacy Policy controls with respect to the collection, processing, and disclosure of your personal information.</p>
 <p>Please read this Privacy Policy carefully. By using and accessing any of the Services, you acknowledge that you have read this Privacy Policy and understand the collection, use, and disclosure of your information as described in this Privacy Policy.</p>
 
 <h2>Personal Information We Collect or Process</h2>
