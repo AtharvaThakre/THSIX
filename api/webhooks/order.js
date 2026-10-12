@@ -55,25 +55,29 @@ module.exports = async function handler(req, res) {
     // If email is not in the webhook body, query Shiprocket to enrich customer email
     if (!order.email) {
       try {
+        console.log('[order-webhook] Fetching Shiprocket /details for email enrichment...');
         let srRes = await shiprocketPost('/api/v1/custom-platform-order/details', {
           order_id: orderId,
           cart_id: orderId,
           channel_order_id: orderId,
           timestamp: new Date().toISOString(),
-        }).catch(() => null);
+        }).catch(err => ({ status: 0, text: err.message }));
+        console.log('[order-webhook] Shiprocket /details response:', srRes && srRes.status, String(srRes && srRes.text).slice(0, 300));
         let srData = srRes && srRes.data && (srRes.data.result || srRes.data);
         let srEmail = findEmail(srData);
 
         // If direct details did not yield an email, search recent orders in /details/list
         if (!srEmail) {
           const now = new Date();
+          console.log('[order-webhook] Searching Shiprocket /details/list for email...');
           const listRes = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
             startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
             endDate: now.toISOString(),
             timestamp: now.toISOString(),
             limit: 50,
             page: 0,
-          }).catch(() => null);
+          }).catch(err => ({ status: 0, text: err.message }));
+          console.log('[order-webhook] Shiprocket /details/list response:', listRes && listRes.status, String(listRes && listRes.text).slice(0, 300));
 
           const list = listRes && listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
           if (Array.isArray(list)) {
