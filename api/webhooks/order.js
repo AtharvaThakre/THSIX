@@ -25,7 +25,9 @@ module.exports = async function handler(req, res) {
     rawBody = rawBody.toString('utf8');
   }
   const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
-  let orderId = body.order_id || body.cart_id || body.id || (body.payload && body.payload.order_id) || '';
+  console.log('[order-webhook] Full received body:', JSON.stringify(body));
+
+  let orderId = body.order_id || body.cart_id || body.id || (body.payload && (body.payload.order_id || body.payload.id || body.payload.cart_id)) || (body.data && (body.data.order_id || body.data.id || body.data.cart_id)) || '';
   orderId = String(orderId).trim();
 
   // Accept 24-char hex (MongoDB ObjectId), UUIDs, and plain numeric/alphanumeric IDs
@@ -34,38 +36,86 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, message: 'order_id is required', received: orderId });
   }
 
-  console.log('[order-webhook] Received', orderId, body.status);
+  console.log('[order-webhook] Processing orderId:', orderId);
 
   if (!isConfigured()) {
     console.error('[order-webhook] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set; cannot verify order');
     return res.status(500).json({ ok: false });
   }
 
-  // The webhook is unsigned: use Shiprocket's signed Order Details API as the source of truth
-  const verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
-    order_id: orderId,
-    timestamp: new Date().toISOString(),
-  }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
+  // ── 1. Strategy A: Check if the webhook body already contains the full order ──
+  const candidate = body.payload || body.data || body.order || body.result || body;
+  const candidateItems = (candidate.cart_data && candidate.cart_data.items) || candidate.items || candidate.line_items;
+  let order = null;
 
-  console.log('[order-webhook] Shiprocket verify response:', verified.status, String(verified.text).slice(0, 1000));
-
-  // Support both data.result (object) and data directly being the order
-  const resultData = verified.data && (verified.data.result || verified.data);
-  const order = verified.ok && resultData && (verified.data.ok !== false) && resultData;
-  const receivedOrderId = order && (String(order.order_id) || String(order.id) || '');
-  if (!order || (receivedOrderId && receivedOrderId !== orderId)) {
-    console.error('[order-webhook] Could not verify order with Shiprocket. status:', verified.status, 'body:', String(verified.text).slice(0, 1000));
-    // 5xx makes Shiprocket retry later; a 4xx from them means the order doesn't exist
-    return res.status(verified.status >= 400 && verified.status < 500 ? 400 : 502).json({ ok: false });
+  if (Array.isArray(candidateItems) && candidateItems.length > 0) {
+    console.log('[order-webhook] Webhook payload already contains order items, using directly');
+    order = normalizeOrder(candidate, orderId);
   }
 
-  console.log('[order-webhook] Verified', JSON.stringify({
+  // ── 2. Strategy B: Fetch from Shiprocket Order Details API ──
+  if (!order) {
+    console.log('[order-webhook] Fetching order details from Shiprocket for', orderId);
+    let verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
+      order_id: orderId,
+      cart_id: orderId,
+      channel_order_id: orderId,
+      timestamp: new Date().toISOString(),
+    }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
+
+    console.log('[order-webhook] Shiprocket /details response:', verified.status, String(verified.text).slice(0, 500));
+
+    let resultData = verified.data && (verified.data.result || verified.data);
+    if (verified.ok && resultData && verified.data.ok !== false) {
+      order = normalizeOrder(resultData, orderId);
+    }
+
+    // If /details failed (e.g. 400 Order not found due to indexing delay), search recent orders in /details/list
+    if (!order) {
+      console.log('[order-webhook] Order not found in /details, searching /details/list...');
+      try {
+        const now = new Date();
+        const listRes = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
+          startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+          endDate: now.toISOString(),
+          timestamp: now.toISOString(),
+          limit: 50,
+          page: 0,
+        });
+
+        const list = listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+        if (Array.isArray(list)) {
+          const match = list.find(item =>
+            String(item.order_id) === orderId ||
+            String(item.cart_id) === orderId ||
+            String(item.id) === orderId ||
+            String(item.channel_order_id) === orderId ||
+            String(item.fastrr_order_id) === orderId
+          );
+          if (match) {
+            console.log('[order-webhook] Found matching order in /details/list!');
+            order = normalizeOrder(match, orderId);
+          }
+        }
+      } catch (listErr) {
+        console.error('[order-webhook] /details/list query failed:', listErr.message);
+      }
+    }
+  }
+
+  // If still not found, return 500 (NOT 400) so Shiprocket retries the webhook when order finishes indexing
+  if (!order) {
+    console.error('[order-webhook] Could not resolve order details for', orderId);
+    return res.status(500).json({ ok: false, message: 'Order details pending indexing, retry requested' });
+  }
+
+  console.log('[order-webhook] Verified order:', JSON.stringify({
     order_id: order.order_id,
     status: order.status,
     payment_type: order.payment_type,
     payment_status: order.payment_status,
     total: order.total_amount_payable,
-    items: order.cart_data && order.cart_data.items,
+    item_count: order.cart_data && order.cart_data.items && order.cart_data.items.length,
   }));
 
   const status = String(order.status).toUpperCase();
@@ -222,17 +272,21 @@ async function findShopifyOrderByTag(tag) {
 
 function toShopifyAddress(address) {
   if (!address) return undefined;
+  const fullName = address.name || address.full_name || '';
+  const firstName = address.first_name || address.firstName || (fullName ? fullName.split(' ')[0] : '');
+  const lastName = address.last_name || address.lastName || (fullName && fullName.split(' ').length > 1 ? fullName.split(' ').slice(1).join(' ') : firstName || 'Customer');
+
   return {
-    first_name: address.first_name || '',
-    last_name: address.last_name || '',
-    address1: address.line1 || '',
-    address2: [address.line2, address.landmark].filter(Boolean).join(', '),
+    first_name: firstName || 'Customer',
+    last_name: lastName || '.',
+    address1: address.line1 || address.address1 || address.address || address.street || 'Address',
+    address2: [address.line2, address.address2, address.landmark].filter(Boolean).join(', '),
     city: address.city || '',
-    province: address.state || '',
-    zip: address.pincode || '',
+    province: address.state || address.province || '',
+    zip: address.pincode || address.zip || address.postal_code || '',
     country: address.country || 'India',
     country_code: address.country_code || 'IN',
-    phone: toE164(address.phone),
+    phone: toE164(address.phone || address.mobile),
   };
 }
 
@@ -243,4 +297,37 @@ function toE164(phone) {
   if (digits.length === 10) return `+91${digits}`;
   if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
   return undefined;
+}
+
+function normalizeOrder(raw, fallbackId) {
+  if (!raw) return null;
+  const orderId = String(raw.order_id || raw.id || raw.cart_id || fallbackId || '').trim();
+  const rawItems = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items || [];
+
+  return {
+    order_id: orderId,
+    fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
+    status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
+    payment_type: raw.payment_type || raw.payment_method || (raw.is_cod ? 'COD' : 'PREPAID'),
+    payment_status: raw.payment_status || raw.status || 'SUCCESS',
+    shipping_plan: raw.shipping_plan || raw.shipping_method || 'Standard',
+    shipping_charges: raw.shipping_charges || raw.shipping_fee || 0,
+    cod_charges: raw.cod_charges || 0,
+    total_amount_payable: raw.total_amount_payable || raw.total || raw.order_total || 0,
+    total_discount: raw.total_discount || raw.discount || 0,
+    coupon_codes: raw.coupon_codes || (raw.coupon ? [raw.coupon] : []),
+    email: raw.email || raw.customer_email || (raw.customer && raw.customer.email) || undefined,
+    phone: raw.phone || raw.customer_phone || (raw.customer && raw.customer.phone) || undefined,
+    shipping_address: raw.shipping_address || raw.delivery_address || raw.address,
+    billing_address: raw.billing_address || raw.shipping_address || raw.delivery_address || raw.address,
+    cart_data: {
+      items: rawItems.map(item => ({
+        variant_id: String(item.variant_id || item.variantId || item.id),
+        quantity: Number(item.quantity || 1),
+      })),
+    },
+    awb: raw.awb || raw.tracking_number,
+    courier_name: raw.courier_name || raw.courier,
+    tracking_url: raw.tracking_url,
+  };
 }
