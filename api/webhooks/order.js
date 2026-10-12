@@ -194,14 +194,27 @@ async function createShopifyOrder(order) {
     shippingLines.push({ title: 'COD charges', price: String(order.cod_charges), code: 'cod' });
   }
 
+  // Calculate total amount from items if missing or zero
+  let totalAmount = Number(order.total_amount_payable || 0);
+  if (totalAmount <= 0) {
+    const itemsTotal = items.reduce((sum, item) => {
+      const variant = variants.get(String(item.variant_id));
+      const price = variant ? Number(variant.price.amount || 0) : 0;
+      return sum + price * (Number(item.quantity) || 1);
+    }, 0);
+    const shippingTotal = Number(order.shipping_charges || 0) + Number(order.cod_charges || 0);
+    const discountTotal = Number(order.total_discount || 0);
+    totalAmount = Math.max(0, itemsTotal + shippingTotal - discountTotal);
+  }
+
   const payload = {
     order: {
       line_items: items.map(item => {
         const variant = variants.get(String(item.variant_id));
         return {
           variant_id: Number(item.variant_id),
-          quantity: item.quantity,
-          ...(variant && { price: variant.price.amount }),
+          quantity: Number(item.quantity) || 1,
+          ...(variant && variant.price && { price: variant.price.amount }),
         };
       }),
       email: order.email || undefined,
@@ -210,18 +223,19 @@ async function createShopifyOrder(order) {
       billing_address: toShopifyAddress(order.billing_address || order.shipping_address),
       shipping_lines: shippingLines,
       financial_status: isPaid ? 'paid' : 'pending',
-      ...(isPaid && {
+      // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
+      ...(isPaid && totalAmount > 0 && {
         transactions: [{
           kind: 'sale',
           status: 'success',
-          amount: String(order.total_amount_payable),
+          amount: totalAmount.toFixed(2),
           gateway: (order.payments && order.payments[0] && order.payments[0].gateway) || 'Shiprocket Checkout',
         }],
       }),
       ...(Number(order.total_discount) > 0 && {
         discount_codes: [{
           code: (order.coupon_codes && order.coupon_codes[0]) || 'SHIPROCKET',
-          amount: String(order.total_discount),
+          amount: Number(order.total_discount).toFixed(2),
           type: 'fixed_amount',
         }],
       }),
@@ -231,12 +245,12 @@ async function createShopifyOrder(order) {
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },
       ],
       inventory_behaviour: 'decrement_obeying_policy',
-      // Shiprocket already sends the order-confirmation email; prevent Shopify from
-      // sending a duplicate. Shipping notifications still fire from fulfillment sync.
       send_receipt: false,
       send_fulfillment_receipt: true,
     },
   };
+
+  console.log('[order-webhook] Submitting order payload to Shopify:', JSON.stringify(payload));
 
   const response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
