@@ -51,6 +51,26 @@ module.exports = async function handler(req, res) {
   if (Array.isArray(candidateItems) && candidateItems.length > 0) {
     console.log('[order-webhook] Webhook payload already contains order items, using directly');
     order = normalizeOrder(candidate, orderId);
+
+    // If email is not in the webhook body, query Shiprocket to enrich customer email
+    if (!order.email) {
+      try {
+        const srRes = await shiprocketPost('/api/v1/custom-platform-order/details', {
+          order_id: orderId,
+          cart_id: orderId,
+          channel_order_id: orderId,
+          timestamp: new Date().toISOString(),
+        }).catch(() => null);
+        const srData = srRes && srRes.data && (srRes.data.result || srRes.data);
+        const srEmail = findEmail(srData);
+        if (srEmail) {
+          console.log('[order-webhook] Enriched order email from Shiprocket API:', srEmail);
+          order.email = srEmail;
+        }
+      } catch (err) {
+        console.error('[order-webhook] Could not fetch email from Shiprocket:', err.message);
+      }
+    }
   }
 
   // ── 2. Strategy B: Fetch from Shiprocket Order Details API ──
@@ -158,7 +178,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const shopifyOrder = await createShopifyOrder(order);
+    const shopifyOrder = await createShopifyOrder(order, body);
     return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
@@ -166,7 +186,7 @@ module.exports = async function handler(req, res) {
     // Retry once after a short delay — covers transient Shopify 429/5xx errors
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      const shopifyOrder = await createShopifyOrder(order);
+      const shopifyOrder = await createShopifyOrder(order, body);
       console.log('[order-webhook] Retry succeeded');
       return res.status(200).json({ ok: true, shopify_order: shopifyOrder, retried: true });
     } catch (retryError) {
@@ -177,7 +197,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-async function createShopifyOrder(order) {
+async function createShopifyOrder(order, rawWebhookBody = {}) {
   const tag = `sr-${order.order_id}`;
   const existing = await findShopifyOrderByTag(tag);
   if (existing) {
@@ -213,6 +233,8 @@ async function createShopifyOrder(order) {
   const customerFirst = (shippingAddress && shippingAddress.first_name) || 'Customer';
   const customerLast = (shippingAddress && shippingAddress.last_name) || '.';
   const customerPhone = toE164(order.phone) || (shippingAddress && shippingAddress.phone);
+  const customerEmail = order.email || findEmail(order) || findEmail(rawWebhookBody) || undefined;
+  console.log('[order-webhook] Customer email resolved to:', customerEmail);
 
   const payload = {
     order: {
@@ -228,12 +250,19 @@ async function createShopifyOrder(order) {
         first_name: customerFirst,
         last_name: customerLast,
         phone: customerPhone,
-        ...(order.email && { email: order.email }),
+        ...(customerEmail && { email: customerEmail }),
       },
-      email: order.email || undefined,
+      email: customerEmail,
+      contact_email: customerEmail,
       phone: customerPhone,
-      shipping_address: shippingAddress,
-      billing_address: billingAddress,
+      shipping_address: {
+        ...shippingAddress,
+        ...(customerEmail && { email: customerEmail }),
+      },
+      billing_address: {
+        ...billingAddress,
+        ...(customerEmail && { email: customerEmail }),
+      },
       shipping_lines: shippingLines,
       financial_status: isPaid ? 'paid' : 'pending',
       // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
@@ -460,6 +489,7 @@ function normalizeOrder(raw, fallbackId) {
   if (!raw) return null;
   const orderId = String(raw.order_id || raw.id || raw.cart_id || fallbackId || '').trim();
   const rawItems = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items || [];
+  const resolvedEmail = findEmail(raw);
 
   return {
     order_id: orderId,
@@ -473,8 +503,8 @@ function normalizeOrder(raw, fallbackId) {
     total_amount_payable: raw.total_amount_payable || raw.total || raw.order_total || 0,
     total_discount: raw.total_discount || raw.discount || 0,
     coupon_codes: raw.coupon_codes || (raw.coupon ? [raw.coupon] : []),
-    email: raw.email || raw.customer_email || (raw.customer && raw.customer.email) || undefined,
-    phone: raw.phone || raw.customer_phone || (raw.customer && raw.customer.phone) || undefined,
+    email: resolvedEmail || undefined,
+    phone: raw.phone || raw.customer_phone || (raw.customer && raw.customer.phone) || (raw.shipping_address && raw.shipping_address.phone) || undefined,
     shipping_address: raw.shipping_address || raw.delivery_address || raw.address,
     billing_address: raw.billing_address || raw.shipping_address || raw.delivery_address || raw.address,
     cart_data: {
@@ -487,4 +517,48 @@ function normalizeOrder(raw, fallbackId) {
     courier_name: raw.courier_name || raw.courier,
     tracking_url: raw.tracking_url,
   };
+}
+
+function findEmail(obj) {
+  if (!obj) return undefined;
+  if (typeof obj === 'string') {
+    const trimmed = obj.trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return trimmed;
+    }
+    const match = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    return match ? match[0] : undefined;
+  }
+  if (typeof obj === 'object') {
+    // 1. Prioritized email properties
+    const directKeys = [
+      'email', 'customer_email', 'buyer_email', 'user_email', 'contact_email',
+      'billing_email', 'shipping_email', 'mail'
+    ];
+    for (const key of directKeys) {
+      if (obj[key] && typeof obj[key] === 'string' && obj[key].includes('@')) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+    // 2. Search common sub-objects
+    const subObjects = ['customer', 'shipping_address', 'billing_address', 'address', 'contact', 'cart_attributes'];
+    for (const key of subObjects) {
+      if (obj[key] && typeof obj[key] === 'object') {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+    // 3. Recursive fallback across all object fields
+    for (const key in obj) {
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      } else if (typeof obj[key] === 'string' && obj[key].includes('@')) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+  }
+  return undefined;
 }
