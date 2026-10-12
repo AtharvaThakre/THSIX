@@ -3,7 +3,7 @@ const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket'
 const { fetchVariantsByIds } = require('../_lib/data-service');
 const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../_lib/shopify-admin');
 
-const SHOPIFY_ADMIN_API = '2024-10';
+const SHOPIFY_ADMIN_API = '2026-10';
 
 /**
  * POST /api/webhooks/order
@@ -47,9 +47,14 @@ module.exports = async function handler(req, res) {
     timestamp: new Date().toISOString(),
   }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
 
-  const order = verified.ok && verified.data && verified.data.ok !== false && verified.data.result;
-  if (!order || String(order.order_id) !== orderId) {
-    console.error('[order-webhook] Could not verify order with Shiprocket:', verified.status, String(verified.text).slice(0, 500));
+  console.log('[order-webhook] Shiprocket verify response:', verified.status, String(verified.text).slice(0, 1000));
+
+  // Support both data.result (object) and data directly being the order
+  const resultData = verified.data && (verified.data.result || verified.data);
+  const order = verified.ok && resultData && (verified.data.ok !== false) && resultData;
+  const receivedOrderId = order && (String(order.order_id) || String(order.id) || '');
+  if (!order || (receivedOrderId && receivedOrderId !== orderId)) {
+    console.error('[order-webhook] Could not verify order with Shiprocket. status:', verified.status, 'body:', String(verified.text).slice(0, 1000));
     // 5xx makes Shiprocket retry later; a 4xx from them means the order doesn't exist
     return res.status(verified.status >= 400 && verified.status < 500 ? 400 : 502).json({ ok: false });
   }
