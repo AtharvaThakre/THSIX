@@ -1,7 +1,7 @@
 const { config } = require('../_lib/config');
 const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
 const { fetchVariantsByIds } = require('../_lib/data-service');
-const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../_lib/shopify-admin');
+const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } = require('../_lib/shopify-admin');
 
 const SHOPIFY_ADMIN_API = '2026-10';
 
@@ -55,14 +55,47 @@ module.exports = async function handler(req, res) {
     // If email is not in the webhook body, query Shiprocket to enrich customer email
     if (!order.email) {
       try {
-        const srRes = await shiprocketPost('/api/v1/custom-platform-order/details', {
+        let srRes = await shiprocketPost('/api/v1/custom-platform-order/details', {
           order_id: orderId,
           cart_id: orderId,
           channel_order_id: orderId,
           timestamp: new Date().toISOString(),
         }).catch(() => null);
-        const srData = srRes && srRes.data && (srRes.data.result || srRes.data);
-        const srEmail = findEmail(srData);
+        let srData = srRes && srRes.data && (srRes.data.result || srRes.data);
+        let srEmail = findEmail(srData);
+
+        // If direct details did not yield an email, search recent orders in /details/list
+        if (!srEmail) {
+          const now = new Date();
+          const listRes = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
+            startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+            endDate: now.toISOString(),
+            timestamp: now.toISOString(),
+            limit: 50,
+            page: 0,
+          }).catch(() => null);
+
+          const list = listRes && listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+          if (Array.isArray(list)) {
+            const customerPhone = order.phone || (order.shipping_address && order.shipping_address.phone);
+            const match = list.find(item =>
+              String(item.order_id) === orderId ||
+              String(item.cart_id) === orderId ||
+              String(item.id) === orderId ||
+              String(item.channel_order_id) === orderId ||
+              String(item.fastrr_order_id) === orderId ||
+              (customerPhone && (
+                String(item.phone || '').includes(String(customerPhone).slice(-10)) ||
+                (item.shipping_address && String(item.shipping_address.phone || '').includes(String(customerPhone).slice(-10)))
+              ))
+            );
+            if (match) {
+              srEmail = findEmail(match);
+              if (srEmail) console.log('[order-webhook] Found email in /details/list:', srEmail);
+            }
+          }
+        }
+
         if (srEmail) {
           console.log('[order-webhook] Enriched order email from Shiprocket API:', srEmail);
           order.email = srEmail;
@@ -233,7 +266,18 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
   const customerFirst = (shippingAddress && shippingAddress.first_name) || 'Customer';
   const customerLast = (shippingAddress && shippingAddress.last_name) || '.';
   const customerPhone = toE164(order.phone) || (shippingAddress && shippingAddress.phone);
-  const customerEmail = order.email || findEmail(order) || findEmail(rawWebhookBody) || undefined;
+  let customerEmail = order.email || findEmail(order) || findEmail(rawWebhookBody) || undefined;
+
+  // Check if customer already exists in Shopify to prevent "phone_number has already been taken" 422 error
+  const existingCustomer = await findExistingShopifyCustomer(customerPhone, customerEmail);
+  const existingCustomerId = existingCustomer ? existingCustomer.id : null;
+  if (existingCustomer) {
+    console.log('[order-webhook] Attaching to existing Shopify customer ID:', existingCustomerId);
+    if (!customerEmail && existingCustomer.email) {
+      customerEmail = existingCustomer.email;
+      console.log('[order-webhook] Enriched missing email from existing Shopify profile:', customerEmail);
+    }
+  }
   console.log('[order-webhook] Customer email resolved to:', customerEmail);
 
   const payload = {
@@ -246,12 +290,14 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
           ...(variant && variant.price && { price: variant.price.amount }),
         };
       }),
-      customer: {
-        first_name: customerFirst,
-        last_name: customerLast,
-        phone: customerPhone,
-        ...(customerEmail && { email: customerEmail }),
-      },
+      customer: existingCustomerId
+        ? { id: Number(existingCustomerId) }
+        : {
+            first_name: customerFirst,
+            last_name: customerLast,
+            ...(customerPhone && { phone: customerPhone }),
+            ...(customerEmail && { email: customerEmail }),
+          },
       email: customerEmail,
       contact_email: customerEmail,
       phone: customerPhone,
@@ -294,12 +340,55 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
 
   console.log('[order-webhook] Submitting order payload to Shopify:', JSON.stringify(payload));
 
-  const response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+  let response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
     body: JSON.stringify(payload),
   });
-  const text = await response.text();
+  let text = await response.text();
+
+  // If Shopify rejects due to existing customer unique constraint or phone conflict
+  if (!response.ok && (/customer/i.test(text) || /already been taken/i.test(text) || /already exists/i.test(text))) {
+    console.log(`[order-webhook] Customer conflict detected (${text.slice(0, 250)}). Retrying order creation...`);
+
+    // Try finding customer one more time if we didn't have an ID
+    if (!existingCustomerId && (customerPhone || customerEmail)) {
+      const retryCustomer = await findExistingShopifyCustomer(customerPhone, customerEmail);
+      if (retryCustomer && retryCustomer.id) {
+        console.log('[order-webhook] Found customer ID during error retry:', retryCustomer.id);
+        payload.order.customer = { id: Number(retryCustomer.id) };
+        if (!payload.order.email && retryCustomer.email) {
+          payload.order.email = retryCustomer.email;
+          payload.order.contact_email = retryCustomer.email;
+        }
+      } else {
+        delete payload.order.customer;
+      }
+    } else {
+      delete payload.order.customer;
+    }
+
+    response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+      body: JSON.stringify(payload),
+    });
+    text = await response.text();
+
+    // Fallback: If still failing on phone number uniqueness, remove order-level phone
+    if (!response.ok && (/phone/i.test(text) || /already been taken/i.test(text))) {
+      console.log('[order-webhook] Still failing on phone conflict, removing order.phone and retrying...');
+      delete payload.order.customer;
+      delete payload.order.phone;
+      response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+        body: JSON.stringify(payload),
+      });
+      text = await response.text();
+    }
+  }
+
   if (!response.ok) {
     throw new Error(`Shopify ${response.status}: ${text.slice(0, 500)}`);
   }
@@ -307,6 +396,66 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
   const name = created && created.order && created.order.name;
   console.log('[order-webhook] Created Shopify order', name);
   return name;
+}
+
+async function findExistingShopifyCustomer(phone, email) {
+  const searchQueries = [];
+  if (email && email.includes('@')) {
+    searchQueries.push(`email:${email}`);
+  }
+  if (phone) {
+    const raw = String(phone).trim();
+    const digits = raw.replace(/\D/g, '');
+    const last10 = digits.slice(-10);
+    searchQueries.push(`phone:${raw}`);
+    if (raw !== `+91${last10}`) searchQueries.push(`phone:+91${last10}`);
+    if (last10) searchQueries.push(last10);
+  }
+
+  // 1. Try REST customer search
+  for (const q of searchQueries) {
+    try {
+      const res = await adminREST('GET', `customers/search.json?query=${encodeURIComponent(q)}`);
+      const list = res && (res.customers || (Array.isArray(res) ? res : []));
+      if (Array.isArray(list) && list.length > 0 && list[0].id) {
+        const c = list[0];
+        console.log(`[order-webhook] Found existing Shopify customer via REST search ("${q}"): ID ${c.id}`);
+        return {
+          id: String(c.id),
+          email: c.email || undefined,
+          firstName: c.first_name || undefined,
+          lastName: c.last_name || undefined,
+        };
+      }
+    } catch (err) {
+      // Continue to next search query / method
+    }
+  }
+
+  // 2. Try GraphQL customer search
+  for (const q of searchQueries) {
+    try {
+      const data = await adminGraphQL(
+        'query ($q: String!) { customers(first: 1, query: $q) { edges { node { id email firstName lastName } } } }',
+        { q }
+      );
+      const node = data?.data?.customers?.edges?.[0]?.node;
+      if (node?.id) {
+        const id = node.id.split('/').pop();
+        console.log(`[order-webhook] Found existing Shopify customer via GraphQL ("${q}"): ID ${id}`);
+        return {
+          id: String(id),
+          email: node.email || undefined,
+          firstName: node.firstName || undefined,
+          lastName: node.lastName || undefined,
+        };
+      }
+    } catch (err) {
+      // Continue
+    }
+  }
+
+  return null;
 }
 
 async function findShopifyOrderByTag(tag) {
