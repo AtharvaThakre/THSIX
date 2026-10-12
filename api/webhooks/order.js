@@ -207,6 +207,13 @@ async function createShopifyOrder(order) {
     totalAmount = Math.max(0, itemsTotal + shippingTotal - discountTotal);
   }
 
+  const shippingAddress = toShopifyAddress(order.shipping_address);
+  const billingAddress = toShopifyAddress(order.billing_address || order.shipping_address);
+
+  const customerFirst = (shippingAddress && shippingAddress.first_name) || 'Customer';
+  const customerLast = (shippingAddress && shippingAddress.last_name) || '.';
+  const customerPhone = toE164(order.phone) || (shippingAddress && shippingAddress.phone);
+
   const payload = {
     order: {
       line_items: items.map(item => {
@@ -217,10 +224,16 @@ async function createShopifyOrder(order) {
           ...(variant && variant.price && { price: variant.price.amount }),
         };
       }),
+      customer: {
+        first_name: customerFirst,
+        last_name: customerLast,
+        phone: customerPhone,
+        ...(order.email && { email: order.email }),
+      },
       email: order.email || undefined,
-      phone: toE164(order.phone),
-      shipping_address: toShopifyAddress(order.shipping_address),
-      billing_address: toShopifyAddress(order.billing_address || order.shipping_address),
+      phone: customerPhone,
+      shipping_address: shippingAddress,
+      billing_address: billingAddress,
       shipping_lines: shippingLines,
       financial_status: isPaid ? 'paid' : 'pending',
       // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
@@ -290,18 +303,148 @@ function toShopifyAddress(address) {
   const firstName = address.first_name || address.firstName || (fullName ? fullName.split(' ')[0] : '');
   const lastName = address.last_name || address.lastName || (fullName && fullName.split(' ').length > 1 ? fullName.split(' ').slice(1).join(' ') : firstName || 'Customer');
 
+  const zip = address.pincode || address.zip || address.postal_code || '';
+  const city = address.city || '';
+  let province = address.state || address.province || address.state_name || '';
+  let provinceCode = address.province_code || address.state_code || '';
+
+  // Infer missing Indian state from postal code or city
+  if (!province) {
+    const inferred = inferIndianState(zip, city);
+    province = inferred.province;
+    provinceCode = inferred.code;
+  }
+
   return {
     first_name: firstName || 'Customer',
     last_name: lastName || '.',
     address1: address.line1 || address.address1 || address.address || address.street || 'Address',
     address2: [address.line2, address.address2, address.landmark].filter(Boolean).join(', '),
-    city: address.city || '',
-    province: address.state || address.province || '',
-    zip: address.pincode || address.zip || address.postal_code || '',
+    city: city,
+    province: province,
+    province_code: provinceCode || undefined,
+    zip: zip,
     country: address.country || 'India',
     country_code: address.country_code || 'IN',
     phone: toE164(address.phone || address.mobile),
   };
+}
+
+function inferIndianState(zip, city) {
+  const cleanZip = String(zip || '').replace(/\D/g, '');
+  if (cleanZip.length === 6) {
+    const prefix2 = cleanZip.slice(0, 2);
+    const prefix3 = cleanZip.slice(0, 3);
+
+    // 3-digit specific matches
+    if (prefix3 === '403') return { province: 'Goa', code: 'GA' };
+    if (prefix3 === '605') return { province: 'Puducherry', code: 'PY' };
+    if (prefix3 === '682') return { province: 'Lakshadweep', code: 'LD' };
+    if (prefix3 === '737') return { province: 'Sikkim', code: 'SK' };
+    if (prefix3 === '744') return { province: 'Andaman and Nicobar Islands', code: 'AN' };
+    if (['790', '791', '792'].includes(prefix3)) return { province: 'Arunachal Pradesh', code: 'AR' };
+    if (['793', '794'].includes(prefix3)) return { province: 'Meghalaya', code: 'ML' };
+    if (prefix3 === '795') return { province: 'Manipur', code: 'MN' };
+    if (prefix3 === '796') return { province: 'Mizoram', code: 'MZ' };
+    if (['797', '798'].includes(prefix3)) return { province: 'Nagaland', code: 'NL' };
+    if (prefix3 === '799') return { province: 'Tripura', code: 'TR' };
+    if (['246', '247', '248', '249'].includes(prefix3)) return { province: 'Uttarakhand', code: 'UK' };
+    if (['814', '815', '816', '825', '826', '827', '828', '829', '831', '832', '833', '834', '835'].includes(prefix3)) {
+      return { province: 'Jharkhand', code: 'JH' };
+    }
+    if (prefix3 === '194') return { province: 'Ladakh', code: 'LA' };
+    if (['396'].includes(prefix3)) return { province: 'Dadra and Nagar Haveli and Daman and Diu', code: 'DN' };
+
+    // 2-digit circle matches
+    const stateMap = {
+      '11': { province: 'Delhi', code: 'DL' },
+      '12': { province: 'Haryana', code: 'HR' },
+      '13': { province: 'Haryana', code: 'HR' },
+      '14': { province: 'Punjab', code: 'PB' },
+      '15': { province: 'Punjab', code: 'PB' },
+      '16': { province: 'Chandigarh', code: 'CH' },
+      '17': { province: 'Himachal Pradesh', code: 'HP' },
+      '18': { province: 'Jammu and Kashmir', code: 'JK' },
+      '19': { province: 'Jammu and Kashmir', code: 'JK' },
+      '20': { province: 'Uttar Pradesh', code: 'UP' },
+      '21': { province: 'Uttar Pradesh', code: 'UP' },
+      '22': { province: 'Uttar Pradesh', code: 'UP' },
+      '23': { province: 'Uttar Pradesh', code: 'UP' },
+      '24': { province: 'Uttar Pradesh', code: 'UP' },
+      '25': { province: 'Uttar Pradesh', code: 'UP' },
+      '26': { province: 'Uttar Pradesh', code: 'UP' },
+      '27': { province: 'Uttar Pradesh', code: 'UP' },
+      '28': { province: 'Uttar Pradesh', code: 'UP' },
+      '30': { province: 'Rajasthan', code: 'RJ' },
+      '31': { province: 'Rajasthan', code: 'RJ' },
+      '32': { province: 'Rajasthan', code: 'RJ' },
+      '33': { province: 'Rajasthan', code: 'RJ' },
+      '34': { province: 'Rajasthan', code: 'RJ' },
+      '36': { province: 'Gujarat', code: 'GJ' },
+      '37': { province: 'Gujarat', code: 'GJ' },
+      '38': { province: 'Gujarat', code: 'GJ' },
+      '39': { province: 'Gujarat', code: 'GJ' },
+      '40': { province: 'Maharashtra', code: 'MH' },
+      '41': { province: 'Maharashtra', code: 'MH' },
+      '42': { province: 'Maharashtra', code: 'MH' },
+      '43': { province: 'Maharashtra', code: 'MH' },
+      '44': { province: 'Maharashtra', code: 'MH' },
+      '45': { province: 'Madhya Pradesh', code: 'MP' },
+      '46': { province: 'Madhya Pradesh', code: 'MP' },
+      '47': { province: 'Madhya Pradesh', code: 'MP' },
+      '48': { province: 'Madhya Pradesh', code: 'MP' },
+      '49': { province: 'Chhattisgarh', code: 'CG' },
+      '50': { province: 'Telangana', code: 'TS' },
+      '51': { province: 'Andhra Pradesh', code: 'AP' },
+      '52': { province: 'Andhra Pradesh', code: 'AP' },
+      '53': { province: 'Andhra Pradesh', code: 'AP' },
+      '56': { province: 'Karnataka', code: 'KA' },
+      '57': { province: 'Karnataka', code: 'KA' },
+      '58': { province: 'Karnataka', code: 'KA' },
+      '59': { province: 'Karnataka', code: 'KA' },
+      '60': { province: 'Tamil Nadu', code: 'TN' },
+      '61': { province: 'Tamil Nadu', code: 'TN' },
+      '62': { province: 'Tamil Nadu', code: 'TN' },
+      '63': { province: 'Tamil Nadu', code: 'TN' },
+      '64': { province: 'Tamil Nadu', code: 'TN' },
+      '67': { province: 'Kerala', code: 'KL' },
+      '68': { province: 'Kerala', code: 'KL' },
+      '69': { province: 'Kerala', code: 'KL' },
+      '70': { province: 'West Bengal', code: 'WB' },
+      '71': { province: 'West Bengal', code: 'WB' },
+      '72': { province: 'West Bengal', code: 'WB' },
+      '73': { province: 'West Bengal', code: 'WB' },
+      '74': { province: 'West Bengal', code: 'WB' },
+      '75': { province: 'Odisha', code: 'OD' },
+      '76': { province: 'Odisha', code: 'OD' },
+      '77': { province: 'Odisha', code: 'OD' },
+      '78': { province: 'Assam', code: 'AS' },
+      '80': { province: 'Bihar', code: 'BR' },
+      '81': { province: 'Bihar', code: 'BR' },
+      '82': { province: 'Bihar', code: 'BR' },
+      '83': { province: 'Jharkhand', code: 'JH' },
+      '84': { province: 'Bihar', code: 'BR' },
+      '85': { province: 'Bihar', code: 'BR' },
+    };
+
+    if (stateMap[prefix2]) return stateMap[prefix2];
+  }
+
+  // Fallback by city name
+  const c = String(city || '').toLowerCase().trim();
+  if (['mumbai', 'pune', 'nagpur', 'thane', 'nashik', 'aurangabad', 'solapur'].includes(c)) return { province: 'Maharashtra', code: 'MH' };
+  if (['delhi', 'new delhi'].includes(c)) return { province: 'Delhi', code: 'DL' };
+  if (['bengaluru', 'bangalore', 'mysore', 'hubli', 'mangalore'].includes(c)) return { province: 'Karnataka', code: 'KA' };
+  if (['hyderabad', 'secunderabad', 'warangal'].includes(c)) return { province: 'Telangana', code: 'TS' };
+  if (['chennai', 'coimbatore', 'madurai', 'salem'].includes(c)) return { province: 'Tamil Nadu', code: 'TN' };
+  if (['kolkata', 'howrah'].includes(c)) return { province: 'West Bengal', code: 'WB' };
+  if (['ahmedabad', 'surat', 'vadodara', 'rajkot'].includes(c)) return { province: 'Gujarat', code: 'GJ' };
+  if (['jaipur', 'jodhpur', 'udaipur', 'kota'].includes(c)) return { province: 'Rajasthan', code: 'RJ' };
+  if (['lucknow', 'kanpur', 'varanasi', 'agra', 'noida', 'ghaziabad'].includes(c)) return { province: 'Uttar Pradesh', code: 'UP' };
+  if (['gurugram', 'gurgaon', 'faridabad'].includes(c)) return { province: 'Haryana', code: 'HR' };
+  if (['chandigarh', 'mohali'].includes(c)) return { province: 'Chandigarh', code: 'CH' };
+
+  return { province: '', code: '' };
 }
 
 // Shopify rejects bare 10-digit Indian numbers
