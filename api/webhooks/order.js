@@ -28,7 +28,8 @@ module.exports = async function handler(req, res) {
   let orderId = body.order_id || body.cart_id || body.id || (body.payload && body.payload.order_id) || '';
   orderId = String(orderId).trim();
 
-  if (!/^[a-f0-9]{24}$/i.test(orderId)) {
+  // Accept 24-char hex (MongoDB ObjectId), UUIDs, and plain numeric/alphanumeric IDs
+  if (!orderId || orderId.length < 6 || orderId.length > 128 || !/^[a-z0-9\-_]+$/i.test(orderId)) {
     console.error('[order-webhook] Invalid or missing order_id. Received body:', JSON.stringify(body));
     return res.status(400).json({ ok: false, message: 'order_id is required', received: orderId });
   }
@@ -64,8 +65,13 @@ module.exports = async function handler(req, res) {
 
   const status = String(order.status).toUpperCase();
 
-  if (status !== 'SUCCESS') {
-    const SHIPPING_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RTO_INITIATED', 'RTO_DELIVERED'];
+  // Statuses that represent a successfully placed order (ready to create in Shopify)
+  const SUCCESS_STATUSES = ['SUCCESS', 'CONFIRMED', 'PAYMENT_SUCCESS', 'PLACED', 'NEW', 'PENDING'];
+  const SHIPPING_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RTO_INITIATED', 'RTO_DELIVERED'];
+
+  console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
+
+  if (!SUCCESS_STATUSES.includes(status)) {
     if (SHIPPING_STATUSES.includes(status) && config.shopifyAdminToken) {
       try {
         const tag = `sr-${order.order_id}`;

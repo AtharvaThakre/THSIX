@@ -64,13 +64,8 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       </div>
 
       <div className="brand-card__footer">
-        {brand.available ? (
+        {!brand.available && (
           <div className="brand-card__status">
-            <span className="brand-card__status-text">{brand.status}</span>
-          </div>
-        ) : (
-          <div className="brand-card__status">
-            <span className="brand-card__status-text">{brand.status}</span>
             <Lock size={15} strokeWidth={1.5} className="brand-card__lock" aria-hidden="true" />
           </div>
         )}
