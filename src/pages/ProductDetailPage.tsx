@@ -539,7 +539,7 @@ export const ProductDetailPage = () => {
           </div>
         </div>
 
-        {/* Reviews and FAQs
+        {/* Reviews */}
         <div className="product-detail__container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
           <ProductReviews
             reviews={fakeReviews}
@@ -549,7 +549,6 @@ export const ProductDetailPage = () => {
           />
           <Faqs01 />
         </div>
-        */}
       </main>
 
       <Footer />
