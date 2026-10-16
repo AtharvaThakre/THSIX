@@ -96,6 +96,15 @@ module.exports = async function handler(req, res) {
             if (match) {
               srEmail = findEmail(match);
               if (srEmail) console.log('[order-webhook] Found email in /details/list:', srEmail);
+              // Re-normalize from the richer Shiprocket record so payment_type is accurate
+              if (match.payment_type || match.payment_method || match.is_cod !== undefined) {
+                const enriched = normalizeOrder(match, orderId);
+                // Preserve address/items from webhook body; only overwrite payment fields
+                order.payment_type = enriched.payment_type;
+                order.payment_status = enriched.payment_status || order.payment_status;
+                order.cod_charges = enriched.cod_charges || order.cod_charges;
+                console.log('[order-webhook] Enriched payment_type from /details/list:', order.payment_type);
+              }
             }
           }
         }
@@ -245,7 +254,10 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
   const items = (order.cart_data && order.cart_data.items) || [];
   const variants = await fetchVariantsByIds(items.map(item => String(item.variant_id)));
 
-  const isPaid = String(order.payment_type).toUpperCase() !== 'COD' && /success/i.test(String(order.payment_status));
+  const paymentType = order.payment_type ? String(order.payment_type).toUpperCase() : null;
+  // Only mark as prepaid when payment_type is explicitly non-COD AND payment succeeded.
+  // If payment_type is unknown (null), default safe to COD/pending to avoid false "paid" orders.
+  const isPaid = paymentType !== null && paymentType !== 'COD' && /success/i.test(String(order.payment_status));
   const shippingLines = [{ title: order.shipping_plan || 'Standard', price: String(order.shipping_charges || 0), code: 'shiprocket' }];
   if (Number(order.cod_charges) > 0) {
     shippingLines.push({ title: 'COD charges', price: String(order.cod_charges), code: 'cod' });
@@ -648,7 +660,7 @@ function normalizeOrder(raw, fallbackId) {
     order_id: orderId,
     fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
     status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
-    payment_type: raw.payment_type || raw.payment_method || (raw.is_cod ? 'COD' : 'PREPAID'),
+    payment_type: raw.payment_type || raw.payment_method || (raw.is_cod === true ? 'COD' : (raw.is_cod === false ? 'PREPAID' : null)),
     payment_status: raw.payment_status || raw.status || 'SUCCESS',
     shipping_plan: raw.shipping_plan || raw.shipping_method || 'Standard',
     shipping_charges: raw.shipping_charges || raw.shipping_fee || 0,
