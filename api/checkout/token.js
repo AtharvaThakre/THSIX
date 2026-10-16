@@ -90,6 +90,7 @@ module.exports = async function handler(req, res) {
 
   const result = await requestToken({
     cart_data: { items: cartItems, mobile_app: false },
+    cod_enabled: true,
     redirect_url: resolveRedirectUrl(body.redirect_url),
     timestamp: new Date().toISOString(),
   });
