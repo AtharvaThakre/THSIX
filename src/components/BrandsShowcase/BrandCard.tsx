@@ -1,4 +1,4 @@
-import { Lock } from 'lucide-react';
+import { Lock, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Brand } from '../../types/brand';
 import { BrandLogo } from './BrandLogos';
@@ -64,15 +64,28 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       </div>
 
       <div className="brand-card__footer">
-        {brand.available ? (
-          <div className="brand-card__status">
-            <span className="brand-card__status-text">{brand.status}</span>
+        {brand.available && brand.id === 'adidas' ? (
+          <div className="brand-card__action">
+            <button
+              type="button"
+              className="brand-card__see-all-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                trackCustomEvent('BrandClicked', { brand_name: brand.name, brand_id: brand.id });
+                navigate('/brands/adidas');
+              }}
+              aria-label="See all Adidas products"
+            >
+              <span>See All</span>
+              <ArrowRight size={13} strokeWidth={2} className="brand-card__see-all-arrow" />
+            </button>
           </div>
         ) : (
-          <div className="brand-card__status">
-            <span className="brand-card__status-text">{brand.status}</span>
-            <Lock size={15} strokeWidth={1.5} className="brand-card__lock" aria-hidden="true" />
-          </div>
+          !brand.available && (
+            <div className="brand-card__status">
+              <Lock size={15} strokeWidth={1.5} className="brand-card__lock" aria-hidden="true" />
+            </div>
+          )
         )}
       </div>
     </div>

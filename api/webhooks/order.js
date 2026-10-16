@@ -1,9 +1,9 @@
 const { config } = require('../_lib/config');
 const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
 const { fetchVariantsByIds } = require('../_lib/data-service');
-const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote } = require('../_lib/shopify-admin');
+const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } = require('../_lib/shopify-admin');
 
-const SHOPIFY_ADMIN_API = '2024-10';
+const SHOPIFY_ADMIN_API = '2026-10';
 
 /**
  * POST /api/webhooks/order
@@ -25,47 +25,165 @@ module.exports = async function handler(req, res) {
     rawBody = rawBody.toString('utf8');
   }
   const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
-  let orderId = body.order_id || body.cart_id || body.id || (body.payload && body.payload.order_id) || '';
+  console.log('[order-webhook] Full received body:', JSON.stringify(body));
+
+  let orderId = body.order_id || body.cart_id || body.id || (body.payload && (body.payload.order_id || body.payload.id || body.payload.cart_id)) || (body.data && (body.data.order_id || body.data.id || body.data.cart_id)) || '';
   orderId = String(orderId).trim();
 
-  if (!/^[a-f0-9]{24}$/i.test(orderId)) {
+  // Accept 24-char hex (MongoDB ObjectId), UUIDs, and plain numeric/alphanumeric IDs
+  if (!orderId || orderId.length < 6 || orderId.length > 128 || !/^[a-z0-9\-_]+$/i.test(orderId)) {
     console.error('[order-webhook] Invalid or missing order_id. Received body:', JSON.stringify(body));
     return res.status(400).json({ ok: false, message: 'order_id is required', received: orderId });
   }
 
-  console.log('[order-webhook] Received', orderId, body.status);
+  console.log('[order-webhook] Processing orderId:', orderId);
 
   if (!isConfigured()) {
     console.error('[order-webhook] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set; cannot verify order');
     return res.status(500).json({ ok: false });
   }
 
-  // The webhook is unsigned: use Shiprocket's signed Order Details API as the source of truth
-  const verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
-    order_id: orderId,
-    timestamp: new Date().toISOString(),
-  }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
+  // ── 1. Strategy A: Check if the webhook body already contains the full order ──
+  const candidate = body.payload || body.data || body.order || body.result || body;
+  const candidateItems = (candidate.cart_data && candidate.cart_data.items) || candidate.items || candidate.line_items;
+  let order = null;
 
-  const order = verified.ok && verified.data && verified.data.ok !== false && verified.data.result;
-  if (!order || String(order.order_id) !== orderId) {
-    console.error('[order-webhook] Could not verify order with Shiprocket:', verified.status, String(verified.text).slice(0, 500));
-    // 5xx makes Shiprocket retry later; a 4xx from them means the order doesn't exist
-    return res.status(verified.status >= 400 && verified.status < 500 ? 400 : 502).json({ ok: false });
+  if (Array.isArray(candidateItems) && candidateItems.length > 0) {
+    console.log('[order-webhook] Webhook payload already contains order items, using directly');
+    order = normalizeOrder(candidate, orderId);
+
+    // If email is not in the webhook body, query Shiprocket to enrich customer email
+    if (!order.email) {
+      try {
+        console.log('[order-webhook] Fetching Shiprocket /details for email enrichment...');
+        let srRes = await shiprocketPost('/api/v1/custom-platform-order/details', {
+          order_id: orderId,
+          cart_id: orderId,
+          channel_order_id: orderId,
+          timestamp: new Date().toISOString(),
+        }).catch(err => ({ status: 0, text: err.message }));
+        console.log('[order-webhook] Shiprocket /details response:', srRes && srRes.status, String(srRes && srRes.text).slice(0, 300));
+        let srData = srRes && srRes.data && (srRes.data.result || srRes.data);
+        let srEmail = findEmail(srData);
+
+        // If direct details did not yield an email, search recent orders in /details/list
+        if (!srEmail) {
+          const now = new Date();
+          console.log('[order-webhook] Searching Shiprocket /details/list for email...');
+          const listRes = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
+            startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+            endDate: now.toISOString(),
+            timestamp: now.toISOString(),
+            limit: 50,
+            page: 0,
+          }).catch(err => ({ status: 0, text: err.message }));
+          console.log('[order-webhook] Shiprocket /details/list response:', listRes && listRes.status, String(listRes && listRes.text).slice(0, 300));
+
+          const list = listRes && listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+          if (Array.isArray(list)) {
+            const customerPhone = order.phone || (order.shipping_address && order.shipping_address.phone);
+            const match = list.find(item =>
+              String(item.order_id) === orderId ||
+              String(item.cart_id) === orderId ||
+              String(item.id) === orderId ||
+              String(item.channel_order_id) === orderId ||
+              String(item.fastrr_order_id) === orderId ||
+              (customerPhone && (
+                String(item.phone || '').includes(String(customerPhone).slice(-10)) ||
+                (item.shipping_address && String(item.shipping_address.phone || '').includes(String(customerPhone).slice(-10)))
+              ))
+            );
+            if (match) {
+              srEmail = findEmail(match);
+              if (srEmail) console.log('[order-webhook] Found email in /details/list:', srEmail);
+            }
+          }
+        }
+
+        if (srEmail) {
+          console.log('[order-webhook] Enriched order email from Shiprocket API:', srEmail);
+          order.email = srEmail;
+        }
+      } catch (err) {
+        console.error('[order-webhook] Could not fetch email from Shiprocket:', err.message);
+      }
+    }
   }
 
-  console.log('[order-webhook] Verified', JSON.stringify({
+  // ── 2. Strategy B: Fetch from Shiprocket Order Details API ──
+  if (!order) {
+    console.log('[order-webhook] Fetching order details from Shiprocket for', orderId);
+    let verified = await shiprocketPost('/api/v1/custom-platform-order/details', {
+      order_id: orderId,
+      cart_id: orderId,
+      channel_order_id: orderId,
+      timestamp: new Date().toISOString(),
+    }).catch(error => ({ ok: false, status: 0, data: null, text: error.message }));
+
+    console.log('[order-webhook] Shiprocket /details response:', verified.status, String(verified.text).slice(0, 500));
+
+    let resultData = verified.data && (verified.data.result || verified.data);
+    if (verified.ok && resultData && verified.data.ok !== false) {
+      order = normalizeOrder(resultData, orderId);
+    }
+
+    // If /details failed (e.g. 400 Order not found due to indexing delay), search recent orders in /details/list
+    if (!order) {
+      console.log('[order-webhook] Order not found in /details, searching /details/list...');
+      try {
+        const now = new Date();
+        const listRes = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
+          startDate: new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+          endDate: now.toISOString(),
+          timestamp: now.toISOString(),
+          limit: 50,
+          page: 0,
+        });
+
+        const list = listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+        if (Array.isArray(list)) {
+          const match = list.find(item =>
+            String(item.order_id) === orderId ||
+            String(item.cart_id) === orderId ||
+            String(item.id) === orderId ||
+            String(item.channel_order_id) === orderId ||
+            String(item.fastrr_order_id) === orderId
+          );
+          if (match) {
+            console.log('[order-webhook] Found matching order in /details/list!');
+            order = normalizeOrder(match, orderId);
+          }
+        }
+      } catch (listErr) {
+        console.error('[order-webhook] /details/list query failed:', listErr.message);
+      }
+    }
+  }
+
+  // If still not found, return 500 (NOT 400) so Shiprocket retries the webhook when order finishes indexing
+  if (!order) {
+    console.error('[order-webhook] Could not resolve order details for', orderId);
+    return res.status(500).json({ ok: false, message: 'Order details pending indexing, retry requested' });
+  }
+
+  console.log('[order-webhook] Verified order:', JSON.stringify({
     order_id: order.order_id,
     status: order.status,
     payment_type: order.payment_type,
     payment_status: order.payment_status,
     total: order.total_amount_payable,
-    items: order.cart_data && order.cart_data.items,
+    item_count: order.cart_data && order.cart_data.items && order.cart_data.items.length,
   }));
 
   const status = String(order.status).toUpperCase();
 
-  if (status !== 'SUCCESS') {
-    const SHIPPING_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RTO_INITIATED', 'RTO_DELIVERED'];
+  // Statuses that represent a successfully placed order (ready to create in Shopify)
+  const SUCCESS_STATUSES = ['SUCCESS', 'CONFIRMED', 'PAYMENT_SUCCESS', 'PLACED', 'NEW', 'PENDING'];
+  const SHIPPING_STATUSES = ['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED', 'RTO_INITIATED', 'RTO_DELIVERED'];
+
+  console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
+
+  if (!SUCCESS_STATUSES.includes(status)) {
     if (SHIPPING_STATUSES.includes(status) && config.shopifyAdminToken) {
       try {
         const tag = `sr-${order.order_id}`;
@@ -97,7 +215,7 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const shopifyOrder = await createShopifyOrder(order);
+    const shopifyOrder = await createShopifyOrder(order, body);
     return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
@@ -105,7 +223,7 @@ module.exports = async function handler(req, res) {
     // Retry once after a short delay — covers transient Shopify 429/5xx errors
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
-      const shopifyOrder = await createShopifyOrder(order);
+      const shopifyOrder = await createShopifyOrder(order, body);
       console.log('[order-webhook] Retry succeeded');
       return res.status(200).json({ ok: true, shopify_order: shopifyOrder, retried: true });
     } catch (retryError) {
@@ -116,7 +234,7 @@ module.exports = async function handler(req, res) {
   }
 };
 
-async function createShopifyOrder(order) {
+async function createShopifyOrder(order, rawWebhookBody = {}) {
   const tag = `sr-${order.order_id}`;
   const existing = await findShopifyOrderByTag(tag);
   if (existing) {
@@ -133,34 +251,83 @@ async function createShopifyOrder(order) {
     shippingLines.push({ title: 'COD charges', price: String(order.cod_charges), code: 'cod' });
   }
 
+  // Calculate total amount from items if missing or zero
+  let totalAmount = Number(order.total_amount_payable || 0);
+  if (totalAmount <= 0) {
+    const itemsTotal = items.reduce((sum, item) => {
+      const variant = variants.get(String(item.variant_id));
+      const price = variant ? Number(variant.price.amount || 0) : 0;
+      return sum + price * (Number(item.quantity) || 1);
+    }, 0);
+    const shippingTotal = Number(order.shipping_charges || 0) + Number(order.cod_charges || 0);
+    const discountTotal = Number(order.total_discount || 0);
+    totalAmount = Math.max(0, itemsTotal + shippingTotal - discountTotal);
+  }
+
+  const shippingAddress = toShopifyAddress(order.shipping_address);
+  const billingAddress = toShopifyAddress(order.billing_address || order.shipping_address);
+
+  const customerFirst = (shippingAddress && shippingAddress.first_name) || 'Customer';
+  const customerLast = (shippingAddress && shippingAddress.last_name) || '.';
+  const customerPhone = toE164(order.phone) || (shippingAddress && shippingAddress.phone);
+  let customerEmail = order.email || findEmail(order) || findEmail(rawWebhookBody) || undefined;
+
+  // Check if customer already exists in Shopify to prevent "phone_number has already been taken" 422 error
+  const existingCustomer = await findExistingShopifyCustomer(customerPhone, customerEmail);
+  const existingCustomerId = existingCustomer ? existingCustomer.id : null;
+  if (existingCustomer) {
+    console.log('[order-webhook] Attaching to existing Shopify customer ID:', existingCustomerId);
+    if (!customerEmail && existingCustomer.email) {
+      customerEmail = existingCustomer.email;
+      console.log('[order-webhook] Enriched missing email from existing Shopify profile:', customerEmail);
+    }
+  }
+  console.log('[order-webhook] Customer email resolved to:', customerEmail);
+
   const payload = {
     order: {
       line_items: items.map(item => {
         const variant = variants.get(String(item.variant_id));
         return {
           variant_id: Number(item.variant_id),
-          quantity: item.quantity,
-          ...(variant && { price: variant.price.amount }),
+          quantity: Number(item.quantity) || 1,
+          ...(variant && variant.price && { price: variant.price.amount }),
         };
       }),
-      email: order.email || undefined,
-      phone: toE164(order.phone),
-      shipping_address: toShopifyAddress(order.shipping_address),
-      billing_address: toShopifyAddress(order.billing_address || order.shipping_address),
+      customer: existingCustomerId
+        ? { id: Number(existingCustomerId) }
+        : {
+            first_name: customerFirst,
+            last_name: customerLast,
+            ...(customerPhone && { phone: customerPhone }),
+            ...(customerEmail && { email: customerEmail }),
+          },
+      email: customerEmail,
+      contact_email: customerEmail,
+      phone: customerPhone,
+      shipping_address: {
+        ...shippingAddress,
+        ...(customerEmail && { email: customerEmail }),
+      },
+      billing_address: {
+        ...billingAddress,
+        ...(customerEmail && { email: customerEmail }),
+      },
       shipping_lines: shippingLines,
       financial_status: isPaid ? 'paid' : 'pending',
-      ...(isPaid && {
+      // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
+      ...(isPaid && totalAmount > 0 && {
         transactions: [{
           kind: 'sale',
           status: 'success',
-          amount: String(order.total_amount_payable),
+          amount: totalAmount.toFixed(2),
           gateway: (order.payments && order.payments[0] && order.payments[0].gateway) || 'Shiprocket Checkout',
         }],
       }),
       ...(Number(order.total_discount) > 0 && {
         discount_codes: [{
           code: (order.coupon_codes && order.coupon_codes[0]) || 'SHIPROCKET',
-          amount: String(order.total_discount),
+          amount: Number(order.total_discount).toFixed(2),
           type: 'fixed_amount',
         }],
       }),
@@ -170,19 +337,62 @@ async function createShopifyOrder(order) {
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },
       ],
       inventory_behaviour: 'decrement_obeying_policy',
-      // Shiprocket already sends the order-confirmation email; prevent Shopify from
-      // sending a duplicate. Shipping notifications still fire from fulfillment sync.
       send_receipt: false,
       send_fulfillment_receipt: true,
     },
   };
 
-  const response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+  console.log('[order-webhook] Submitting order payload to Shopify:', JSON.stringify(payload));
+
+  let response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
     body: JSON.stringify(payload),
   });
-  const text = await response.text();
+  let text = await response.text();
+
+  // If Shopify rejects due to existing customer unique constraint or phone conflict
+  if (!response.ok && (/customer/i.test(text) || /already been taken/i.test(text) || /already exists/i.test(text))) {
+    console.log(`[order-webhook] Customer conflict detected (${text.slice(0, 250)}). Retrying order creation...`);
+
+    // Try finding customer one more time if we didn't have an ID
+    if (!existingCustomerId && (customerPhone || customerEmail)) {
+      const retryCustomer = await findExistingShopifyCustomer(customerPhone, customerEmail);
+      if (retryCustomer && retryCustomer.id) {
+        console.log('[order-webhook] Found customer ID during error retry:', retryCustomer.id);
+        payload.order.customer = { id: Number(retryCustomer.id) };
+        if (!payload.order.email && retryCustomer.email) {
+          payload.order.email = retryCustomer.email;
+          payload.order.contact_email = retryCustomer.email;
+        }
+      } else {
+        delete payload.order.customer;
+      }
+    } else {
+      delete payload.order.customer;
+    }
+
+    response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+      body: JSON.stringify(payload),
+    });
+    text = await response.text();
+
+    // Fallback: If still failing on phone number uniqueness, remove order-level phone
+    if (!response.ok && (/phone/i.test(text) || /already been taken/i.test(text))) {
+      console.log('[order-webhook] Still failing on phone conflict, removing order.phone and retrying...');
+      delete payload.order.customer;
+      delete payload.order.phone;
+      response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+        body: JSON.stringify(payload),
+      });
+      text = await response.text();
+    }
+  }
+
   if (!response.ok) {
     throw new Error(`Shopify ${response.status}: ${text.slice(0, 500)}`);
   }
@@ -190,6 +400,66 @@ async function createShopifyOrder(order) {
   const name = created && created.order && created.order.name;
   console.log('[order-webhook] Created Shopify order', name);
   return name;
+}
+
+async function findExistingShopifyCustomer(phone, email) {
+  const searchQueries = [];
+  if (email && email.includes('@')) {
+    searchQueries.push(`email:${email}`);
+  }
+  if (phone) {
+    const raw = String(phone).trim();
+    const digits = raw.replace(/\D/g, '');
+    const last10 = digits.slice(-10);
+    searchQueries.push(`phone:${raw}`);
+    if (raw !== `+91${last10}`) searchQueries.push(`phone:+91${last10}`);
+    if (last10) searchQueries.push(last10);
+  }
+
+  // 1. Try REST customer search
+  for (const q of searchQueries) {
+    try {
+      const res = await adminREST('GET', `customers/search.json?query=${encodeURIComponent(q)}`);
+      const list = res && (res.customers || (Array.isArray(res) ? res : []));
+      if (Array.isArray(list) && list.length > 0 && list[0].id) {
+        const c = list[0];
+        console.log(`[order-webhook] Found existing Shopify customer via REST search ("${q}"): ID ${c.id}`);
+        return {
+          id: String(c.id),
+          email: c.email || undefined,
+          firstName: c.first_name || undefined,
+          lastName: c.last_name || undefined,
+        };
+      }
+    } catch (err) {
+      // Continue to next search query / method
+    }
+  }
+
+  // 2. Try GraphQL customer search
+  for (const q of searchQueries) {
+    try {
+      const data = await adminGraphQL(
+        'query ($q: String!) { customers(first: 1, query: $q) { edges { node { id email firstName lastName } } } }',
+        { q }
+      );
+      const node = data?.data?.customers?.edges?.[0]?.node;
+      if (node?.id) {
+        const id = node.id.split('/').pop();
+        console.log(`[order-webhook] Found existing Shopify customer via GraphQL ("${q}"): ID ${id}`);
+        return {
+          id: String(id),
+          email: node.email || undefined,
+          firstName: node.firstName || undefined,
+          lastName: node.lastName || undefined,
+        };
+      }
+    } catch (err) {
+      // Continue
+    }
+  }
+
+  return null;
 }
 
 async function findShopifyOrderByTag(tag) {
@@ -211,18 +481,152 @@ async function findShopifyOrderByTag(tag) {
 
 function toShopifyAddress(address) {
   if (!address) return undefined;
+  const fullName = address.name || address.full_name || '';
+  const firstName = address.first_name || address.firstName || (fullName ? fullName.split(' ')[0] : '');
+  const lastName = address.last_name || address.lastName || (fullName && fullName.split(' ').length > 1 ? fullName.split(' ').slice(1).join(' ') : firstName || 'Customer');
+
+  const zip = address.pincode || address.zip || address.postal_code || '';
+  const city = address.city || '';
+  let province = address.state || address.province || address.state_name || '';
+  let provinceCode = address.province_code || address.state_code || '';
+
+  // Infer missing Indian state from postal code or city
+  if (!province) {
+    const inferred = inferIndianState(zip, city);
+    province = inferred.province;
+    provinceCode = inferred.code;
+  }
+
   return {
-    first_name: address.first_name || '',
-    last_name: address.last_name || '',
-    address1: address.line1 || '',
-    address2: [address.line2, address.landmark].filter(Boolean).join(', '),
-    city: address.city || '',
-    province: address.state || '',
-    zip: address.pincode || '',
+    first_name: firstName || 'Customer',
+    last_name: lastName || '.',
+    address1: address.line1 || address.address1 || address.address || address.street || 'Address',
+    address2: [address.line2, address.address2, address.landmark].filter(Boolean).join(', '),
+    city: city,
+    province: province,
+    province_code: provinceCode || undefined,
+    zip: zip,
     country: address.country || 'India',
     country_code: address.country_code || 'IN',
-    phone: toE164(address.phone),
+    phone: toE164(address.phone || address.mobile),
   };
+}
+
+function inferIndianState(zip, city) {
+  const cleanZip = String(zip || '').replace(/\D/g, '');
+  if (cleanZip.length === 6) {
+    const prefix2 = cleanZip.slice(0, 2);
+    const prefix3 = cleanZip.slice(0, 3);
+
+    // 3-digit specific matches
+    if (prefix3 === '403') return { province: 'Goa', code: 'GA' };
+    if (prefix3 === '605') return { province: 'Puducherry', code: 'PY' };
+    if (prefix3 === '682') return { province: 'Lakshadweep', code: 'LD' };
+    if (prefix3 === '737') return { province: 'Sikkim', code: 'SK' };
+    if (prefix3 === '744') return { province: 'Andaman and Nicobar Islands', code: 'AN' };
+    if (['790', '791', '792'].includes(prefix3)) return { province: 'Arunachal Pradesh', code: 'AR' };
+    if (['793', '794'].includes(prefix3)) return { province: 'Meghalaya', code: 'ML' };
+    if (prefix3 === '795') return { province: 'Manipur', code: 'MN' };
+    if (prefix3 === '796') return { province: 'Mizoram', code: 'MZ' };
+    if (['797', '798'].includes(prefix3)) return { province: 'Nagaland', code: 'NL' };
+    if (prefix3 === '799') return { province: 'Tripura', code: 'TR' };
+    if (['246', '247', '248', '249'].includes(prefix3)) return { province: 'Uttarakhand', code: 'UK' };
+    if (['814', '815', '816', '825', '826', '827', '828', '829', '831', '832', '833', '834', '835'].includes(prefix3)) {
+      return { province: 'Jharkhand', code: 'JH' };
+    }
+    if (prefix3 === '194') return { province: 'Ladakh', code: 'LA' };
+    if (['396'].includes(prefix3)) return { province: 'Dadra and Nagar Haveli and Daman and Diu', code: 'DN' };
+
+    // 2-digit circle matches
+    const stateMap = {
+      '11': { province: 'Delhi', code: 'DL' },
+      '12': { province: 'Haryana', code: 'HR' },
+      '13': { province: 'Haryana', code: 'HR' },
+      '14': { province: 'Punjab', code: 'PB' },
+      '15': { province: 'Punjab', code: 'PB' },
+      '16': { province: 'Chandigarh', code: 'CH' },
+      '17': { province: 'Himachal Pradesh', code: 'HP' },
+      '18': { province: 'Jammu and Kashmir', code: 'JK' },
+      '19': { province: 'Jammu and Kashmir', code: 'JK' },
+      '20': { province: 'Uttar Pradesh', code: 'UP' },
+      '21': { province: 'Uttar Pradesh', code: 'UP' },
+      '22': { province: 'Uttar Pradesh', code: 'UP' },
+      '23': { province: 'Uttar Pradesh', code: 'UP' },
+      '24': { province: 'Uttar Pradesh', code: 'UP' },
+      '25': { province: 'Uttar Pradesh', code: 'UP' },
+      '26': { province: 'Uttar Pradesh', code: 'UP' },
+      '27': { province: 'Uttar Pradesh', code: 'UP' },
+      '28': { province: 'Uttar Pradesh', code: 'UP' },
+      '30': { province: 'Rajasthan', code: 'RJ' },
+      '31': { province: 'Rajasthan', code: 'RJ' },
+      '32': { province: 'Rajasthan', code: 'RJ' },
+      '33': { province: 'Rajasthan', code: 'RJ' },
+      '34': { province: 'Rajasthan', code: 'RJ' },
+      '36': { province: 'Gujarat', code: 'GJ' },
+      '37': { province: 'Gujarat', code: 'GJ' },
+      '38': { province: 'Gujarat', code: 'GJ' },
+      '39': { province: 'Gujarat', code: 'GJ' },
+      '40': { province: 'Maharashtra', code: 'MH' },
+      '41': { province: 'Maharashtra', code: 'MH' },
+      '42': { province: 'Maharashtra', code: 'MH' },
+      '43': { province: 'Maharashtra', code: 'MH' },
+      '44': { province: 'Maharashtra', code: 'MH' },
+      '45': { province: 'Madhya Pradesh', code: 'MP' },
+      '46': { province: 'Madhya Pradesh', code: 'MP' },
+      '47': { province: 'Madhya Pradesh', code: 'MP' },
+      '48': { province: 'Madhya Pradesh', code: 'MP' },
+      '49': { province: 'Chhattisgarh', code: 'CG' },
+      '50': { province: 'Telangana', code: 'TS' },
+      '51': { province: 'Andhra Pradesh', code: 'AP' },
+      '52': { province: 'Andhra Pradesh', code: 'AP' },
+      '53': { province: 'Andhra Pradesh', code: 'AP' },
+      '56': { province: 'Karnataka', code: 'KA' },
+      '57': { province: 'Karnataka', code: 'KA' },
+      '58': { province: 'Karnataka', code: 'KA' },
+      '59': { province: 'Karnataka', code: 'KA' },
+      '60': { province: 'Tamil Nadu', code: 'TN' },
+      '61': { province: 'Tamil Nadu', code: 'TN' },
+      '62': { province: 'Tamil Nadu', code: 'TN' },
+      '63': { province: 'Tamil Nadu', code: 'TN' },
+      '64': { province: 'Tamil Nadu', code: 'TN' },
+      '67': { province: 'Kerala', code: 'KL' },
+      '68': { province: 'Kerala', code: 'KL' },
+      '69': { province: 'Kerala', code: 'KL' },
+      '70': { province: 'West Bengal', code: 'WB' },
+      '71': { province: 'West Bengal', code: 'WB' },
+      '72': { province: 'West Bengal', code: 'WB' },
+      '73': { province: 'West Bengal', code: 'WB' },
+      '74': { province: 'West Bengal', code: 'WB' },
+      '75': { province: 'Odisha', code: 'OD' },
+      '76': { province: 'Odisha', code: 'OD' },
+      '77': { province: 'Odisha', code: 'OD' },
+      '78': { province: 'Assam', code: 'AS' },
+      '80': { province: 'Bihar', code: 'BR' },
+      '81': { province: 'Bihar', code: 'BR' },
+      '82': { province: 'Bihar', code: 'BR' },
+      '83': { province: 'Jharkhand', code: 'JH' },
+      '84': { province: 'Bihar', code: 'BR' },
+      '85': { province: 'Bihar', code: 'BR' },
+    };
+
+    if (stateMap[prefix2]) return stateMap[prefix2];
+  }
+
+  // Fallback by city name
+  const c = String(city || '').toLowerCase().trim();
+  if (['mumbai', 'pune', 'nagpur', 'thane', 'nashik', 'aurangabad', 'solapur'].includes(c)) return { province: 'Maharashtra', code: 'MH' };
+  if (['delhi', 'new delhi'].includes(c)) return { province: 'Delhi', code: 'DL' };
+  if (['bengaluru', 'bangalore', 'mysore', 'hubli', 'mangalore'].includes(c)) return { province: 'Karnataka', code: 'KA' };
+  if (['hyderabad', 'secunderabad', 'warangal'].includes(c)) return { province: 'Telangana', code: 'TS' };
+  if (['chennai', 'coimbatore', 'madurai', 'salem'].includes(c)) return { province: 'Tamil Nadu', code: 'TN' };
+  if (['kolkata', 'howrah'].includes(c)) return { province: 'West Bengal', code: 'WB' };
+  if (['ahmedabad', 'surat', 'vadodara', 'rajkot'].includes(c)) return { province: 'Gujarat', code: 'GJ' };
+  if (['jaipur', 'jodhpur', 'udaipur', 'kota'].includes(c)) return { province: 'Rajasthan', code: 'RJ' };
+  if (['lucknow', 'kanpur', 'varanasi', 'agra', 'noida', 'ghaziabad'].includes(c)) return { province: 'Uttar Pradesh', code: 'UP' };
+  if (['gurugram', 'gurgaon', 'faridabad'].includes(c)) return { province: 'Haryana', code: 'HR' };
+  if (['chandigarh', 'mohali'].includes(c)) return { province: 'Chandigarh', code: 'CH' };
+
+  return { province: '', code: '' };
 }
 
 // Shopify rejects bare 10-digit Indian numbers
@@ -231,5 +635,83 @@ function toE164(phone) {
   const digits = String(phone).replace(/\D/g, '');
   if (digits.length === 10) return `+91${digits}`;
   if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  return undefined;
+}
+
+function normalizeOrder(raw, fallbackId) {
+  if (!raw) return null;
+  const orderId = String(raw.order_id || raw.id || raw.cart_id || fallbackId || '').trim();
+  const rawItems = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items || [];
+  const resolvedEmail = findEmail(raw);
+
+  return {
+    order_id: orderId,
+    fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
+    status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
+    payment_type: raw.payment_type || raw.payment_method || (raw.is_cod ? 'COD' : 'PREPAID'),
+    payment_status: raw.payment_status || raw.status || 'SUCCESS',
+    shipping_plan: raw.shipping_plan || raw.shipping_method || 'Standard',
+    shipping_charges: raw.shipping_charges || raw.shipping_fee || 0,
+    cod_charges: raw.cod_charges || 0,
+    total_amount_payable: raw.total_amount_payable || raw.total || raw.order_total || 0,
+    total_discount: raw.total_discount || raw.discount || 0,
+    coupon_codes: raw.coupon_codes || (raw.coupon ? [raw.coupon] : []),
+    email: resolvedEmail || undefined,
+    phone: raw.phone || raw.customer_phone || (raw.customer && raw.customer.phone) || (raw.shipping_address && raw.shipping_address.phone) || undefined,
+    shipping_address: raw.shipping_address || raw.delivery_address || raw.address,
+    billing_address: raw.billing_address || raw.shipping_address || raw.delivery_address || raw.address,
+    cart_data: {
+      items: rawItems.map(item => ({
+        variant_id: String(item.variant_id || item.variantId || item.id),
+        quantity: Number(item.quantity || 1),
+      })),
+    },
+    awb: raw.awb || raw.tracking_number,
+    courier_name: raw.courier_name || raw.courier,
+    tracking_url: raw.tracking_url,
+  };
+}
+
+function findEmail(obj) {
+  if (!obj) return undefined;
+  if (typeof obj === 'string') {
+    const trimmed = obj.trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+      return trimmed;
+    }
+    const match = trimmed.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+    return match ? match[0] : undefined;
+  }
+  if (typeof obj === 'object') {
+    // 1. Prioritized email properties
+    const directKeys = [
+      'email', 'customer_email', 'buyer_email', 'user_email', 'contact_email',
+      'billing_email', 'shipping_email', 'mail'
+    ];
+    for (const key of directKeys) {
+      if (obj[key] && typeof obj[key] === 'string' && obj[key].includes('@')) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+    // 2. Search common sub-objects
+    const subObjects = ['customer', 'shipping_address', 'billing_address', 'address', 'contact', 'cart_attributes'];
+    for (const key of subObjects) {
+      if (obj[key] && typeof obj[key] === 'object') {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+    // 3. Recursive fallback across all object fields
+    for (const key in obj) {
+      if (typeof obj[key] === 'object' && obj[key] !== null) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      } else if (typeof obj[key] === 'string' && obj[key].includes('@')) {
+        const found = findEmail(obj[key]);
+        if (found) return found;
+      }
+    }
+  }
   return undefined;
 }
