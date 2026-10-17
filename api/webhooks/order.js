@@ -660,7 +660,13 @@ function normalizeOrder(raw, fallbackId) {
     order_id: orderId,
     fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
     status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
-    payment_type: raw.payment_type || raw.payment_method || (raw.is_cod === true ? 'COD' : (raw.is_cod === false ? 'PREPAID' : null)),
+    payment_type: raw.payment_type || raw.payment_method ||
+      (raw.is_cod === true ? 'COD' :
+      (raw.is_cod === false ? 'PREPAID' :
+      // paymentDetails is present on prepaid (UPI/card/etc) orders; COD orders never have a transactionId
+      (raw.paymentDetails && (raw.paymentDetails.transactionId || raw.paymentDetails.paymentMode)
+        ? (String(raw.paymentDetails.paymentMode || '').toUpperCase() === 'COD' ? 'COD' : 'PREPAID')
+        : null))),
     payment_status: raw.payment_status || raw.status || 'SUCCESS',
     shipping_plan: raw.shipping_plan || raw.shipping_method || 'Standard',
     shipping_charges: raw.shipping_charges || raw.shipping_fee || 0,
