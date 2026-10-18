@@ -20,7 +20,7 @@ const config = {
   cronSecret: env.CRON_SECRET || '',
   // Meta Conversions API — server-side event tracking
   // Pixel ID: found in Events Manager > Datasets > your pixel
-  metaPixelId: env.META_PIXEL_ID || '',
+  metaPixelId: env.META_PIXEL_ID || '1294973553696322',
   // CAPI System User Access Token: Business Settings > System Users > Generate token
   // Required scopes: ads_management, business_management
   metaCAPIToken: env.META_CAPI_TOKEN || '',
