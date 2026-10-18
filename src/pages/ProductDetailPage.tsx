@@ -14,6 +14,7 @@ import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-
 import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
 import { trackViewContent, trackAddToCart, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
 import { trackGA4ViewItem, trackGA4BeginCheckout } from '../utils/ga4';
+import { trackShopifyProductView, trackShopifyAddToCart, trackShopifyBeginCheckout } from '../utils/shopify-analytics';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
@@ -137,6 +138,17 @@ export const ProductDetailPage = () => {
             price,
             quantity: 1,
           });
+
+          // ── Shopify Product View (Step 2) ──────────────────────────
+          trackShopifyProductView({
+            productGid: p.id,                          // "gid://shopify/Product/…"
+            variantGid: firstVariant?.id || '',        // "gid://shopify/ProductVariant/…"
+            name: p.title,
+            variantName: firstVariant?.title || '',
+            brand: p.vendor || 'THSIX',
+            price: String(price),
+            quantity: 1,
+          });
         } else {
           console.log('Product not found for handle:', handle);
         }
@@ -203,7 +215,20 @@ export const ProductDetailPage = () => {
       variantTitle: selectedVariant.title,
       handle: handle ?? '',
     });
-    // trackAddToCart is also fired inside CartContext.addItem — no double-fire here
+    // trackAddToCart is also fired inside CartContext.addItem for Meta/GA4
+    // Shopify ADD_TO_CART fires here where we have the full GIDs (Step 3)
+    trackShopifyAddToCart(
+      '', // Cart GID — not available in this headless flow; Shopify still records the event
+      {
+        productGid: product?.id || '',
+        variantGid: selectedVariant.id || '',
+        name: product?.title || '',
+        variantName: selectedVariant.title || '',
+        brand: product?.vendor || 'THSIX',
+        price: selectedVariant.price?.amount || '0',
+        quantity: 1,
+      }
+    );
     setIsAddingToCart(true);
     setTimeout(() => setIsAddingToCart(false), 2000);
   }, [selectedVariant, addItem, handle, product, images, selectedImageIndex]);
@@ -230,6 +255,20 @@ export const ProductDetailPage = () => {
       [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
       itemPrice
     );
+    // ── Shopify Begin Checkout (Step 4) ────────────────────────────────
+    trackShopifyBeginCheckout(
+      '', // Cart GID — not available in Buy Now headless flow
+      itemPrice,
+      [{
+        productGid: product?.id || '',
+        variantGid: selectedVariant.id || '',
+        name: product?.title || '',
+        variantName: selectedVariant.title || '',
+        brand: product?.vendor || 'THSIX',
+        price: selectedVariant.price?.amount || '0',
+        quantity: 1,
+      }]
+    );
     // Save checkout value so CheckoutSuccess can fire accurate purchase events.
     // localStorage persists through cross-origin payment-gateway redirects (sessionStorage does not).
     try {
@@ -237,8 +276,20 @@ export const ProductDetailPage = () => {
         value: itemPrice,
         currency: currencyCode,
         items: [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
+        // Shopify GIDs for Step 5 (PURCHASE event on CheckoutSuccess)
+        shopifyCartId: '',
+        shopifyProducts: [{
+          productGid: product?.id || '',
+          variantGid: selectedVariant.id || '',
+          name: product?.title || '',
+          variantName: selectedVariant.title || '',
+          brand: product?.vendor || 'THSIX',
+          price: selectedVariant.price?.amount || '0',
+          quantity: 1,
+        }],
       }));
     } catch { /* storage unavailable */ }
+
     try {
       await loadPickrrScript();
       const isReady = await waitForShiprocket(10000);

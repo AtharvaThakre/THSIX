@@ -1,5 +1,6 @@
 import { useEffect, lazy, Suspense, useRef } from 'react';
 import { initGA4, trackGA4PageView } from './utils/ga4';
+import { trackShopifyPageView } from './utils/shopify-analytics';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { CartProvider } from './contexts/CartContext';
 import { ShopifyProvider } from './contexts/ShopifyContext';
@@ -141,7 +142,7 @@ function NotFoundPage() {
   );
 }
 
-// Scroll to top on route change and track SPA page views with Meta Pixel
+// Scroll to top on route change and track SPA page views with Meta Pixel + Shopify
 function ScrollToTop() {
   const { pathname } = useLocation();
   const isFirstRender = useRef(true);
@@ -149,7 +150,13 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    // Skip initial render to avoid double-counting the initial PageView fired by index.html
+    // ── Shopify Page View (Step 1) ────────────────────────────────────────────
+    // Fire on every navigation, including the initial render.
+    // getClientBrowserParameters() picks up UTM params automatically (Step 6).
+    trackShopifyPageView();
+
+    // Skip Meta Pixel / GA4 on initial render to avoid double-counting
+    // (index.html already fires the first PageView for those providers).
     if (isFirstRender.current) {
       isFirstRender.current = false;
       return;

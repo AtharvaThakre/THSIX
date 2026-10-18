@@ -4,6 +4,7 @@ import { CheckCircle, XCircle, ArrowRight } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { trackPurchase } from '../utils/metaPixel';
 import { trackGA4Purchase } from '../utils/ga4';
+import { trackShopifyPurchase } from '../utils/shopify-analytics';
 import './CheckoutSuccess.css';
 
 export const CheckoutSuccess = () => {
@@ -30,6 +31,8 @@ export const CheckoutSuccess = () => {
     let checkoutValue = 0;
     let checkoutItems: any[] = [];
     let currency = 'INR';
+    let shopifyProducts: any[] = [];
+    let shopifyCartId = '';
     try {
       const saved =
         localStorage.getItem('thsix_checkout_value') ||
@@ -39,6 +42,8 @@ export const CheckoutSuccess = () => {
         checkoutValue = parsed.value || 0;
         checkoutItems = parsed.items || [];
         currency = parsed.currency || 'INR';
+        shopifyProducts = parsed.shopifyProducts || [];
+        shopifyCartId = parsed.shopifyCartId || '';
         localStorage.removeItem('thsix_checkout_value');
         sessionStorage.removeItem('thsix_checkout_value');
       }
@@ -59,6 +64,16 @@ export const CheckoutSuccess = () => {
       checkoutItems,
       checkoutValue
     );
+
+    // ── Shopify Purchase (Step 5) ──────────────────────────────────────
+    if (shopifyProducts.length > 0) {
+      trackShopifyPurchase(
+        shopifyCartId,
+        orderId || 'unknown',
+        checkoutValue,
+        shopifyProducts
+      );
+    }
   }, [failed, clearCart, orderId]);
 
   return (
