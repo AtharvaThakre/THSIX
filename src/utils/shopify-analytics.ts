@@ -36,6 +36,10 @@ const FALLBACK_SHOP_ID = 'gid://shopify/Shop/78307623077';
 const ENV_SHOP_ID = import.meta.env.VITE_SHOPIFY_SHOP_ID as string | undefined;
 const SHOP_ID = (ENV_SHOP_ID && !ENV_SHOP_ID.includes('YOUR_SHOP_ID')) ? ENV_SHOP_ID : FALLBACK_SHOP_ID;
 
+const STORE_DOMAIN = (import.meta.env.VITE_SHOPIFY_STORE_DOMAIN as string || 'https://19sjnp-gx.myshopify.com')
+  .replace(/^https?:\/\//, '')
+  .replace(/\/+$/, '');
+
 const BASE_PAYLOAD = {
   currency: 'INR' as const,
   acceptedLanguage: 'EN' as const, // LanguageCode enum — must be uppercase
@@ -132,10 +136,13 @@ export function trackShopifyPageView(): void {
     searchString: window.location.search, // Picks up UTM params automatically (Step 6)
   };
 
-  sendShopifyAnalytics({
-    eventName: AnalyticsEventName.PAGE_VIEW,
-    payload,
-  });
+  sendShopifyAnalytics(
+    {
+      eventName: AnalyticsEventName.PAGE_VIEW,
+      payload,
+    },
+    STORE_DOMAIN,
+  );
 }
 
 // ─── Product shape ────────────────────────────────────────────────────────────
@@ -164,27 +171,30 @@ export function trackShopifyProductView(product: ShopifyProduct): void {
 
   // PRODUCT_VIEW is a valid Shopify Monorail event; type-assert to bypass
   // the narrow SDK union type (ShopifyPageViewPayload | ShopifyAddToCartPayload).
-  sendShopifyAnalytics({
-    eventName: AnalyticsEventName.PRODUCT_VIEW,
-    payload: {
-      ...clientParams,
-      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
-      visitToken: clientParams.visitToken || tokens.visitToken,
-      shopId,
-      ...BASE_PAYLOAD,
-      pageType: 'product',
-      resourceId: product.productGid,
-      products: [{
-        productGid: product.productGid,
-        variantGid: product.variantGid,
-        name: product.name,
-        variantName: product.variantName,
-        brand: product.brand ?? 'THSIX',
-        price: product.price,
-        quantity: product.quantity ?? 1,
-      }],
-    } as ShopifyPageViewPayload, // Safe: SDK accepts this shape at runtime
-  });
+  sendShopifyAnalytics(
+    {
+      eventName: AnalyticsEventName.PRODUCT_VIEW,
+      payload: {
+        ...clientParams,
+        uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+        visitToken: clientParams.visitToken || tokens.visitToken,
+        shopId,
+        ...BASE_PAYLOAD,
+        pageType: 'product',
+        resourceId: product.productGid,
+        products: [{
+          productGid: product.productGid,
+          variantGid: product.variantGid,
+          name: product.name,
+          variantName: product.variantName,
+          brand: product.brand ?? 'THSIX',
+          price: product.price,
+          quantity: product.quantity ?? 1,
+        }],
+      } as ShopifyPageViewPayload, // Safe: SDK accepts this shape at runtime
+    },
+    STORE_DOMAIN,
+  );
 }
 
 // ─── Step 3: Add to Cart ──────────────────────────────────────────────────────
@@ -224,10 +234,13 @@ export function trackShopifyAddToCart(
     }],
   };
 
-  sendShopifyAnalytics({
-    eventName: AnalyticsEventName.ADD_TO_CART,
-    payload,
-  });
+  sendShopifyAnalytics(
+    {
+      eventName: AnalyticsEventName.ADD_TO_CART,
+      payload,
+    },
+    STORE_DOMAIN,
+  );
 }
 
 // ─── Step 4: Checkout Started ─────────────────────────────────────────────────
@@ -248,27 +261,30 @@ export function trackShopifyBeginCheckout(
 
   // BEGIN_CHECKOUT is supported by Shopify Monorail at runtime. Type-assert to
   // ShopifyAddToCartPayload (closest structural match) to satisfy the compiler.
-  sendShopifyAnalytics({
-    eventName: 'BEGIN_CHECKOUT',
-    payload: {
-      ...clientParams,
-      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
-      visitToken: clientParams.visitToken || tokens.visitToken,
-      shopId,
-      ...BASE_PAYLOAD,
-      cartId,
-      totalValue,
-      products: products.map(p => ({
-        productGid: p.productGid,
-        variantGid: p.variantGid,
-        name: p.name,
-        variantName: p.variantName,
-        brand: p.brand ?? 'THSIX',
-        price: p.price,
-        quantity: p.quantity ?? 1,
-      })),
-    } as ShopifyAddToCartPayload,
-  });
+  sendShopifyAnalytics(
+    {
+      eventName: 'BEGIN_CHECKOUT',
+      payload: {
+        ...clientParams,
+        uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+        visitToken: clientParams.visitToken || tokens.visitToken,
+        shopId,
+        ...BASE_PAYLOAD,
+        cartId,
+        totalValue,
+        products: products.map(p => ({
+          productGid: p.productGid,
+          variantGid: p.variantGid,
+          name: p.name,
+          variantName: p.variantName,
+          brand: p.brand ?? 'THSIX',
+          price: p.price,
+          quantity: p.quantity ?? 1,
+        })),
+      } as ShopifyAddToCartPayload,
+    },
+    STORE_DOMAIN,
+  );
 }
 
 // ─── Step 5: Purchase Completed ───────────────────────────────────────────────
@@ -290,27 +306,30 @@ export function trackShopifyPurchase(
 
   // PURCHASE is supported by Shopify Monorail at runtime. Type-assert to
   // ShopifyAddToCartPayload (closest structural match) to satisfy the compiler.
-  sendShopifyAnalytics({
-    eventName: 'PURCHASE',
-    payload: {
-      ...clientParams,
-      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
-      visitToken: clientParams.visitToken || tokens.visitToken,
-      shopId,
-      ...BASE_PAYLOAD,
-      cartId,
-      orderId,
-      orderValue,
-      totalValue: orderValue,
-      products: products.map(p => ({
-        productGid: p.productGid,
-        variantGid: p.variantGid,
-        name: p.name,
-        variantName: p.variantName,
-        brand: p.brand ?? 'THSIX',
-        price: p.price,
-        quantity: p.quantity ?? 1,
-      })),
-    } as ShopifyAddToCartPayload,
-  });
+  sendShopifyAnalytics(
+    {
+      eventName: 'PURCHASE',
+      payload: {
+        ...clientParams,
+        uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+        visitToken: clientParams.visitToken || tokens.visitToken,
+        shopId,
+        ...BASE_PAYLOAD,
+        cartId,
+        orderId,
+        orderValue,
+        totalValue: orderValue,
+        products: products.map(p => ({
+          productGid: p.productGid,
+          variantGid: p.variantGid,
+          name: p.name,
+          variantName: p.variantName,
+          brand: p.brand ?? 'THSIX',
+          price: p.price,
+          quantity: p.quantity ?? 1,
+        })),
+      } as ShopifyAddToCartPayload,
+    },
+    STORE_DOMAIN,
+  );
 }
