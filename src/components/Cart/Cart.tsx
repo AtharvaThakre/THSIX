@@ -66,14 +66,15 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
       quantity: item.quantity,
     }));
     trackGA4BeginCheckout(ga4Items, totalPrice);
-    // Save checkout value so CheckoutSuccess can fire accurate purchase events
+    // Save checkout value so CheckoutSuccess can fire accurate purchase events.
+    // localStorage persists through cross-origin payment-gateway redirects (sessionStorage does not).
     try {
-      sessionStorage.setItem('thsix_checkout_value', JSON.stringify({
+      localStorage.setItem('thsix_checkout_value', JSON.stringify({
         value: totalPrice,
         currency: 'INR',
         items: ga4Items,
       }));
-    } catch { /* sessionStorage unavailable */ }
+    } catch { /* storage unavailable */ }
 
     try {
       const products = items.map(item => ({

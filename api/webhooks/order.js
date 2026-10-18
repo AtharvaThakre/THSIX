@@ -2,8 +2,91 @@ const { config } = require('../_lib/config');
 const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
 const { fetchVariantsByIds } = require('../_lib/data-service');
 const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } = require('../_lib/shopify-admin');
+const crypto = require('crypto');
 
 const SHOPIFY_ADMIN_API = '2026-10';
+const META_CAPI_VERSION = 'v19.0';
+
+/**
+ * SHA-256 hash a string for Meta CAPI PII fields (email, phone).
+ * Meta requires lowercase + trimmed input before hashing.
+ */
+function hashPII(value) {
+  if (!value) return undefined;
+  const clean = String(value).trim().toLowerCase();
+  return crypto.createHash('sha256').update(clean).digest('hex');
+}
+
+/**
+ * Send a server-side Purchase event to Meta Conversions API.
+ * This is what makes Events Manager show the setup as complete.
+ * @param {object} order   - Normalised order object
+ * @param {string} eventId - Same event_id used by the browser pixel Purchase call
+ */
+async function sendMetaCAPIEvent(order, eventId) {
+  const pixelId = config.metaPixelId;
+  const capiToken = config.metaCAPIToken;
+
+  if (!pixelId || !capiToken) {
+    console.warn('[CAPI] META_PIXEL_ID or META_CAPI_TOKEN not set — skipping server-side event');
+    return;
+  }
+
+  const eventTime = Math.floor(Date.now() / 1000);
+  const value = Number(order.total_amount_payable || 0);
+
+  // Normalise phone: strip all non-digits, ensure 10-digit Indian number
+  const rawPhone = order.phone || (order.shipping_address && order.shipping_address.phone) || '';
+  const digits = String(rawPhone).replace(/\D/g, '');
+  const phone = digits.length >= 10 ? digits.slice(-10) : undefined;
+
+  const payload = {
+    data: [{
+      event_name: 'Purchase',
+      event_time: eventTime,
+      event_id: eventId || order.order_id,          // deduplicates with browser pixel
+      action_source: 'website',
+      event_source_url: `${config.websiteBaseUrl}/checkout/success`,
+      user_data: {
+        // Hashed PII — Meta requires SHA-256 lowercase-trimmed values
+        ...(order.email && { em: hashPII(order.email) }),
+        ...(phone && { ph: hashPII(phone) }),
+        // Country code (India)
+        country: hashPII('in'),
+      },
+      custom_data: {
+        value: value > 0 ? value : undefined,
+        currency: 'INR',
+        order_id: order.order_id,
+        content_type: 'product',
+        contents: (order.cart_data?.items || []).map(item => ({
+          id: String(item.variant_id),
+          quantity: Number(item.quantity) || 1,
+        })),
+        num_items: (order.cart_data?.items || []).reduce((s, i) => s + (Number(i.quantity) || 1), 0),
+      },
+    }],
+  };
+
+  try {
+    const res = await fetch(
+      `https://graph.facebook.com/${META_CAPI_VERSION}/${pixelId}/events?access_token=${capiToken}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
+    const text = await res.text();
+    if (res.ok) {
+      console.log(`[CAPI] Purchase event sent successfully. event_id: ${eventId || order.order_id}`, text.slice(0, 200));
+    } else {
+      console.error('[CAPI] Purchase event failed:', res.status, text.slice(0, 400));
+    }
+  } catch (err) {
+    console.error('[CAPI] Network error sending Purchase event:', err.message);
+  }
+}
 
 /**
  * POST /api/webhooks/order
@@ -225,6 +308,11 @@ module.exports = async function handler(req, res) {
 
   try {
     const shopifyOrder = await createShopifyOrder(order, body);
+
+    // Fire server-side Meta CAPI Purchase event (makes Events Manager show setup as complete)
+    // event_id matches the order_id used client-side so Meta can deduplicate both signals
+    await sendMetaCAPIEvent(order, order.order_id);
+
     return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
@@ -234,6 +322,10 @@ module.exports = async function handler(req, res) {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const shopifyOrder = await createShopifyOrder(order, body);
       console.log('[order-webhook] Retry succeeded');
+
+      // Fire CAPI even on retry success
+      await sendMetaCAPIEvent(order, order.order_id);
+
       return res.status(200).json({ ok: true, shopify_order: shopifyOrder, retried: true });
     } catch (retryError) {
       console.error('[order-webhook] Retry also failed:', retryError.message || retryError);

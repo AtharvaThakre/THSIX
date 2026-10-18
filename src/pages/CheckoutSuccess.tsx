@@ -23,17 +23,23 @@ export const CheckoutSuccess = () => {
 
     clearCart();
 
-    // Retrieve the checkout value saved before the Shiprocket redirect
+    // Retrieve the checkout value saved before the Shiprocket redirect.
+    // localStorage is used as primary source because cross-origin payment-gateway
+    // redirects (Shiprocket) can wipe sessionStorage on some browsers.
+    // sessionStorage is kept as a fallback for older write-paths.
     let checkoutValue = 0;
     let checkoutItems: any[] = [];
     let currency = 'INR';
     try {
-      const saved = sessionStorage.getItem('thsix_checkout_value');
+      const saved =
+        localStorage.getItem('thsix_checkout_value') ||
+        sessionStorage.getItem('thsix_checkout_value');
       if (saved) {
         const parsed = JSON.parse(saved);
         checkoutValue = parsed.value || 0;
         checkoutItems = parsed.items || [];
         currency = parsed.currency || 'INR';
+        localStorage.removeItem('thsix_checkout_value');
         sessionStorage.removeItem('thsix_checkout_value');
       }
     } catch (e) {

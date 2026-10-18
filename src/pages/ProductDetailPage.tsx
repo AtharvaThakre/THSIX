@@ -230,14 +230,15 @@ export const ProductDetailPage = () => {
       [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
       itemPrice
     );
-    // Save checkout value so CheckoutSuccess can fire accurate purchase events
+    // Save checkout value so CheckoutSuccess can fire accurate purchase events.
+    // localStorage persists through cross-origin payment-gateway redirects (sessionStorage does not).
     try {
-      sessionStorage.setItem('thsix_checkout_value', JSON.stringify({
+      localStorage.setItem('thsix_checkout_value', JSON.stringify({
         value: itemPrice,
         currency: currencyCode,
         items: [{ item_id: numId, item_name: product?.title || '', item_variant: selectedVariant.title || '', price: itemPrice, quantity: 1 }],
       }));
-    } catch { /* sessionStorage unavailable */ }
+    } catch { /* storage unavailable */ }
     try {
       await loadPickrrScript();
       const isReady = await waitForShiprocket(10000);

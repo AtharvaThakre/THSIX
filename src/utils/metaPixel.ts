@@ -8,16 +8,39 @@
 
 type FbqParams = Record<string, any>;
 
-const fire = (type: 'track' | 'trackCustom', event: string, params?: FbqParams) => {
+/**
+ * Generate a unique event ID for browser-pixel ↔ CAPI deduplication.
+ * Meta requires the same event_id on both the browser pixel call AND the
+ * server-side Conversions API call for an event to be deduplicated.
+ */
+export function genEventId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older environments
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+const fire = (
+  type: 'track' | 'trackCustom',
+  event: string,
+  params?: FbqParams,
+  eventId?: string,
+) => {
   if (typeof window !== 'undefined') {
+    const eid = eventId || genEventId();
     if (import.meta.env.DEV) {
-      console.log(`[Meta Pixel] ${type}: ${event}`, params ?? '');
+      console.log(`[Meta Pixel] ${type}: ${event}`, params ?? '', `event_id: ${eid}`);
     }
     if (typeof window.fbq === 'function') {
+      // 4th arg is the event options object — required for CAPI deduplication
       if (params) {
-        window.fbq(type, event, params);
+        window.fbq(type, event, params, { eventID: eid });
       } else {
-        window.fbq(type, event);
+        window.fbq(type, event, {}, { eventID: eid });
       }
     } else {
       console.warn(`[Meta Pixel] window.fbq is not defined. An ad blocker (uBlock, Brave Shields, AdBlock) might be blocking Meta Pixel.`);

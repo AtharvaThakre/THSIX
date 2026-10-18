@@ -18,6 +18,12 @@ const config = {
   shopifyAdminToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
   // Protects /api/catalog/sync; Vercel Cron sends it as a Bearer token
   cronSecret: env.CRON_SECRET || '',
+  // Meta Conversions API — server-side event tracking
+  // Pixel ID: found in Events Manager > Datasets > your pixel
+  metaPixelId: env.META_PIXEL_ID || '',
+  // CAPI System User Access Token: Business Settings > System Users > Generate token
+  // Required scopes: ads_management, business_management
+  metaCAPIToken: env.META_CAPI_TOKEN || '',
   defaultPageLimit: 100,
   maxPageLimit: 250,
 };
