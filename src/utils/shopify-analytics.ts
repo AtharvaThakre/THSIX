@@ -30,7 +30,11 @@ import {
 // Get the value from Shopify Admin → Settings → Developer Tools → GraphQL Explorer:
 //   query { shop { id } }
 // Returns something like "gid://shopify/Shop/12345678"
-const SHOP_ID = import.meta.env.VITE_SHOPIFY_SHOP_ID as string | undefined;
+// Hardcoded fallback guarantees that even if Vercel build environment variables fail to bind,
+// the events will ALWAYS have the real shop ID attached!
+const FALLBACK_SHOP_ID = 'gid://shopify/Shop/78307623077';
+const ENV_SHOP_ID = import.meta.env.VITE_SHOPIFY_SHOP_ID as string | undefined;
+const SHOP_ID = (ENV_SHOP_ID && !ENV_SHOP_ID.includes('YOUR_SHOP_ID')) ? ENV_SHOP_ID : FALLBACK_SHOP_ID;
 
 const BASE_PAYLOAD = {
   currency: 'INR' as const,
@@ -38,7 +42,47 @@ const BASE_PAYLOAD = {
   hasUserConsent: true,
 } as const;
 
-/** Log helper (dev-only). */
+/** Helper to generate UUID */
+function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
+ * Ensure Shopify visitor tracking cookies (_shopify_y and _shopify_s) exist.
+ * Hydrogen-react reads document.cookie for these tokens. Without them, Monorail
+ * cannot associate events with a live visitor session.
+ */
+function ensureShopifyTokens(): { uniqueToken: string; visitToken: string } {
+  if (typeof document === 'undefined') {
+    return { uniqueToken: '', visitToken: '' };
+  }
+
+  let uniqueToken = document.cookie.match(/\b_shopify_y=([^;]+)/)?.[1];
+  let visitToken = document.cookie.match(/\b_shopify_s=([^;]+)/)?.[1];
+
+  if (!uniqueToken) {
+    uniqueToken = generateUUID();
+    // 1 year persistence
+    document.cookie = `_shopify_y=${uniqueToken}; path=/; max-age=31536000; SameSite=Lax`;
+  }
+
+  if (!visitToken) {
+    visitToken = generateUUID();
+    // 30 minute session
+    document.cookie = `_shopify_s=${visitToken}; path=/; max-age=1800; SameSite=Lax`;
+  }
+
+  return { uniqueToken, visitToken };
+}
+
+/** Log helper. */
 function log(event: string, extra?: unknown) {
   if (import.meta.env.DEV) {
     console.log(`[ShopifyAnalytics] ${event}`, extra ?? '');
@@ -46,22 +90,26 @@ function log(event: string, extra?: unknown) {
 }
 
 /**
- * Guard: returns the shop ID or an empty string with a warning.
+ * Guard: returns the shop ID.
  */
 function getShopId(): string {
-  if (!SHOP_ID || SHOP_ID.includes('YOUR_SHOP_ID')) {
-    console.warn(
-      '[ShopifyAnalytics] VITE_SHOPIFY_SHOP_ID is not configured. ' +
-      'Run this in Shopify Admin → Settings → Developer Tools → GraphQL Explorer:\n' +
-      '  query { shop { id } }\n' +
-      'Then set VITE_SHOPIFY_SHOP_ID=gid://shopify/Shop/<id> in your .env files.'
-    );
-    return '';
-  }
   return SHOP_ID;
 }
 
 // ─── Step 1: Page View ────────────────────────────────────────────────────────
+
+/**
+ * Helper to determine pageType from current path for Shopify Analytics schema
+ */
+function getPageTypeFromPath(pathname: string): string {
+  if (pathname === '/' || pathname === '') return 'index';
+  if (pathname.startsWith('/product/')) return 'product';
+  if (pathname.startsWith('/brand/') || pathname.startsWith('/collection/')) return 'collection';
+  if (pathname.startsWith('/contact')) return 'page';
+  if (pathname.startsWith('/about')) return 'page';
+  if (pathname.startsWith('/policy/')) return 'policy';
+  return 'page';
+}
 
 /**
  * Fire on every page navigation (SPA route change and initial load).
@@ -69,12 +117,18 @@ function getShopId(): string {
  */
 export function trackShopifyPageView(): void {
   const shopId = getShopId();
-  log('PAGE_VIEW', { url: window.location.href });
+  const tokens = ensureShopifyTokens();
+  log('PAGE_VIEW', { url: window.location.href, tokens });
+
+  const clientParams = getClientBrowserParameters();
 
   const payload: ShopifyPageViewPayload = {
-    ...getClientBrowserParameters(),
+    ...clientParams,
+    uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+    visitToken: clientParams.visitToken || tokens.visitToken,
     shopId,
     ...BASE_PAYLOAD,
+    pageType: getPageTypeFromPath(window.location.pathname),
     searchString: window.location.search, // Picks up UTM params automatically (Step 6)
   };
 
@@ -104,6 +158,8 @@ export interface ShopifyProduct {
  */
 export function trackShopifyProductView(product: ShopifyProduct): void {
   const shopId = getShopId();
+  const tokens = ensureShopifyTokens();
+  const clientParams = getClientBrowserParameters();
   log('PRODUCT_VIEW', product);
 
   // PRODUCT_VIEW is a valid Shopify Monorail event; type-assert to bypass
@@ -111,9 +167,13 @@ export function trackShopifyProductView(product: ShopifyProduct): void {
   sendShopifyAnalytics({
     eventName: AnalyticsEventName.PRODUCT_VIEW,
     payload: {
-      ...getClientBrowserParameters(),
+      ...clientParams,
+      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+      visitToken: clientParams.visitToken || tokens.visitToken,
       shopId,
       ...BASE_PAYLOAD,
+      pageType: 'product',
+      resourceId: product.productGid,
       products: [{
         productGid: product.productGid,
         variantGid: product.variantGid,
@@ -142,10 +202,14 @@ export function trackShopifyAddToCart(
   product: ShopifyProduct,
 ): void {
   const shopId = getShopId();
+  const tokens = ensureShopifyTokens();
+  const clientParams = getClientBrowserParameters();
   log('ADD_TO_CART', { cartId, product });
 
   const payload: ShopifyAddToCartPayload = {
-    ...getClientBrowserParameters(),
+    ...clientParams,
+    uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+    visitToken: clientParams.visitToken || tokens.visitToken,
     shopId,
     ...BASE_PAYLOAD,
     cartId,
@@ -178,6 +242,8 @@ export function trackShopifyBeginCheckout(
   products: ShopifyProduct[],
 ): void {
   const shopId = getShopId();
+  const tokens = ensureShopifyTokens();
+  const clientParams = getClientBrowserParameters();
   log('BEGIN_CHECKOUT', { cartId, totalValue, products });
 
   // BEGIN_CHECKOUT is supported by Shopify Monorail at runtime. Type-assert to
@@ -185,7 +251,9 @@ export function trackShopifyBeginCheckout(
   sendShopifyAnalytics({
     eventName: 'BEGIN_CHECKOUT',
     payload: {
-      ...getClientBrowserParameters(),
+      ...clientParams,
+      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+      visitToken: clientParams.visitToken || tokens.visitToken,
       shopId,
       ...BASE_PAYLOAD,
       cartId,
@@ -216,6 +284,8 @@ export function trackShopifyPurchase(
   products: ShopifyProduct[],
 ): void {
   const shopId = getShopId();
+  const tokens = ensureShopifyTokens();
+  const clientParams = getClientBrowserParameters();
   log('PURCHASE', { orderId, orderValue, products });
 
   // PURCHASE is supported by Shopify Monorail at runtime. Type-assert to
@@ -223,7 +293,9 @@ export function trackShopifyPurchase(
   sendShopifyAnalytics({
     eventName: 'PURCHASE',
     payload: {
-      ...getClientBrowserParameters(),
+      ...clientParams,
+      uniqueToken: clientParams.uniqueToken || tokens.uniqueToken,
+      visitToken: clientParams.visitToken || tokens.visitToken,
       shopId,
       ...BASE_PAYLOAD,
       cartId,
