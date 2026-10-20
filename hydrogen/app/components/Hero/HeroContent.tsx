@@ -1,0 +1,55 @@
+import { ArrowRight } from 'lucide-react';
+import BlurText from './BlurText';
+import { trackCustomEvent } from '../../utils/metaPixel';
+
+export const HeroContent = ({ data }: { data: any }) => {
+  return (
+    <div className="hero-content">
+      {data.eyebrow && data.eyebrow.trim() && (
+        <div className="hero-eyebrow">{data.eyebrow}</div>
+      )}
+      <h1 className="hero-title">
+        <BlurText
+          text={Array.isArray(data.title) ? data.title.join(' ') : (data.title || "The evolution begins.")}
+          animateBy="words"
+          direction="top"
+          delay={150}
+          stepDuration={0.35}
+          className="hero-title-blur"
+        />
+      </h1>
+      <p className="hero-description">{data.description}</p>
+      
+      <button 
+        className="hero-cta"
+        onClick={(e) => {
+          e.preventDefault();
+          trackCustomEvent('HeroCTAClicked', { cta_text: data.cta });
+          const section = document.querySelector('.product-showcase') as HTMLElement;
+          if (section) {
+            window.scrollTo({
+              top: section.offsetTop - 100,
+              behavior: 'smooth'
+            });
+          }
+        }}
+      >
+        <span>{data.cta}</span>
+        <ArrowRight size={16} strokeWidth={1.5} className="cta-arrow" />
+      </button>
+
+      {data.tags && data.tags.some((tag: string) => tag.trim()) && (
+        <div className="hero-tags">
+          {data.tags.map((tag: string, i: number) => (
+            tag.trim() && (
+              <span key={i} className="hero-tag-item">
+                {tag}
+                {i < data.tags.length - 1 && <span className="tag-separator">/</span>}
+              </span>
+            )
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
