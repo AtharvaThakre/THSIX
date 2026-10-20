@@ -52,6 +52,13 @@ const BASE_PAYLOAD = {
   currency: 'INR' as const,
   acceptedLanguage: 'EN' as const, // LanguageCode enum — must be uppercase
   hasUserConsent: true,
+  // Consent flags. The SDK defaults them to false, and Shopify's reports (Live View, Sessions)
+  // skip events whose analytics_allowed is false. This store sells in India only and shows no
+  // consent banner, so they mirror hasUserConsent. If a consent banner is ever added, read these
+  // from window.Shopify.customerPrivacy instead (the Hydrogen app already does).
+  analyticsAllowed: true,
+  marketingAllowed: true,
+  saleOfDataAllowed: true,
   // Same channel attribution Hydrogen's <Analytics.Provider> sends
   shopifySalesChannel: 'hydrogen' as const,
   storefrontId: STOREFRONT_ID,
