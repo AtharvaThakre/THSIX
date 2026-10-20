@@ -6,6 +6,7 @@
  */
 const { config } = require('./config');
 const { safeParse } = require('./shiprocket');
+const { adminAuthHeaders } = require('./admin-token');
 
 const SHOPIFY_ADMIN_API = '2026-10';
 
@@ -15,18 +16,11 @@ function adminUrl(path) {
   return `${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/${path}`;
 }
 
-function adminHeaders() {
-  return {
-    'Content-Type': 'application/json',
-    'X-Shopify-Access-Token': config.shopifyAdminToken,
-  };
-}
-
 /** Run a GraphQL query against the Shopify Admin API. */
 async function adminGraphQL(query, variables = {}) {
   const res = await fetch(adminUrl('graphql.json'), {
     method: 'POST',
-    headers: adminHeaders(),
+    headers: await adminAuthHeaders(),
     body: JSON.stringify({ query, variables }),
   });
   if (!res.ok) {
@@ -38,7 +32,7 @@ async function adminGraphQL(query, variables = {}) {
 
 /** Call the Shopify Admin REST API. Returns parsed JSON (or raw text on parse failure). */
 async function adminREST(method, path, body) {
-  const opts = { method, headers: adminHeaders() };
+  const opts = { method, headers: await adminAuthHeaders() };
   if (body) opts.body = JSON.stringify(body);
 
   const res = await fetch(adminUrl(path), opts);

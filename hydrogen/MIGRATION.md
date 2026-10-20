@@ -132,7 +132,12 @@ Shiprocket does not sign them. Hardening added:
 - Customer PII (address, phone, email) is no longer written to logs; only payload keys are.
 - The order webhook still verifies orders through Shiprocket's signed Order Details API when
   the payload has no items, returns 500 so Shiprocket retries while an order is indexing, and
-  creates Shopify orders idempotently (tag `sr-<order id>`) when `SHOPIFY_ADMIN_ACCESS_TOKEN` is set.
+  creates Shopify orders idempotently (tag `sr-<order id>`) when Admin API access is configured.
+- Admin API access (`app/server/lib/admin-token.js`): Shopify's Dev Dashboard apps have no
+  permanent token, so with `SHOPIFY_ADMIN_CLIENT_ID` + `SHOPIFY_ADMIN_CLIENT_SECRET` the server
+  exchanges them for a ~24h token (client credentials grant), caches it per isolate and renews it
+  5 minutes before expiry. A permanent `SHOPIFY_ADMIN_ACCESS_TOKEN` is used when no client
+  credentials are set, and as the fallback if the exchange fails. The Vercel `api/` has the same module.
 
 ## 6. Analytics
 
@@ -250,7 +255,8 @@ unchanged config builds in about 2 s per environment.
    `PUBLIC_STOREFRONT_API_TOKEN`, `PRIVATE_STOREFRONT_API_TOKEN`, `PUBLIC_STORE_DOMAIN`, `SHOP_ID`
    and `SESSION_SECRET`. Add:
    - Secrets: `SHIPROCKET_API_KEY`, `SHIPROCKET_API_SECRET`, `RESEND_API_KEY`, `META_CAPI_TOKEN`,
-     `CRON_SECRET`, `WEBHOOK_SECRET`, optional `SHOPIFY_ADMIN_ACCESS_TOKEN`.
+     `CRON_SECRET`, `WEBHOOK_SECRET`, optional `SHOPIFY_ADMIN_CLIENT_ID` +
+     `SHOPIFY_ADMIN_CLIENT_SECRET` (or a legacy `SHOPIFY_ADMIN_ACCESS_TOKEN`).
    - Config: `PUBLIC_CHECKOUT_DOMAIN`, `PUBLIC_META_PIXEL_ID`, `PUBLIC_GA4_MEASUREMENT_ID`
      (optional), `WEBSITE_BASE_URL`, `SUPPORT_EMAIL`, `CONTACT_FROM_EMAIL` (a sender on a
      domain verified in Resend).

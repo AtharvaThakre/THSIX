@@ -1,6 +1,7 @@
 const { config } = require('../_lib/config');
 const { isConfigured, shiprocketPost, safeParse } = require('../_lib/shiprocket');
 const { fetchVariantsByIds } = require('../_lib/data-service');
+const { isAdminConfigured, adminAuthHeaders } = require('../_lib/admin-token');
 const { findOrderByTag: findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } = require('../_lib/shopify-admin');
 const crypto = require('crypto');
 
@@ -94,7 +95,7 @@ async function sendMetaCAPIEvent(order, eventId) {
  * Shiprocket Checkout > Settings > Webhooks). It may be sent more than once and expects 200.
  *
  * The webhook is unsigned, so only its order_id is used: the order itself is read from
- * Shiprocket's signed Order Details API. If SHOPIFY_ADMIN_ACCESS_TOKEN is set, paid/COD
+ * Shiprocket's signed Order Details API. If Admin API access is configured, paid/COD
  * orders are created in Shopify (tagged sr-<order id>, so repeats are skipped) to
  * decrement stock and keep orders in Shopify admin.
  */
@@ -276,7 +277,7 @@ module.exports = async function handler(req, res) {
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
   if (!SUCCESS_STATUSES.includes(status)) {
-    if (SHIPPING_STATUSES.includes(status) && config.shopifyAdminToken) {
+    if (SHIPPING_STATUSES.includes(status) && isAdminConfigured()) {
       try {
         const tag = `sr-${order.order_id}`;
         const shopifyOrder = await findOrderByTagShared(tag);
@@ -302,7 +303,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, skipped: `order status is ${order.status}` });
   }
 
-  if (!config.shopifyAdminToken) {
+  if (!isAdminConfigured()) {
     return res.status(200).json({ ok: true, shopify: 'not configured' });
   }
 
@@ -450,7 +451,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
 
   let response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+    headers: await adminAuthHeaders(),
     body: JSON.stringify(payload),
   });
   let text = await response.text();
@@ -478,7 +479,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
 
     response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+      headers: await adminAuthHeaders(),
       body: JSON.stringify(payload),
     });
     text = await response.text();
@@ -490,7 +491,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
       delete payload.order.phone;
       response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+        headers: await adminAuthHeaders(),
         body: JSON.stringify(payload),
       });
       text = await response.text();
@@ -569,7 +570,7 @@ async function findExistingShopifyCustomer(phone, email) {
 async function findShopifyOrderByTag(tag) {
   const response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/graphql.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+    headers: await adminAuthHeaders(),
     body: JSON.stringify({
       query: 'query ($q: String!) { orders(first: 1, query: $q) { edges { node { id name } } } }',
       variables: { q: `tag:'${tag}'` },
