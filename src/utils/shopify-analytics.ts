@@ -36,10 +36,25 @@ const FALLBACK_SHOP_ID = 'gid://shopify/Shop/78307623077';
 const ENV_SHOP_ID = import.meta.env.VITE_SHOPIFY_SHOP_ID as string | undefined;
 const SHOP_ID = (ENV_SHOP_ID && !ENV_SHOP_ID.includes('YOUR_SHOP_ID')) ? ENV_SHOP_ID : FALLBACK_SHOP_ID;
 
+// ─── Storefront ID ───────────────────────────────────────────────────────────
+// Set VITE_SHOPIFY_STOREFRONT_ID to the Hydrogen storefront's ID (Shopify admin →
+// Hydrogen → Environments → PUBLIC_STOREFRONT_ID). Numeric ID or full GID both work.
+// Without it Monorail receives hydrogenSubchannelId "0" and the events are not
+// attributed to the storefront, so Live View / Sessions stay empty.
+const ENV_STOREFRONT_ID = (import.meta.env.VITE_SHOPIFY_STOREFRONT_ID as string | undefined)?.trim();
+const STOREFRONT_ID = ENV_STOREFRONT_ID?.split('/').pop() || undefined;
+
+if (!STOREFRONT_ID) {
+  console.error('[ShopifyAnalytics] VITE_SHOPIFY_STOREFRONT_ID is not set; Shopify Live View will not receive events.');
+}
+
 const BASE_PAYLOAD = {
   currency: 'INR' as const,
   acceptedLanguage: 'EN' as const, // LanguageCode enum — must be uppercase
   hasUserConsent: true,
+  // Same channel attribution Hydrogen's <Analytics.Provider> sends
+  shopifySalesChannel: 'hydrogen' as const,
+  storefrontId: STOREFRONT_ID,
 } as const;
 
 /** Helper to generate UUID */
@@ -132,8 +147,9 @@ export function trackShopifyPageView(): void {
     searchString: window.location.search, // Picks up UTM params automatically (Step 6)
   };
 
+  // PAGE_VIEW_2 is the page-view schema Hydrogen itself sends
   sendShopifyAnalytics({
-    eventName: AnalyticsEventName.PAGE_VIEW,
+    eventName: AnalyticsEventName.PAGE_VIEW_2,
     payload,
   });
 }
