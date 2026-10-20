@@ -1,5 +1,6 @@
 const { config } = require('../_lib/config');
 const { isConfigured, shiprocketPost } = require('../_lib/shiprocket');
+const { isAdminConfigured } = require('../_lib/admin-token');
 
 /**
  * GET /api/checkout/health
@@ -15,7 +16,7 @@ module.exports = async function handler(req, res) {
     apiSecretSet: Boolean(config.shiprocketApiSecret),
     baseUrl: config.shiprocketBaseUrl,
     redirectUrl: `${config.websiteBaseUrl}${config.checkoutSuccessUrl}`,
-    shopifyOrderSync: Boolean(config.shopifyAdminToken),
+    shopifyOrderSync: isAdminConfigured(),
     catalogSyncSecretSet: Boolean(config.cronSecret),
     credentialsAccepted: null,
     shiprocketStatus: null,

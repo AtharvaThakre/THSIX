@@ -1,5 +1,6 @@
 import { config } from '../lib/config.js';
 import { isConfigured, shiprocketPost } from '../lib/shiprocket.js';
+import { isAdminConfigured } from '../lib/admin-token.js';
 
 /**
  * GET /api/checkout/health
@@ -15,7 +16,7 @@ export default async function handler(req, res) {
     apiSecretSet: Boolean(config.shiprocketApiSecret),
     baseUrl: config.shiprocketBaseUrl,
     redirectUrl: `${config.websiteBaseUrl}${config.checkoutSuccessUrl}`,
-    shopifyOrderSync: Boolean(config.shopifyAdminToken),
+    shopifyOrderSync: isAdminConfigured(),
     catalogSyncSecretSet: Boolean(config.cronSecret),
     webhookSecretSet: Boolean(config.webhookSecret),
     metaCapiConfigured: Boolean(config.metaPixelId && config.metaCAPIToken),

@@ -32,10 +32,10 @@
  *   b. Adds a timestamped status note to the Shopify order timeline
  *   c. Returns 200 as quickly as possible so Shiprocket marks delivery successful
  */
-import { config } from '../lib/config.js';
 import { safeParse } from '../lib/shiprocket.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { findOrderByTag, syncFulfillment, addOrderNote, adminGraphQL } from '../lib/shopify-admin.js';
+import { isAdminConfigured } from '../lib/admin-token.js';
 
 // ── Shiprocket Shipping status mapping ───────────────────────────────────────
 
@@ -87,8 +87,8 @@ export default async function handler(req, res) {
   }
 
   // Quick validation — respond fast
-  if (!config.shopifyAdminToken) {
-    console.error('[shipment-webhook] SHOPIFY_ADMIN_ACCESS_TOKEN is not set');
+  if (!isAdminConfigured()) {
+    console.error('[shipment-webhook] Shopify Admin API access is not configured');
     return res.status(200).json({ ok: false, message: 'Shopify Admin not configured' });
   }
 

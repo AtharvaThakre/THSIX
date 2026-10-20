@@ -20,6 +20,8 @@ interface Env {
   SHIPROCKET_DEFAULT_WEIGHT_GRAMS?: string;
   CRON_SECRET?: string;
   SHOPIFY_ADMIN_ACCESS_TOKEN?: string;
+  SHOPIFY_ADMIN_CLIENT_ID?: string;
+  SHOPIFY_ADMIN_CLIENT_SECRET?: string;
   META_PIXEL_ID?: string;
   META_CAPI_TOKEN?: string;
   WEBHOOK_SECRET?: string;

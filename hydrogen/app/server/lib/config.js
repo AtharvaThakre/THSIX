@@ -38,6 +38,9 @@ export const config = {
   get defaultWeightGrams() { return parseInt(env.SHIPROCKET_DEFAULT_WEIGHT_GRAMS || '', 10) || 1000; },
   // Optional: lets the order webhook create the order in Shopify (write_orders scope)
   get shopifyAdminToken() { return env.SHOPIFY_ADMIN_ACCESS_TOKEN || ''; },
+  // Dev Dashboard app credentials; exchanged for a short-lived token (lib/admin-token.js)
+  get shopifyAdminClientId() { return env.SHOPIFY_ADMIN_CLIENT_ID || ''; },
+  get shopifyAdminClientSecret() { return env.SHOPIFY_ADMIN_CLIENT_SECRET || ''; },
   // Protects /api/catalog/sync; sent as a Bearer token
   get cronSecret() { return env.CRON_SECRET || ''; },
   // Optional shared secret the Shiprocket webhooks must carry (see lib/webhook-auth.js)

@@ -2,6 +2,7 @@ import { config } from '../lib/config.js';
 import { isConfigured, shiprocketPost, safeParse } from '../lib/shiprocket.js';
 import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
+import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
 const SHOPIFY_ADMIN_API = '2026-10';
@@ -102,7 +103,7 @@ async function sendMetaCAPIEvent(order, eventId) {
  * Shiprocket Checkout > Settings > Webhooks). It may be sent more than once and expects 200.
  *
  * The webhook is unsigned, so only its order_id is used: the order itself is read from
- * Shiprocket's signed Order Details API. If SHOPIFY_ADMIN_ACCESS_TOKEN is set, paid/COD
+ * Shiprocket's signed Order Details API. If Admin API access is configured, paid/COD
  * orders are created in Shopify (tagged sr-<order id>, so repeats are skipped) to
  * decrement stock and keep orders in Shopify admin.
  */
@@ -292,7 +293,7 @@ export default async function handler(req, res) {
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
   if (!SUCCESS_STATUSES.includes(status)) {
-    if (SHIPPING_STATUSES.includes(status) && config.shopifyAdminToken) {
+    if (SHIPPING_STATUSES.includes(status) && isAdminConfigured()) {
       try {
         const tag = `sr-${order.order_id}`;
         const shopifyOrder = await findOrderByTagShared(tag);
@@ -322,7 +323,7 @@ export default async function handler(req, res) {
   // browser Purchase, so Meta deduplicates the pair (and repeated webhook deliveries).
   await sendMetaCAPIEvent(order, order.order_id);
 
-  if (!config.shopifyAdminToken) {
+  if (!isAdminConfigured()) {
     return res.status(200).json({ ok: true, shopify: 'not configured' });
   }
 
@@ -458,11 +459,11 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
     },
   };
 
-  console.log('[order-webhook] Submitting order payload to Shopify:', JSON.stringify(payload));
+  console.log(`[order-webhook] Submitting order to Shopify (${payload.order.line_items.length} line items)`);
 
   let response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+    headers: await adminAuthHeaders(),
     body: JSON.stringify(payload),
   });
   let text = await response.text();
@@ -490,7 +491,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
 
     response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+      headers: await adminAuthHeaders(),
       body: JSON.stringify(payload),
     });
     text = await response.text();
@@ -502,7 +503,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
       delete payload.order.phone;
       response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+        headers: await adminAuthHeaders(),
         body: JSON.stringify(payload),
       });
       text = await response.text();
@@ -581,7 +582,7 @@ async function findExistingShopifyCustomer(phone, email) {
 async function findShopifyOrderByTag(tag) {
   const response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/graphql.json`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': config.shopifyAdminToken },
+    headers: await adminAuthHeaders(),
     body: JSON.stringify({
       query: 'query ($q: String!) { orders(first: 1, query: $q) { edges { node { id name } } } }',
       variables: { q: `tag:'${tag}'` },

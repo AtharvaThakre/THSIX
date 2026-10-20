@@ -16,6 +16,9 @@ const config = {
   defaultWeightGrams: parseInt(env.SHIPROCKET_DEFAULT_WEIGHT_GRAMS || '', 10) || 1000,
   // Optional: lets the order webhook create the order in Shopify (write_orders scope)
   shopifyAdminToken: env.SHOPIFY_ADMIN_ACCESS_TOKEN || '',
+  // Dev Dashboard app credentials; exchanged for a short-lived token (_lib/admin-token.js)
+  shopifyAdminClientId: env.SHOPIFY_ADMIN_CLIENT_ID || '',
+  shopifyAdminClientSecret: env.SHOPIFY_ADMIN_CLIENT_SECRET || '',
   // Protects /api/catalog/sync; Vercel Cron sends it as a Bearer token
   cronSecret: env.CRON_SECRET || '',
   // Meta Conversions API — server-side event tracking
