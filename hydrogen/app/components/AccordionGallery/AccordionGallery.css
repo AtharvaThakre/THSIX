@@ -11,12 +11,22 @@
   gap: var(--ag-gap);
   width: 100%;
   max-width: 100%;
+  height: var(--ag-height-h, 460px);
   perspective: 1400px;
   perspective-origin: 50% 50%;
 }
 
 .accordion-gallery--vertical {
   flex-direction: column;
+  height: var(--ag-height-v, 736px);
+}
+
+/* Matches the JS breakpoint (max-width: 640px) that switches to a vertical stack */
+@media (max-width: 640px) {
+  .accordion-gallery {
+    flex-direction: column;
+    height: var(--ag-height-v, 736px);
+  }
 }
 
 .ag-panel {

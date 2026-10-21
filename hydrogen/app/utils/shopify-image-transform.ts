@@ -1,13 +1,18 @@
 /**
  * Transforms Shopify CDN image URLs to request specific dimensions.
- * 
+ *
  * Shopify CDN supports image transformation via URL parameters:
  * - width: Resize to specific width (maintains aspect ratio)
  * - height: Resize to specific height (maintains aspect ratio)
  * - crop: Crop mode (center, top, bottom, left, right)
- * 
+ *
+ * Format: when a `width` is requested the CDN negotiates the output format from
+ * the browser's Accept header (AVIF or WebP for modern browsers, JPEG/PNG for
+ * others), so no `format` parameter is needed. Requests without `width` return
+ * the original upload, which can be several hundred KB, so always pass a width.
+ *
  * Example: https://cdn.shopify.com/s/files/1/.../image.jpg?v=123&width=750
- * 
+ *
  * PageSpeed Insights identified that product images are loaded at 750×750
  * but displayed at 371×371, causing unnecessary bandwidth usage.
  */
@@ -60,6 +65,21 @@ export function transformShopifyImageUrl(
     // If URL parsing fails, return original
     return url;
   }
+}
+
+/**
+ * Build a `srcset` string ("url 300w, url 600w") for a Shopify CDN image.
+ * Returns undefined for non-Shopify URLs (local assets have no width variants),
+ * so callers can spread the result onto <img> without an empty attribute.
+ */
+export function buildShopifySrcSet(
+  url: string | null | undefined,
+  widths: readonly number[]
+): string | undefined {
+  if (!url || !url.includes('cdn.shopify.com')) return undefined;
+  return widths
+    .map((w) => `${transformShopifyImageUrl(url, { width: w })} ${w}w`)
+    .join(', ');
 }
 
 /**

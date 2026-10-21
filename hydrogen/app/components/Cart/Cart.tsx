@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Plus, Minus, Trash2, CreditCard } from 'lucide-react';
 import { useCart } from '../../contexts/CartContext';
 import { checkoutFromCart, waitForShiprocket } from '../../services/shiprocket-checkout';
-import { loadPickrrScript } from '../../utils/pickrr-loader';
+import { loadPickrrScript, warmUpPickrrScript } from '../../utils/pickrr-loader';
 import { trackInitiateCheckout, trackCustomEvent } from '../../utils/metaPixel';
 import { trackGA4BeginCheckout } from '../../utils/ga4';
 import './Cart.css';
@@ -22,6 +22,8 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
     if (isOpen) {
       setIsAnimating(true);
       document.body.style.overflow = 'hidden';
+      // Opening the drawer is checkout intent: start fetching Shiprocket now
+      warmUpPickrrScript();
     } else {
       document.body.style.overflow = '';
     }
@@ -228,6 +230,8 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
             )}
             <button 
               className="cart-checkout-btn"
+              onPointerEnter={warmUpPickrrScript}
+              onFocus={warmUpPickrrScript}
               onClick={() => void handleCheckout()}
               disabled={isCheckingOut}
             >

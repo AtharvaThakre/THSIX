@@ -4,6 +4,12 @@ import type { Brand } from '../../types/brand';
 import { brandProductImages } from '../../data/brands';
 import { trackCustomEvent } from '../../utils/metaPixel';
 
+/**
+ * The product image fills the card's 1:1 box minus its 16px padding on each side:
+ * 268px wide on desktop, 248px at 768-1099px and 218px on mobile (<=767px).
+ */
+const BRAND_IMAGE_SIZES = '(max-width: 767px) 218px, (max-width: 1099px) 248px, 268px';
+
 interface BrandCardProps {
   brand: Brand;
 }
@@ -41,10 +47,17 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       <div className="brand-card__image-container">
         {brand.productImage ? (
           <picture>
+            {imgSet?.avif && imgSet.avif2x && (
+              <source
+                srcSet={`${imgSet.avif} 300w, ${imgSet.avif2x} 600w`}
+                sizes={BRAND_IMAGE_SIZES}
+                type="image/avif"
+              />
+            )}
             {imgSet && (
               <source
                 srcSet={`${imgSet.webp} 300w, ${imgSet.webp2x} 600w`}
-                sizes="(max-width: 767px) 250px, (max-width: 1099px) 280px, 300px"
+                sizes={BRAND_IMAGE_SIZES}
                 type="image/webp"
               />
             )}

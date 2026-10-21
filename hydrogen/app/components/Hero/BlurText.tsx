@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { useEffect, useRef, useState, useMemo } from 'react';
 
 const buildKeyframes = (from: Record<string, any>, steps: Record<string, any>[]) => {
@@ -43,6 +43,8 @@ const BlurText = ({
   const elements = animateBy === 'words' ? text.split(' ') : text.split('');
   const [inView, setInView] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
+  // Reduced motion: same end state, no blur/slide and no per-word delay.
+  const reduceMotion = useReducedMotion();
 
   useEffect(() => {
     if (!ref.current) return;
@@ -90,9 +92,9 @@ const BlurText = ({
         const animateKeyframes = buildKeyframes(fromSnapshot, toSnapshots);
 
         const spanTransition = {
-          duration: totalDuration,
-          times,
-          delay: (index * delay) / 1000
+          duration: reduceMotion ? 0 : totalDuration,
+          times: reduceMotion ? undefined : times,
+          delay: reduceMotion ? 0 : (index * delay) / 1000
         };
         // @ts-expect-error - ease can be a function
         spanTransition.ease = easing;

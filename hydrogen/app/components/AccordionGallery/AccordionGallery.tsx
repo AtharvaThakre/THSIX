@@ -1,15 +1,26 @@
-import { useRef, useEffect, useState, useCallback } from 'react';
+import { useRef, useEffect, useLayoutEffect, useState, useCallback } from 'react';
 import './AccordionGallery.css';
 
-interface GalleryItem {
+export interface GallerySource {
+  type: string;
+  srcSet: string;
+  sizes?: string;
+  /** Only use this source when the media query matches */
+  media?: string;
+}
+
+export interface GalleryItem {
   image: string;
   label?: string;
   link?: string;
   alt?: string;
-  /** WebP srcSet string, e.g. "img.webp 800w, img@2x.webp 1600w" */
-  webpSrcSet?: string;
-  /** Fallback src for browsers that don't support WebP */
+  /** Responsive <source> entries, most specific first (e.g. AVIF before WebP) */
+  sources?: GallerySource[];
+  /** Fallback <img> src for browsers that don't support the sources */
   fallback?: string;
+  /** Intrinsic size of the <img> (reserves its aspect ratio) */
+  width?: number;
+  height?: number;
 }
 
 interface AccordionGalleryProps {
@@ -72,6 +83,7 @@ const AccordionGallery = ({
   const gsapRef = useRef<typeof import('gsap').gsap | null>(null);
   const firstRunRef = useRef(true);
   const mediaSizeRef = useRef(320);
+  const applyRef = useRef<(animate: boolean) => Promise<void>>(async () => {});
 
   const [isMobile, setIsMobile] = useState(false);
 
@@ -103,7 +115,7 @@ const AccordionGallery = ({
         const { gsap: gsapModule } = await import('gsap');
         gsapRef.current = gsapModule;
       }
-      
+
       const gsap = gsapRef.current;
 
       const r = Math.min(Math.max(expandRatio, 0.2), 0.9);
@@ -173,6 +185,12 @@ const AccordionGallery = ({
     ]
   );
 
+  // Keep the latest layout function reachable from the size observer below,
+  // so hovering (which changes `active`) doesn't tear down and recreate the observer.
+  useLayoutEffect(() => {
+    applyRef.current = applyLayout;
+  }, [applyLayout]);
+
   useEffect(() => {
     const el = rootRef.current;
     if (!el) return;
@@ -184,14 +202,14 @@ const AccordionGallery = ({
       const size = Math.max(140, usable * Math.min(Math.max(expandRatio, 0.2), 0.9) * 1.22);
       mediaSizeRef.current = size;
       el.style.setProperty('--ag-media-size', `${size}px`);
-      void applyLayout(!firstRunRef.current);
+      void applyRef.current(!firstRunRef.current);
     };
 
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [applyLayout, gap, count, expandRatio, vertical]);
+  }, [gap, count, expandRatio, vertical]);
 
   useEffect(() => {
     void applyLayout(!firstRunRef.current);
@@ -267,7 +285,10 @@ const AccordionGallery = ({
         '--ag-text': textColor,
         '--ag-gap': `${gap}px`,
         '--ag-radius': `${radius}px`,
-        height: vertical ? `${Math.round(height * 1.6)}px` : `${height}px`
+        // Heights live in CSS (horizontal vs vertical, by breakpoint) so the
+        // server-rendered markup already has the right size before hydration.
+        '--ag-height-h': `${height}px`,
+        '--ag-height-v': `${Math.round(height * 1.6)}px`
       } as React.CSSProperties}
       role="list"
       aria-label="Image accordion gallery"
@@ -296,16 +317,20 @@ const AccordionGallery = ({
             <span className="ag-panel__frame">
               <span className="ag-panel__media" ref={el => { mediaRefs.current[i] = el; }}>
                 <picture>
-                  {item.webpSrcSet && (
+                  {item.sources?.map(source => (
                     <source
-                      srcSet={item.webpSrcSet}
-                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 850px"
-                      type="image/webp"
+                      key={`${source.type}-${source.media ?? 'all'}`}
+                      srcSet={source.srcSet}
+                      sizes={source.sizes}
+                      type={source.type}
+                      media={source.media}
                     />
-                  )}
+                  ))}
                   <img
                     src={item.fallback || item.image}
                     alt={item.alt || item.label || ''}
+                    width={item.width}
+                    height={item.height}
                     draggable="false"
                     loading="lazy"
                     decoding="async"

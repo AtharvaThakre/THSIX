@@ -23,7 +23,7 @@ const reelsData: ReelData[] = [
     instagramUrl: 'https://www.instagram.com/thsix.official/'
   },
   {
-    id: 'reel-2', 
+    id: 'reel-2',
     videoUrl: '/assets/reels/igexport-DdeO8usNeZP.mp4',
     thumbnail: '/assets/reels/reel_2_cover.png',
     posterWebp: '/assets/reels/reel_2_cover.webp',
@@ -45,13 +45,20 @@ export const InstagramReels = () => {
   const [carouselState, setCarouselState] = useState([0, 1, 2]);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Start with muted
-  const [isVisible, setIsVisible] = useState(false);
-  
-  // Refs for video elements
+  // Videos are mounted once the section is close to the viewport (posters show until then)
+  const [isNear, setIsNear] = useState(false);
+  // The carousel is actually on screen; the centre reel only plays while it is
+  const [isInView, setIsInView] = useState(false);
+  const [isPageVisible, setIsPageVisible] = useState(true);
+
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
   const sectionRef = useRef<HTMLElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
+  const transitionTimerRef = useRef(0);
 
-  // Only start loading videos when the section enters the viewport
+  const shouldPlay = isNear && isInView && isPageVisible;
+
+  // Mount the videos shortly before the section scrolls in
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
@@ -59,77 +66,86 @@ export const InstagramReels = () => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
-          setIsVisible(true);
+          setIsNear(true);
           observer.disconnect();
         }
       },
-      { rootMargin: '200px' } // Start loading slightly before visible
+      { rootMargin: '600px 0px' }
     );
 
     observer.observe(section);
     return () => observer.disconnect();
   }, []);
 
-  // Control video playback based on position
+  // Track whether the carousel is really on screen (half or more visible)
   useEffect(() => {
-    if (!isVisible) return;
+    const carousel = carouselRef.current;
+    if (!carousel) return;
 
-    const centerReelId = reelsData[carouselState[1]]?.id;
-    
-    // Pause all videos
+    const observer = new IntersectionObserver(
+      ([entry]) => setIsInView(entry.intersectionRatio >= 0.5),
+      { threshold: 0.5 }
+    );
+
+    observer.observe(carousel);
+    return () => observer.disconnect();
+  }, []);
+
+  // Pause everything while the tab is in the background
+  useEffect(() => {
+    const onVisibilityChange = () => setIsPageVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
+  // A reel that moves to the centre starts again from the beginning; the others pause
+  useEffect(() => {
+    const centerId = reelsData[carouselState[1]]?.id;
+
     Object.entries(videoRefs.current).forEach(([id, video]) => {
-      if (video) {
-        if (!video.paused) {
-          video.pause();
-        }
-        // Reset non-center videos (but don't call .load() — that's expensive)
-        if (id !== centerReelId) {
-          video.currentTime = 0;
-        }
-      }
+      if (!video || id === centerId) return;
+      video.pause();
+      video.currentTime = 0; // (no .load(): that is expensive)
     });
 
-    // Play only the center video with optimization
-    if (centerReelId && videoRefs.current[centerReelId]) {
-      const centerVideo = videoRefs.current[centerReelId];
-      if (centerVideo) {
-        centerVideo.muted = isMuted;
-        centerVideo.currentTime = 0;
-        // eager play for UX, but catch to handle autoplay policy
-        centerVideo.play().catch(() => {
-          // Silently handle autoplay block; user can tap to play
-        });
-      }
+    const center = centerId ? videoRefs.current[centerId] : null;
+    if (center) center.currentTime = 0;
+  }, [carouselState]);
+
+  // Play the centre reel only while it is on screen; pause it otherwise
+  useEffect(() => {
+    const centerId = reelsData[carouselState[1]]?.id;
+    const center = centerId ? videoRefs.current[centerId] : null;
+    if (!center) return;
+
+    center.muted = isMuted;
+    if (shouldPlay) {
+      // Autoplay can be blocked; the poster stays up in that case
+      void center.play().catch(() => {});
+    } else {
+      center.pause();
     }
-  }, [carouselState, isMuted, isVisible]);
+  }, [carouselState, isMuted, shouldPlay]);
 
-  // Rotate carousel right: [1,2,3] → [2,3,1]
-  const rotateRight = () => {
+  useEffect(() => () => window.clearTimeout(transitionTimerRef.current), []);
+
+  const rotate = (direction: 'left' | 'right') => {
     if (isTransitioning) return;
-    
+
     setIsTransitioning(true);
     setCarouselState(prev => {
       const [left, center, right] = prev;
-      return [center, right, left];
+      // Right: [1,2,3] → [2,3,1]   Left: [1,2,3] → [3,1,2]
+      return direction === 'right' ? [center, right, left] : [right, left, center];
     });
-    
+
     // Reset transition state after animation
-    setTimeout(() => setIsTransitioning(false), 600);
+    window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = window.setTimeout(() => setIsTransitioning(false), 600);
   };
 
-  // Rotate carousel left: [1,2,3] → [3,1,2]  
-  const rotateLeft = () => {
-    if (isTransitioning) return;
-    
-    setIsTransitioning(true);
-    setCarouselState(prev => {
-      const [left, center, right] = prev;
-      return [right, left, center];
-    });
-    
-    // Reset transition state after animation
-    setTimeout(() => setIsTransitioning(false), 600);
-  };
+  const rotateRight = () => rotate('right');
+  const rotateLeft = () => rotate('left');
 
   // Register video ref
   const setVideoRef = (reelId: string) => (element: HTMLVideoElement | null) => {
@@ -153,16 +169,16 @@ export const InstagramReels = () => {
   return (
     <section className="instagram-reels" ref={sectionRef}>
       <div className="instagram-reels__container">
-        
+
         {/* Header with title and Instagram button */}
         <div className="instagram-reels__header">
           <div className="instagram-reels__title-group">
             <h2 className="instagram-reels__title">THE FEED.</h2>
             <p className="instagram-reels__subtitle">The aesthetic in motion.</p>
           </div>
-          <a 
-            href="https://www.instagram.com/thsix.official/" 
-            target="_blank" 
+          <a
+            href="https://www.instagram.com/thsix.official/"
+            target="_blank"
             rel="noopener noreferrer"
             className="instagram-reels__insta-btn"
             aria-label="Visit THSIX on Instagram"
@@ -174,9 +190,9 @@ export const InstagramReels = () => {
         </div>
 
         <div className="instagram-reels__carousel-wrapper">
-          
+
           {/* Left Arrow */}
-          <button 
+          <button
             className="instagram-reels__nav-btn instagram-reels__nav-btn--left"
             onClick={rotateLeft}
             disabled={isTransitioning}
@@ -186,7 +202,7 @@ export const InstagramReels = () => {
           </button>
 
           {/* Carousel Container */}
-          <div className="instagram-reels__carousel">
+          <div className="instagram-reels__carousel" ref={carouselRef}>
             {reelsData.map((reel, index) => {
               const isCenterCard = isCenter(index);
               return (
@@ -197,12 +213,12 @@ export const InstagramReels = () => {
                   <div className="reel-card__video-container">
                     {/* Show cover overlay for non-center videos with blur effect */}
                     {!isCenterCard && (
-                      <div 
+                      <div
                         className="reel-card__cover-overlay"
                         style={{ backgroundImage: `url(${reel.posterWebp || reel.thumbnail})` }}
                       />
                     )}
-                    
+
                     {/* Mute button - only show for center card */}
                     {isCenterCard && (
                       <button
@@ -218,9 +234,9 @@ export const InstagramReels = () => {
                         )}
                       </button>
                     )}
-                    
-                    {/* Only render video elements when section is visible */}
-                    {isVisible ? (
+
+                    {/* Video elements only once the section is near; preload="none" until played */}
+                    {isNear ? (
                       <video
                         ref={setVideoRef(reel.id)}
                         className="reel-card__video"
@@ -261,7 +277,7 @@ export const InstagramReels = () => {
           </div>
 
           {/* Right Arrow */}
-          <button 
+          <button
             className="instagram-reels__nav-btn instagram-reels__nav-btn--right"
             onClick={rotateRight}
             disabled={isTransitioning}
