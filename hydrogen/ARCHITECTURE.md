@@ -105,7 +105,11 @@ re-prices from Shopify, signs with HMAC-SHA256 base64 of the exact body using
 - Credentials are server-only (never in `window.ENV` or the client bundle).
 - `redirect_url` is restricted to thsix.com, `WEBSITE_BASE_URL`'s host, `*.myshopify.dev`
   (Oxygen previews) and localhost.
-- Scripts/CSS load lazily (first interaction or 4 s); `#sellerDomain` = `thsix.com`.
+- Shiprocket's `shopify.js` + `shopify.css` (which pull in ~2 MB of `fastrr-boost-ui.pickrr.com`
+  chunks) are not loaded on page view. `app/utils/pickrr-loader.ts` injects them on checkout
+  intent: cart drawer opens, an item is added, Checkout / Buy Now is hovered or focused, and
+  as a fallback the Checkout / Buy Now click itself (which awaits the script). `#sellerDomain` =
+  `thsix.com` is in the SSR body.
 - Verified on the Oxygen runtime (MiniOxygen) against the real Shiprocket API with dummy keys:
   the signed request was sent, Shiprocket answered 511 (bad credentials) and the shopper saw
   "Checkout is misconfigured. Please contact the store." Signature and payload format are also
@@ -155,7 +159,10 @@ Shiprocket does not sign them.
 - Browser and server `Purchase` share the Shiprocket order id, so Meta deduplicates them.
   Graph API v23.0. A visit to the success page without an order id or a pending checkout does
   not fire Purchase.
-- GA4 is off until `PUBLIC_GA4_MEASUREMENT_ID` is set; it sends the landing `page_view` on init.
+- GA4 is off until `PUBLIC_GA4_MEASUREMENT_ID` is set; it queues the landing `page_view` on init.
+- Meta's `fbevents.js` and GA's `gtag.js` are injected after the window `load` event + an idle
+  callback (or the first interaction; 8 s cap). The `fbq` stub and the `dataLayer` queue exist
+  from the first byte, so `init` and the landing PageView / page_view are queued, not lost.
 
 ## 7. Catalogue sync (cron)
 
@@ -205,13 +212,26 @@ console, add the origin in `app/entry.server.tsx` and remove the variable.
 
 - Shopify data is SSR'd and cached (`CacheShort`/`CacheLong`). There is no client Storefront
   traffic.
-- GSAP, Lenis and below-the-fold sections are lazy.
-- Product cards use Shopify CDN `srcset` (220–600 px) with `loading="lazy"`.
-- Heavy sources in `public/assets` are never downloaded: `<picture>` serves the WebP versions.
-- The hero video (15 MB) loads during idle time after the poster image and is skipped for Data
-  Saver and 2G connections. `scripts/optimize-hero-video.{sh,ps1}` (ffmpeg) re-encode it; that
-  needs a visual sign-off.
+- LCP is the hero poster: a server-rendered `<picture>` (AVIF → WebP → JPEG, separate mobile
+  portrait / desktop crops), `fetchpriority="high"`, preloaded per breakpoint in `root.tsx`.
+- Hero video: `hero-mobile.mp4` (720×1280, ~0.9 MB) below 768 px, `hero-desktop.mp4`
+  (1920×1080, ~1.8 MB) above; was one 15 MB file. It is never preloaded; it is mounted after
+  `load` + idle while the hero is on screen, paused off screen, and skipped for
+  `prefers-reduced-motion`, Data Saver and 2G/3G.
+- Below-the-fold sections (NextDrop, Lookbook, WhyThsix, Newsletter, InstagramReels) are
+  server-rendered with their CSS (imported in `HomePage.tsx`), but `LazySection` keeps their
+  JavaScript (and GSAP/ScrollTrigger) from loading or hydrating until they are within 600 px of
+  the viewport. Reels download only the centre video, when visible.
+- Lenis smooth scroll runs only for fine pointers without reduced motion, after `load` + idle,
+  and its rAF loop runs only while a smooth scroll is in progress. The ScrollVelocity marquee
+  loop pauses off screen and in background tabs.
+- Images are sized to their rendered size with `srcset`/`sizes`, AVIF + WebP, and lazy below the
+  fold. Shopify CDN images always carry a `width` (the CDN then negotiates AVIF/WebP).
+- Fonts: Inter 700/800/900 + Caveat 600, loaded without blocking render.
 - Tailwind v4 scans only `app/` (`@import "tailwindcss" source("../")`).
+- Lighthouse (local `shopify hydrogen preview`, median of 5, before → after): mobile 60 → 95
+  (LCP 8.6 s → 2.5 s, FCP 3.6 s → 2.0 s, payload 17.9 MB → 1.9 MB); desktop 93 → 97
+  (LCP 1.2 s → 0.6 s, payload 16.9 MB → 2.8 MB). CLS 0 throughout.
 
 ## 11. Deployment (GitHub → Oxygen)
 
@@ -250,6 +270,7 @@ each one.
 | `npm run build` | pass |
 | `shopify hydrogen preview` (MiniOxygen) + HTTP audit of every `/api/*` route | pass |
 | Browser QA, Chrome headless, desktop 1440px + mobile 390px (cart, checkout calls, analytics, CSP, redirects, SEO) | 82/82 |
+| Deferred loading (no Shiprocket/Fastrr before checkout intent, hero video only after `load`, section JS on scroll, centre reel only, `/#shop`, reduced motion) | pass |
 
 ## 13. Known limitations
 

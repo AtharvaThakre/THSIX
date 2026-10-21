@@ -131,19 +131,19 @@ export function HomePage({ products }: { products: ShowcaseProduct[] }) {
         <ProductShowcase products={products} />
         <Philosophy />
         <BrandsShowcase />
-        <LazySection className="lazy-section--next-drop">
+        <LazySection>
           <NextDrop />
         </LazySection>
-        <LazySection className="lazy-section--lookbook">
+        <LazySection>
           <Lookbook />
         </LazySection>
-        <LazySection className="lazy-section--why">
+        <LazySection>
           <WhyThsix />
         </LazySection>
-        <LazySection className="lazy-section--newsletter">
+        <LazySection>
           <Newsletter />
         </LazySection>
-        <LazySection className="lazy-section--reels">
+        <LazySection>
           <InstagramReels />
         </LazySection>
       </main>

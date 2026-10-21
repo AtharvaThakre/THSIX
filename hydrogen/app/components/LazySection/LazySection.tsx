@@ -1,5 +1,4 @@
 import { Suspense, use, useEffect, useRef, useState, type ReactNode } from 'react';
-import './LazySection.css';
 
 interface Gate {
   promise: Promise<void>;
@@ -29,19 +28,16 @@ function Gated({ gate, children }: { gate: Gate; children: ReactNode }) {
 
 interface LazySectionProps {
   children: ReactNode;
-  className?: string;
-  /** Optional anchor id; kept on the wrapper so hash links still find the section. */
-  id?: string;
   /** How far outside the viewport the section starts loading. */
   rootMargin?: string;
 }
 
 /**
  * Defers the JavaScript for a below-the-fold section until it is about to
- * enter the viewport. The markup is still server-rendered, and the wrapper
- * reserves the section's height (see LazySection.css) so nothing shifts.
+ * enter the viewport. The markup and its CSS are still server-rendered (HomePage imports the
+ * section stylesheets), so the section keeps its real size and nothing shifts.
  */
-export function LazySection({ children, className = '', id, rootMargin = '600px 0px' }: LazySectionProps) {
+export function LazySection({ children, rootMargin = '600px 0px' }: LazySectionProps) {
   const [gate] = useState(createGate);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +64,7 @@ export function LazySection({ children, className = '', id, rootMargin = '600px 
   }, [gate, rootMargin]);
 
   return (
-    <div ref={wrapperRef} id={id} className={`lazy-section ${className}`.trim()}>
+    <div ref={wrapperRef}>
       <Suspense fallback={null}>
         <Gated gate={gate}>{children}</Gated>
       </Suspense>
