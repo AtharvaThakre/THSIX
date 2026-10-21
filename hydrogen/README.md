@@ -35,8 +35,3 @@ Copy `.env.example` to `.env` for local development (`npx shopify hydrogen link`
 Shopify admin > Hydrogen > Storefront settings > Environments and variables (secrets marked
 "Secret"). Oxygen injects `PUBLIC_STOREFRONT_ID`, `PUBLIC_STOREFRONT_API_TOKEN`,
 `PRIVATE_STOREFRONT_API_TOKEN`, `PUBLIC_STORE_DOMAIN` and `SHOP_ID` for the linked storefront.
-
-## Media scripts
-
-`scripts/` holds one-off asset tools, run from this folder: `optimize-hero-video.{sh,ps1}`
-(ffmpeg).

@@ -3,8 +3,10 @@ import { useLocation } from 'react-router';
 import './Preloader.css';
 
 export const Preloader = () => {
-  const [isVisible, setIsVisible] = useState(true);
   const { pathname } = useLocation();
+  // Start hidden on non-home routes so the server HTML doesn't paint a white overlay
+  // that only disappears after hydration. The home route keeps the intro overlay.
+  const [isVisible, setIsVisible] = useState(() => pathname === '/');
 
   useEffect(() => {
     // Only show preloader on home page (/)
@@ -30,7 +32,7 @@ export const Preloader = () => {
           <picture>
             <source
               srcSet="/assets/logo-Photoroom.webp 280w, /assets/logo-Photoroom@2x.webp 560w"
-              sizes="200px"
+              sizes="(max-width: 768px) 150px, 200px"
               type="image/webp"
             />
             <img

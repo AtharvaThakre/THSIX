@@ -3,7 +3,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router';
 import type { HomeProductsQuery } from 'storefrontapi.generated';
 import ScrollVelocity from '../ScrollVelocity/ScrollVelocity';
-import { transformShopifyImageUrl } from '../../utils/shopify-image-transform';
+import { buildShopifySrcSet, transformShopifyImageUrl } from '../../utils/shopify-image-transform';
 import './ProductShowcase.css';
 
 export type ShowcaseProduct = HomeProductsQuery['products']['nodes'][number];
@@ -11,6 +11,7 @@ export type ShowcaseProduct = HomeProductsQuery['products']['nodes'][number];
 const formatMoney = (amount: string, currencyCode: string) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: currencyCode }).format(parseFloat(amount));
 
+// Card image area is 300px (250px / 220px on smaller screens) minus its padding.
 const CARD_IMAGE_WIDTHS = [220, 300, 440, 600];
 
 /**
@@ -33,9 +34,7 @@ const ProductCard = ({ product }: { product: ShowcaseProduct }) => {
           {image ? (
             <img
               src={transformShopifyImageUrl(image.url, { width: 600 })}
-              srcSet={CARD_IMAGE_WIDTHS.map(
-                (w) => `${transformShopifyImageUrl(image.url, { width: w })} ${w}w`
-              ).join(', ')}
+              srcSet={buildShopifySrcSet(image.url, CARD_IMAGE_WIDTHS)}
               sizes="(max-width: 480px) 220px, (max-width: 768px) 250px, 300px"
               alt={image.altText ?? product.title}
               width={image.width ?? 300}

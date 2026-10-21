@@ -3,7 +3,12 @@ import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
 import type { Brand } from '../types/brand';
+import { buildShopifySrcSet, transformShopifyImageUrl } from '../utils/shopify-image-transform';
 import './BrandCollectionPage.css';
+
+// Product cards: 4 columns on desktop, 3 on tablet, 2 on mobile. Widths cover 1x-2x.
+const PRODUCT_CARD_WIDTHS = [300, 450, 600, 800];
+const PRODUCT_CARD_SIZES = '(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw';
 
 export interface BrandCollection {
   id: string;
@@ -93,7 +98,7 @@ export function BrandCollectionPage({ brand, collection, products, error }: Bran
 
             {!error && products.length > 0 && (
               <div className="products-grid">
-                {products.map((product) => (
+                {products.map((product, index) => (
                   <Link
                     key={product.id}
                     className="product-card__link"
@@ -104,9 +109,14 @@ export function BrandCollectionPage({ brand, collection, products, error }: Bran
                     <div className="product-card__image-container">
                       <img
                         className="product-card__image"
-                        src={product.image || '/assets/products/adidas.png'}
+                        src={product.image ? transformShopifyImageUrl(product.image, { width: 600 }) : '/assets/products/adidas.png'}
+                        srcSet={buildShopifySrcSet(product.image, PRODUCT_CARD_WIDTHS)}
+                        sizes={PRODUCT_CARD_SIZES}
                         alt={product.title}
-                        loading="lazy"
+                        width={600}
+                        height={600}
+                        // The first row of cards is visible on load; the rest load lazily.
+                        loading={index < 4 ? 'eager' : 'lazy'}
                         decoding="async"
                       />
                     </div>

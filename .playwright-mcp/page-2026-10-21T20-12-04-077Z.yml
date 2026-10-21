@@ -1,0 +1,366 @@
+- generic [active] [ref=e1]:
+  - status "Loading page":
+    - generic:
+      - generic:
+        - generic:
+          - img "THSIX Logo"
+  - link "Contact us on WhatsApp" [ref=e2] [cursor=pointer]:
+    - /url: https://wa.me/919022771696?text=Hi%20THSIX!
+  - generic [ref=e6]:
+    - generic [ref=e7]: Premium Inspired Sneakers
+    - generic [ref=e9]: THE FIRST DROP IS HERE — ADIDAS SAMBAS
+    - generic [ref=e10]: FREE SHIPPING ON ALL ORDERS
+  - banner:
+    - link [ref=e12] [cursor=pointer]:
+      - strong [ref=e13]: THSIX
+    - navigation [ref=e14]:
+      - link "SHOP" [ref=e15] [cursor=pointer]:
+        - /url: /#shop
+      - link "BRANDS" [ref=e16] [cursor=pointer]:
+        - /url: /#brands
+      - link "ABOUT" [ref=e17] [cursor=pointer]:
+        - /url: /#about
+      - link "CONTACT US" [ref=e18] [cursor=pointer]:
+        - /url: /contactus
+    - button "Cart" [ref=e20] [cursor=pointer]
+  - main [ref=e25]:
+    - generic [ref=e26]:
+      - generic [ref=e28]:
+        - heading "The evolution begins." [level=1] [ref=e29]:
+          - paragraph [ref=e30]:
+            - generic [ref=e31]: The
+            - generic [ref=e32]: evolution
+            - generic [ref=e33]: begins.
+        - paragraph [ref=e34]: Samba was Chapter One. An expanding archive arrives next.
+        - button "SHOP SAMBAS" [ref=e35] [cursor=pointer]
+      - generic [ref=e39]: .
+      - generic [ref=e44]: 1st Drop
+    - generic [ref=e46]:
+      - generic [ref=e50]:
+        - generic [ref=e51]: 1ˢᵗ drop is now live.
+        - generic [ref=e52]: 1ˢᵗ drop is now live.
+        - generic [ref=e53]: 1ˢᵗ drop is now live.
+        - generic [ref=e54]: 1ˢᵗ drop is now live.
+        - generic [ref=e55]: 1ˢᵗ drop is now live.
+        - generic [ref=e56]: 1ˢᵗ drop is now live.
+        - generic [ref=e57]: 1ˢᵗ drop is now live.
+        - generic [ref=e58]: 1ˢᵗ drop is now live.
+      - generic [ref=e60]:
+        - generic [ref=e61]: THE STORE
+        - heading "LATEST DROPS" [level=2] [ref=e62]
+        - paragraph [ref=e63]: SNEKER. CULTURE. COMMUNITY.
+      - generic [ref=e64]:
+        - button "Scroll left" [ref=e65] [cursor=pointer]
+        - button "Scroll right" [ref=e68] [cursor=pointer]
+        - generic [ref=e72]:
+          - link [ref=e74] [cursor=pointer]:
+            - /url: /product/1011
+            - img "Samba Ivory Scarlet Earth" [ref=e76]
+            - generic [ref=e78]:
+              - heading "Samba Ivory Scarlet Earth" [level=3] [ref=e79]
+              - paragraph [ref=e80]: THSIX
+              - paragraph [ref=e81]: ₹2,999.00
+          - link [ref=e83] [cursor=pointer]:
+            - /url: /product/1012
+            - img "Samba Monochrome Granite" [ref=e85]
+            - generic [ref=e87]:
+              - heading "Samba Monochrome Granite" [level=3] [ref=e88]
+              - paragraph [ref=e89]: THSIX
+              - paragraph [ref=e90]: ₹2,799.00
+          - link [ref=e92] [cursor=pointer]:
+            - /url: /product/1013
+            - img "Samba Ivory Green Earth" [ref=e94]
+            - generic [ref=e96]:
+              - heading "Samba Ivory Green Earth" [level=3] [ref=e97]
+              - paragraph [ref=e98]: THSIX
+              - paragraph [ref=e99]: ₹2,999.00
+          - link [ref=e101] [cursor=pointer]:
+            - /url: /product/1014
+            - img "Samba Evergreen Vanilla Gum" [ref=e103]
+            - generic [ref=e105]:
+              - heading "Samba Evergreen Vanilla Gum" [level=3] [ref=e106]
+              - paragraph [ref=e107]: THSIX
+              - paragraph [ref=e108]: ₹2,999.00
+          - link [ref=e110] [cursor=pointer]:
+            - /url: /product/1015
+            - img "Samba Onyx Ivory Gum" [ref=e112]
+            - generic [ref=e114]:
+              - heading "Samba Onyx Ivory Gum" [level=3] [ref=e115]
+              - paragraph [ref=e116]: THSIX
+              - paragraph [ref=e117]: ₹2,999.00
+          - link [ref=e119] [cursor=pointer]:
+            - /url: /product/1017
+            - generic [ref=e120]:
+              - img "Samba Burgundy Champagne"
+            - generic [ref=e122]:
+              - heading "Samba Burgundy Champagne" [level=3] [ref=e123]
+              - paragraph [ref=e124]: THSIX
+              - paragraph [ref=e125]: ₹2,999.00
+          - link [ref=e127] [cursor=pointer]:
+            - /url: /product/1018
+            - generic [ref=e128]:
+              - img "Samba Cream Sand Gum"
+            - generic [ref=e130]:
+              - heading "Samba Cream Sand Gum" [level=3] [ref=e131]
+              - paragraph [ref=e132]: THSIX
+              - paragraph [ref=e133]: ₹2,999.00
+          - link [ref=e135] [cursor=pointer]:
+            - /url: /product/samba-cocoa-blush
+            - generic [ref=e136]:
+              - img "Samba Cocoa Blush"
+            - generic [ref=e138]:
+              - heading "Samba Cocoa Blush" [level=3] [ref=e139]
+              - paragraph [ref=e140]: THSIX
+              - paragraph [ref=e141]: ₹2,999.00
+          - link [ref=e143] [cursor=pointer]:
+            - /url: /product/samba-cloud-azure-gum
+            - generic [ref=e144]:
+              - img "Samba Cloud Azure Gum"
+            - generic [ref=e146]:
+              - heading "Samba Cloud Azure Gum" [level=3] [ref=e147]
+              - paragraph [ref=e148]: THSIX
+              - paragraph [ref=e149]: ₹2,999.00
+          - link [ref=e151] [cursor=pointer]:
+            - /url: /product/samba-panda-noir-gum
+            - generic [ref=e152]:
+              - img "Samba Panda Noir Gum"
+            - generic [ref=e154]:
+              - heading "Samba Panda Noir Gum" [level=3] [ref=e155]
+              - paragraph [ref=e156]: THSIX
+              - paragraph [ref=e157]: ₹2,999.00
+          - link [ref=e159] [cursor=pointer]:
+            - /url: /product/samba-rose-quartz-gum
+            - generic [ref=e160]:
+              - img "Samba Rose Quartz Gum"
+            - generic [ref=e162]:
+              - heading "Samba Rose Quartz Gum" [level=3] [ref=e163]
+              - paragraph [ref=e164]: THSIX
+              - paragraph [ref=e165]: ₹2,999.00
+          - link [ref=e167] [cursor=pointer]:
+            - /url: /product/samba-sage-mist-gum
+            - generic [ref=e168]:
+              - img "Samba Sage Mist Gum"
+            - generic [ref=e170]:
+              - heading "Samba Sage Mist Gum" [level=3] [ref=e171]
+              - paragraph [ref=e172]: THSIX
+              - paragraph [ref=e173]: ₹2,999.00
+          - link [ref=e175] [cursor=pointer]:
+            - /url: /product/samba-mocha-chalk-gum
+            - generic [ref=e176]:
+              - img "Samba Mocha Chalk Gum"
+            - generic [ref=e178]:
+              - heading "Samba Mocha Chalk Gum" [level=3] [ref=e179]
+              - paragraph [ref=e180]: THSIX
+              - paragraph [ref=e181]: ₹2,999.00
+          - link [ref=e183] [cursor=pointer]:
+            - /url: /product/samba-vanilla-blush-sand
+            - generic [ref=e184]:
+              - img "Samba Vanilla Blush Sand"
+            - generic [ref=e186]:
+              - heading "Samba Vanilla Blush Sand" [level=3] [ref=e187]
+              - paragraph [ref=e188]: THSIX
+              - paragraph [ref=e189]: ₹2,999.00
+          - link [ref=e191] [cursor=pointer]:
+            - /url: /product/samba-chrome-lace-noir
+            - generic [ref=e192]:
+              - img "Samba Chrome Lace Noir"
+            - generic [ref=e194]:
+              - heading "Samba Chrome Lace Noir" [level=3] [ref=e195]
+              - paragraph [ref=e196]: THSIX
+              - paragraph [ref=e197]: ₹3,899.00
+          - link [ref=e199] [cursor=pointer]:
+            - /url: /product/samba-ivory-crochet-gum
+            - generic [ref=e200]:
+              - img "Samba Ivory Crochet Gum"
+            - generic [ref=e202]:
+              - heading "Samba Ivory Crochet Gum" [level=3] [ref=e203]
+              - paragraph [ref=e204]: THSIX
+              - paragraph [ref=e205]: ₹2,999.00
+          - link [ref=e207] [cursor=pointer]:
+            - /url: /product/samba-midnight-butter-gum
+            - generic [ref=e208]:
+              - img "Samba Midnight Butter Gum"
+            - generic [ref=e210]:
+              - heading "Samba Midnight Butter Gum" [level=3] [ref=e211]
+              - paragraph [ref=e212]: THSIX
+              - paragraph [ref=e213]: ₹2,999.00
+    - generic [ref=e214]:
+      - img "THSIX Philosophy" [ref=e215]
+      - generic [ref=e216]:
+        - generic [ref=e217]: THSIX VISION
+        - heading "THSIX THE SIXTH ELEMENT." [level=2] [ref=e218]:
+          - generic [ref=e219]: THSIX
+          - generic [ref=e220]: THE
+          - generic [ref=e221]: SIXTH ELEMENT.
+        - paragraph [ref=e222]: thsix = “the sixth” – the extra element that completes a sneaker.we position ourselves as an affordable way to wear hyped dropesBecause looking premium should feel good without hurting your Wallet
+    - generic [ref=e223]:
+      - generic [ref=e225]:
+        - heading "MORE BRANDS. A BIGGER TOMORROW." [level=2] [ref=e226]
+        - paragraph [ref=e227]: SAMBA IS JUST THE BEGINNING.
+      - generic [ref=e228]:
+        - button "Scroll left" [ref=e229] [cursor=pointer]
+        - button "Scroll right" [ref=e232] [cursor=pointer]
+        - generic [ref=e236]:
+          - link [ref=e237] [cursor=pointer]:
+            - generic [ref=e238]:
+              - generic:
+                - img "Adidas product"
+            - button "See all Adidas products" [ref=e241]:
+              - generic [ref=e242]: See All
+          - link [disabled] [ref=e245]:
+            - generic [ref=e246]:
+              - generic:
+                - img "Nike product"
+          - link [disabled] [ref=e252]:
+            - generic [ref=e253]:
+              - generic:
+                - img "New Balance product"
+          - link [disabled] [ref=e259]:
+            - generic [ref=e260]:
+              - generic:
+                - img "Puma product"
+          - link [disabled] [ref=e266]:
+            - generic [ref=e267]:
+              - generic:
+                - img "ASICS product"
+          - link [disabled] [ref=e273]:
+            - generic [ref=e274]:
+              - generic:
+                - img "Converse product"
+    - generic [ref=e280]:
+      - img "Next Drop Sneaker" [ref=e283]
+      - generic [ref=e284]:
+        - generic [ref=e285]: NEXT DROP
+        - heading "WHAT’S NEXT?" [level=2] [ref=e286]
+        - generic [ref=e287]: 02 / ???
+        - paragraph [ref=e288]: You'll know soon.
+      - generic [ref=e289]:
+        - generic [ref=e290]: Bigger
+        - generic [ref=e291]: Drops
+        - generic [ref=e292]: Ahead.
+    - generic [ref=e294]:
+      - generic [ref=e296]:
+        - heading "The Styling Guide" [level=2] [ref=e297]
+        - paragraph [ref=e298]: Wear it your way
+      - list "Image accordion gallery" [ref=e299]:
+        - listitem "CITY MOVES" [ref=e300] [cursor=pointer]:
+          - img "City Moves THSIX lookbook" [ref=e304]
+          - generic [aria-hidden]:
+            - generic: CITY MOVES
+        - listitem "EVERYDAY ESSENTIALS" [ref=e305] [cursor=pointer]:
+          - img "Everyday Essentials THSIX lookbook" [ref=e309]
+          - generic [aria-hidden]:
+            - generic: EVERYDAY ESSENTIALS
+        - listitem "CLEAN & CLASSIC" [ref=e310] [cursor=pointer]:
+          - img "Clean & Classic THSIX lookbook" [ref=e314]
+          - generic [aria-hidden]:
+            - generic: CLEAN & CLASSIC
+        - listitem [ref=e315] [cursor=pointer]:
+          - img "Style Beyond Basics THSIX lookbook" [ref=e319]
+    - generic [ref=e321]:
+      - generic [ref=e322]:
+        - heading "WHY THSIX?" [level=2] [ref=e323]
+        - paragraph [ref=e324]: A BETTER SNEAKER SHOPPING EXPERIENCE.
+      - generic [ref=e325]:
+        - generic [ref=e326]:
+          - heading "THSIX Verified" [level=3] [ref=e331]
+          - paragraph [ref=e332]: Every product is sourced and verified.
+        - generic [ref=e333]:
+          - heading "PAN-INDIA DELIVERY" [level=3] [ref=e340]
+          - paragraph [ref=e341]: Fast and reliable shipping across India.
+        - generic [ref=e342]:
+          - heading "EASY RETURNS" [level=3] [ref=e349]
+          - paragraph [ref=e350]: Hassle free and transparent returns.
+        - generic [ref=e351]:
+          - heading "SECURE PAYMENTS" [level=3] [ref=e355]
+          - paragraph [ref=e356]: Multiple safe payment options.
+    - region "Newsletter signup" [ref=e357]:
+      - generic [ref=e360]:
+        - generic [ref=e361]:
+          - heading "THE NEXT RELEASE, RESERVED." [level=2] [ref=e362]
+          - paragraph [ref=e363]: New archives open without notice. Secure early entry before general availability.
+          - generic [ref=e365]:
+            - generic [ref=e366]: Email address
+            - textbox "Email address" [ref=e367]:
+              - /placeholder: Enter your email
+            - button "Subscribe" [ref=e368] [cursor=pointer]
+        - generic [aria-hidden] [ref=e371]:
+          - generic [ref=e372]: SAME
+          - generic [ref=e373]: PASSION.
+          - generic [ref=e374]: A BIGGER
+          - generic [ref=e375]: TOMORROW.
+    - generic [ref=e377]:
+      - generic [ref=e378]:
+        - generic [ref=e379]:
+          - heading "THE FEED." [level=2] [ref=e380]
+          - paragraph [ref=e381]: The aesthetic in motion.
+        - link "Visit THSIX on Instagram" [ref=e382] [cursor=pointer]:
+          - /url: https://www.instagram.com/thsix.official/
+      - generic [ref=e385]:
+        - button "Previous reel" [ref=e386] [cursor=pointer]
+        - button "Unmute video" [ref=e395] [cursor=pointer]
+        - button "Next reel" [ref=e404] [cursor=pointer]
+  - contentinfo [ref=e407]:
+    - heading "THSIX" [level=1] [ref=e410]
+    - generic [ref=e411]:
+      - separator [ref=e412]
+      - navigation "Footer navigation" [ref=e414]:
+        - generic [ref=e415]:
+          - heading "SHOP" [level=3] [ref=e416]
+          - list [ref=e417]:
+            - listitem [ref=e418]:
+              - link "New Drops" [ref=e419] [cursor=pointer]:
+                - /url: /#shop
+            - listitem [ref=e420]:
+              - link "Best sellers" [ref=e421] [cursor=pointer]:
+                - /url: /#shop
+            - listitem [ref=e422]:
+              - link "Brands" [ref=e423] [cursor=pointer]:
+                - /url: /#brands
+            - listitem [ref=e424]:
+              - link "All products" [ref=e425] [cursor=pointer]:
+                - /url: /brands/adidas
+        - generic [ref=e426]:
+          - heading "HELP" [level=3] [ref=e427]
+          - list [ref=e428]:
+            - listitem [ref=e429]:
+              - link "Track Order" [ref=e430] [cursor=pointer]:
+                - /url: https://www.shiprocket.in/shipment-tracking/
+            - listitem [ref=e431]:
+              - link "Contact US" [ref=e432] [cursor=pointer]:
+                - /url: /contactus
+            - listitem [ref=e433]:
+              - link "About us" [ref=e434] [cursor=pointer]:
+                - /url: /about
+        - generic [ref=e435]:
+          - heading "POLICIES" [level=3] [ref=e436]
+          - list [ref=e437]:
+            - listitem [ref=e438]:
+              - link "Shipping Policy" [ref=e439] [cursor=pointer]:
+                - /url: /shipping
+            - listitem [ref=e440]:
+              - link "Return & Refund Policy" [ref=e441] [cursor=pointer]:
+                - /url: /returns
+            - listitem [ref=e442]:
+              - link "Privacy Policy" [ref=e443] [cursor=pointer]:
+                - /url: /privacy
+            - listitem [ref=e444]:
+              - link "Terms and Conditions" [ref=e445] [cursor=pointer]:
+                - /url: /terms
+        - generic [ref=e446]:
+          - heading "FOLLOW US" [level=3] [ref=e447]
+          - generic [ref=e448]:
+            - link "Instagram" [ref=e449] [cursor=pointer]:
+              - /url: https://www.instagram.com/thsix.official?stkn=MnUwaHFhczJ4aTN6
+            - link "Facebook" [ref=e454] [cursor=pointer]:
+              - /url: https://www.facebook.com/share/1CgrQSppfH/
+            - link "Pinterest" [ref=e457] [cursor=pointer]:
+              - /url: https://pin.it/2LqbE5RsJ
+      - generic [ref=e461]:
+        - paragraph
+        - generic [ref=e462]:
+          - link "Terms" [ref=e463] [cursor=pointer]:
+            - /url: /terms
+          - link "Privacy" [ref=e464] [cursor=pointer]:
+            - /url: /privacy
+          - generic [ref=e465]: Made for a bigger tomorrow.

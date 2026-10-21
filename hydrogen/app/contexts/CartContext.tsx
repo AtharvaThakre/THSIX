@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { trackAddToCart, trackCustomEvent } from '../utils/metaPixel';
 import { trackGA4AddToCart } from '../utils/ga4';
+import { warmUpPickrrScript } from '../utils/pickrr-loader';
 
 export interface CartItem {
   id: string;
@@ -198,6 +199,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   const addItem = (item: Omit<CartItem, 'quantity'>) => {
     dispatch({ type: 'ADD_ITEM', payload: item });
+    // Adding to the cart is checkout intent: start loading Shiprocket in the background
+    warmUpPickrrScript();
     trackAddToCart({
       content_name: item.title,
       content_ids: [item.variantId || item.id],

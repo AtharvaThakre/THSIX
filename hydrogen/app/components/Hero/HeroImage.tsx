@@ -1,103 +1,131 @@
 import { useEffect, useRef, useState } from 'react';
 
+const VIDEO_DESKTOP_SRC = '/assets/hero-desktop.mp4';
+const VIDEO_MOBILE_SRC = '/assets/hero-mobile.mp4';
+const MOBILE_QUERY = '(max-width: 767px)';
+
+type NetworkInformation = { saveData?: boolean; effectiveType?: string };
+
+// The poster is always rendered in the SSR HTML and stays mounted underneath the
+// video. The video is only fetched when the user and connection allow it.
+const canUseVideo = () => {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  const connection = (navigator as Navigator & { connection?: NetworkInformation }).connection;
+  if (connection?.saveData) return false;
+  if (/(^|-)[23]g$/.test(connection?.effectiveType ?? '')) return false;
+  return true;
+};
+
 export const HeroImage = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
+  // Start the video only after: window load -> browser idle -> hero visible.
   useEffect(() => {
-    // Defer video loading until critical content is painted
-    // Check if user prefers reduced motion
-    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    
-    if (prefersReducedMotion) {
-      // Don't load video for users who prefer reduced motion
-      return;
-    }
+    if (!canUseVideo()) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    // The video is ~15 MB: keep the poster for Data Saver users and 2G connections
-    const connection = (navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }).connection;
-    if (connection?.saveData || /(^|-)2g$/.test(connection?.effectiveType ?? '')) {
-      return;
-    }
+    let isIdle = false;
+    let isVisible = !('IntersectionObserver' in window);
+    let hasStarted = false;
+    let cancelIdle = () => {};
 
-    // Use requestIdleCallback to load video during idle time
-    const loadVideo = () => {
-      setShouldLoadVideo(true);
+    const start = () => {
+      if (hasStarted || !isIdle || !isVisible) return;
+      hasStarted = true;
+      setVideoSrc(window.matchMedia(MOBILE_QUERY).matches ? VIDEO_MOBILE_SRC : VIDEO_DESKTOP_SRC);
     };
 
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(loadVideo, { timeout: 2000 });
+    const scheduleIdle = () => {
+      if ('requestIdleCallback' in window) {
+        const id = window.requestIdleCallback(
+          () => {
+            isIdle = true;
+            start();
+          },
+          { timeout: 2000 },
+        );
+        cancelIdle = () => window.cancelIdleCallback(id);
+      } else {
+        const id = setTimeout(() => {
+          isIdle = true;
+          start();
+        }, 1000);
+        cancelIdle = () => clearTimeout(id);
+      }
+    };
+
+    const onLoad = () => scheduleIdle();
+    if (document.readyState === 'complete') {
+      scheduleIdle();
     } else {
-      // Fallback for browsers without requestIdleCallback
-      setTimeout(loadVideo, 1000);
+      window.addEventListener('load', onLoad, { once: true });
     }
+
+    let observer: IntersectionObserver | undefined;
+    if ('IntersectionObserver' in window) {
+      observer = new IntersectionObserver(([entry]) => {
+        isVisible = entry.isIntersecting;
+        start();
+      });
+      observer.observe(container);
+    }
+
+    return () => {
+      window.removeEventListener('load', onLoad);
+      cancelIdle();
+      observer?.disconnect();
+    };
   }, []);
 
+  // Pause the video while the hero is off screen, resume when it returns.
   useEffect(() => {
-    if (!shouldLoadVideo) return;
-    
     const video = videoRef.current;
-    if (!video) return;
+    const container = containerRef.current;
+    if (!video || !container) return;
+    if (!('IntersectionObserver' in window)) return;
 
-    const handleCanPlay = () => {
-      setIsLoaded(true);
-      video.play().catch(() => {
-        // Silently handle autoplay restrictions
-      });
-    };
-
-    video.addEventListener('canplay', handleCanPlay);
-    
-    return () => {
-      video.removeEventListener('canplay', handleCanPlay);
-    };
-  }, [shouldLoadVideo]);
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        video.play().catch(() => {
+          // Autoplay can be refused (e.g. low power mode); the poster stays visible.
+        });
+      } else {
+        video.pause();
+      }
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [videoSrc]);
 
   return (
-    <div className="hero-image">
-      {/* Fallback poster image - shown until video loads */}
-      {!isLoaded && (
-        <picture>
-          <source
-            srcSet="/assets/hero-shoes-desktop.webp"
-            type="image/webp"
-            media="(min-width: 768px)"
-          />
-          <source
-            srcSet="/assets/hero-shoes-mobile.webp"
-            type="image/webp"
-            media="(max-width: 767px)"
-          />
-          <source
-            srcSet="/assets/hero-shoes-fallback.jpg"
-            type="image/jpeg"
-          />
-          <img
-            src="/assets/hero-shoes-fallback.jpg"
-            alt="Hero"
-            loading="eager"
-            fetchPriority="high"
-            width="1920"
-            height="1080"
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover'
-            }}
-          />
-        </picture>
-      )}
-      
-      {/* Video - loads during idle time */}
-      {shouldLoadVideo && (
+    <div className="hero-image" ref={containerRef}>
+      {/* Poster: part of the SSR HTML, so the LCP image needs no JS to be discovered. */}
+      <picture>
+        <source srcSet="/assets/hero-shoes-desktop.avif" type="image/avif" media="(min-width: 768px)" />
+        <source srcSet="/assets/hero-shoes-desktop.webp" type="image/webp" media="(min-width: 768px)" />
+        <source srcSet="/assets/hero-shoes-mobile.avif" type="image/avif" media="(max-width: 767px)" />
+        <source srcSet="/assets/hero-shoes-mobile.webp" type="image/webp" media="(max-width: 767px)" />
+        <source srcSet="/assets/hero-shoes-fallback.jpg" type="image/jpeg" />
+        <img
+          className="hero-poster"
+          src="/assets/hero-shoes-fallback.jpg"
+          alt="Hero"
+          loading="eager"
+          fetchPriority="high"
+          width={1785}
+          height={881}
+        />
+      </picture>
+
+      {videoSrc && (
         <video
           ref={videoRef}
+          className={isVideoReady ? 'is-ready' : undefined}
+          src={videoSrc}
           loop
           muted
           autoPlay
@@ -106,24 +134,11 @@ export const HeroImage = () => {
           controls={false}
           disablePictureInPicture
           disableRemotePlayback
-          poster="/assets/hero-shoes-desktop.webp"
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            opacity: isLoaded ? 1 : 0,
-            transition: 'opacity 0.5s ease-in-out',
-            pointerEvents: 'none'
-          }}
+          aria-hidden="true"
+          onCanPlay={() => setIsVideoReady(true)}
           onContextMenu={(e) => e.preventDefault()}
-        >
-          <source src="/assets/herovideo.mp4" type="video/mp4" />
-        </video>
+        />
       )}
     </div>
   );
 };
-

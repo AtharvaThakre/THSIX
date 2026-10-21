@@ -1,31 +1,16 @@
-import { useRef, useLayoutEffect, useState } from 'react';
+import { useRef, useLayoutEffect, useEffect } from 'react';
 import {
   motion,
   useScroll,
   useSpring,
   useTransform,
   useMotionValue,
-  useVelocity,
-  useAnimationFrame
+  useVelocity
 } from 'motion/react';
 import './ScrollVelocity.css';
 
-function useElementWidth(ref: React.RefObject<HTMLElement>) {
-  const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    function updateWidth() {
-      if (ref.current) {
-        setWidth(ref.current.offsetWidth);
-      }
-    }
-
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, [ref]);
-
-  return width;
-}
+// Longest frame step used for movement; a long gap (tab switch, long task) is clamped
+const MAX_FRAME_MS = 40;
 
 interface VelocityTextProps {
   children: React.ReactNode;
@@ -56,6 +41,7 @@ const VelocityText = ({
   parallaxStyle,
   scrollerStyle
 }: VelocityTextProps) => {
+  const rootRef = useRef<HTMLDivElement>(null);
   const baseX = useMotionValue(0);
   const scrollOptions = scrollContainerRef ? { container: scrollContainerRef } : {};
   const { scrollY } = useScroll(scrollOptions);
@@ -72,8 +58,20 @@ const VelocityText = ({
     { clamp: false }
   );
 
+  // Copy width lives in a ref (not state) so resizing never re-renders the marquee
   const copyRef = useRef<HTMLSpanElement>(null);
-  const copyWidth = useElementWidth(copyRef as React.RefObject<HTMLElement>);
+  const copyWidthRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const copy = copyRef.current;
+    if (!copy) return;
+    // The observer fires once on observe, so this is the initial measurement too
+    const observer = new ResizeObserver(() => {
+      copyWidthRef.current = copy.offsetWidth;
+    });
+    observer.observe(copy);
+    return () => observer.disconnect();
+  }, []);
 
   function wrap(min: number, max: number, v: number) {
     const range = max - min;
@@ -82,23 +80,68 @@ const VelocityText = ({
   }
 
   const x = useTransform(baseX, v => {
-    if (copyWidth === 0) return '0px';
-    return `${wrap(-copyWidth, 0, v)}px`;
+    const width = copyWidthRef.current;
+    if (width === 0) return '0px';
+    return `${wrap(-width, 0, v)}px`;
   });
 
   const directionFactor = useRef(1);
 
-  useAnimationFrame((_t, delta) => {
-    let moveBy = directionFactor.current * baseVelocity * (delta / 1000);
-    if (velocityFactor.get() < 0) {
-      directionFactor.current = -1;
-    } else if (velocityFactor.get() > 0) {
-      directionFactor.current = 1;
-    }
+  // The marquee only animates while it is on screen, the tab is visible and the
+  // user has not asked for reduced motion. Otherwise no frames are requested.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    moveBy += directionFactor.current * moveBy * velocityFactor.get();
-    baseX.set(baseX.get() + moveBy);
-  });
+    let frameId = 0;
+    let lastTime: number | null = null;
+    let onScreen = false;
+
+    const tick = (time: number) => {
+      const delta = lastTime === null ? 16 : Math.min(time - lastTime, MAX_FRAME_MS);
+      lastTime = time;
+
+      const factor = velocityFactor.get();
+      let moveBy = directionFactor.current * baseVelocity * (delta / 1000);
+      if (factor < 0) {
+        directionFactor.current = -1;
+      } else if (factor > 0) {
+        directionFactor.current = 1;
+      }
+
+      moveBy += directionFactor.current * moveBy * factor;
+      baseX.set(baseX.get() + moveBy);
+      frameId = requestAnimationFrame(tick);
+    };
+
+    const update = () => {
+      const shouldRun = onScreen && document.visibilityState === 'visible';
+      if (shouldRun && !frameId) {
+        lastTime = null;
+        frameId = requestAnimationFrame(tick);
+      } else if (!shouldRun && frameId) {
+        cancelAnimationFrame(frameId);
+        frameId = 0;
+      }
+    };
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        onScreen = entry.isIntersecting;
+        update();
+      },
+      { rootMargin: '200px 0px' }
+    );
+    observer.observe(root);
+    document.addEventListener('visibilitychange', update);
+
+    return () => {
+      observer.disconnect();
+      document.removeEventListener('visibilitychange', update);
+      cancelAnimationFrame(frameId);
+    };
+  }, [baseVelocity, baseX, velocityFactor]);
 
   const spans = [];
   for (let i = 0; i < numCopies; i++) {
@@ -110,7 +153,7 @@ const VelocityText = ({
   }
 
   return (
-    <div className={parallaxClassName} style={parallaxStyle}>
+    <div ref={rootRef} className={parallaxClassName} style={parallaxStyle}>
       <motion.div className={scrollerClassName} style={{ x, ...scrollerStyle }}>
         {spans}
       </motion.div>

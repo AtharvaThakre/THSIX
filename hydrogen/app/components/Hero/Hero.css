@@ -17,11 +17,30 @@
   z-index: 1;
 }
 
+.hero-poster {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .hero-image video {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   object-position: center center;
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+  pointer-events: none;
+}
+
+.hero-image video.is-ready {
+  opacity: 1;
 }
 
 /* Hide all video controls for clean hero experience */
@@ -72,6 +91,48 @@
 /* Firefox */
 .hero-image video::-moz-media-controls {
   display: none !important;
+}
+
+/* Intro: opacity-only fades on load (no JS, no flash). Timings match the former GSAP timeline. */
+@keyframes hero-intro-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-eyebrow {
+  animation: hero-intro-fade 0.6s cubic-bezier(0.33, 1, 0.68, 1) 0.2s both;
+}
+
+.hero-description {
+  animation: hero-intro-fade 0.6s cubic-bezier(0.33, 1, 0.68, 1) 0.6s both;
+}
+
+.hero-cta {
+  animation: hero-intro-fade 0.6s cubic-bezier(0.33, 1, 0.68, 1) 0.7s both;
+}
+
+.hero-tags {
+  animation: hero-intro-fade 0.8s cubic-bezier(0.5, 1, 0.89, 1) 0.8s both;
+}
+
+.hero-meta,
+.hero-decoration {
+  animation: hero-intro-fade 1s cubic-bezier(0.5, 1, 0.89, 1) 0.9s both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-eyebrow,
+  .hero-description,
+  .hero-cta,
+  .hero-tags,
+  .hero-meta,
+  .hero-decoration {
+    animation: none;
+  }
 }
 
 .hero-content {

@@ -1,45 +1,50 @@
 export interface LookbookItem {
   id: string;
   title: string;
-  image: string;
   alt: string;
-  webp?: string;
-  webp2x?: string;
-  fallback?: string;
+  /**
+   * Asset stem under /assets/lookbook/. Files are
+   * `<slug>-desk[@2x].{webp,avif}` (7:4 crop, shown on wider screens) and
+   * `<slug>-mobile[@2x].{webp,avif}` (3:4 crop, shown at 640px and below).
+   */
+  slug: string;
+  /** Pixel widths of the 1x and optional 2x desktop candidates. */
+  desktopWidths: number[];
+  /** Pixel widths of the 1x and optional 2x mobile candidates. */
+  mobileWidths: number[];
 }
 
 export const lookbookItems: LookbookItem[] = [
   {
     id: '01',
     title: 'CITY MOVES',
-    image: '/assets/lookbook/city-moves.jpg?v=2',
-    webp: '/assets/lookbook/city-moves.webp',
-    webp2x: '/assets/lookbook/city-moves@2x.webp',
     alt: 'City Moves THSIX lookbook',
+    slug: 'city-moves',
+    desktopWidths: [850, 1254],
+    mobileWidths: [360, 720],
   },
   {
     id: '02',
     title: 'EVERYDAY ESSENTIALS',
-    image: '/assets/lookbook/everyday-essentials.jpg?v=2',
-    webp: '/assets/lookbook/everyday-essentials.webp',
-    webp2x: '/assets/lookbook/everyday-essentials@2x.webp',
     alt: 'Everyday Essentials THSIX lookbook',
+    slug: 'everyday-essentials',
+    desktopWidths: [850, 1254],
+    mobileWidths: [360, 720],
   },
   {
     id: '03',
     title: 'CLEAN & CLASSIC',
-    image: '/assets/lookbook/clean-and-classic.jpg?v=3',
-    webp: '/assets/lookbook/clean-and-classic.webp?v=3',
-    webp2x: '/assets/lookbook/clean-and-classic@2x.webp?v=3',
-    fallback: '/assets/lookbook/clean-and-classic-fallback.jpg?v=3',
     alt: 'Clean & Classic THSIX lookbook',
+    slug: 'clean-and-classic',
+    desktopWidths: [850, 1700],
+    mobileWidths: [360, 720],
   },
   {
     id: '04',
     title: ' ',
-    image: '/assets/lookbook/style-beyond-basics.jpg?v=2',
-    webp: '/assets/lookbook/style-beyond-basics.webp',
-    webp2x: '/assets/lookbook/style-beyond-basics@2x.webp',
     alt: 'Style Beyond Basics THSIX lookbook',
+    slug: 'style-beyond-basics',
+    desktopWidths: [736],
+    mobileWidths: [360, 690],
   },
 ];

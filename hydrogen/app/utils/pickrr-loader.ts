@@ -1,6 +1,10 @@
-// Load the Shiprocket checkout script exactly once (production URL from Shiprocket's Custom channel docs).
-// index.html already includes it, so this normally just waits for that copy.
-// Injecting a second copy registers every listener twice and breaks the checkout modal.
+// On-demand loader for Shiprocket's Custom-channel checkout (window.HeadlessCheckout).
+// Nothing loads on page view: the script and its stylesheet are injected only when the shopper
+// shows checkout intent (cart opens, an item is added, checkout is hovered or focused) or, as a
+// fallback, when Checkout / Buy Now is clicked. The script loads its own fastrr iframe and chunks,
+// so keeping it off the homepage keeps that JS out of the initial page load.
+// Injecting a second copy registers every listener twice and breaks the checkout modal, so the
+// script is inserted at most once per page (a failed load is removed so a retry can insert it again).
 const SCRIPT_SRC = 'https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js';
 const STYLE_HREF = 'https://checkout-ui.shiprocket.com/assets/styles/shopify.css';
 const SELLER_DOMAIN = 'thsix.com';
@@ -14,7 +18,8 @@ export const loadPickrrScript = (): Promise<void> => {
   if (loadPromise) return loadPromise;
 
   loadPromise = new Promise<void>((resolve, reject) => {
-    // Shiprocket identifies the merchant by this input's value
+    // Shiprocket identifies the merchant by this input's value. root.tsx renders it in SSR;
+    // this is only a fallback in case it is missing.
     if (!document.getElementById('sellerDomain')) {
       const sellerDomainInput = document.createElement('input');
       sellerDomainInput.type = 'hidden';
@@ -23,6 +28,7 @@ export const loadPickrrScript = (): Promise<void> => {
       document.body.appendChild(sellerDomainInput);
     }
 
+    // Stylesheet goes in with the script, not in the document head at page load
     if (!document.querySelector(`link[href="${STYLE_HREF}"]`)) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -38,8 +44,8 @@ export const loadPickrrScript = (): Promise<void> => {
       document.head.appendChild(script);
     }
 
-    // The script may already have executed (tag from index.html), so poll for the global
-    // rather than relying solely on the load event.
+    // The script may already have executed, so poll for the global rather than relying
+    // solely on the load event.
     const started = Date.now();
     const timer = setInterval(() => {
       if (isReady()) {
@@ -54,10 +60,21 @@ export const loadPickrrScript = (): Promise<void> => {
 
     script.addEventListener('error', () => {
       clearInterval(timer);
+      // Remove the failed tag so the next attempt inserts a fresh one instead of waiting on a dead element
+      script?.remove();
       loadPromise = null;
       reject(new Error('Failed to load Shiprocket checkout script'));
     });
   });
 
   return loadPromise;
+};
+
+/**
+ * Start loading the checkout script in the background when the shopper shows intent.
+ * Never throws or rejects: a failed warm-up is retried by the Checkout click itself.
+ */
+export const warmUpPickrrScript = (): void => {
+  if (isReady() || loadPromise) return;
+  loadPickrrScript().catch(() => {});
 };

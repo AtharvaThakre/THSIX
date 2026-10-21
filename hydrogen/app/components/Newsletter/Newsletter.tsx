@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import { newsletterContent } from '../../data/newsletter';
 import { trackLead, trackCustomEvent } from '../../utils/metaPixel';
+import { syncScrollTrigger } from '../../hooks/smoothScroll';
 import './Newsletter.css';
 
 type FormState = 'idle' | 'submitting' | 'success' | 'error';
@@ -13,6 +14,7 @@ export const Newsletter = () => {
   const sectionRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const decorRef = useRef<HTMLDivElement>(null);
+  const submitTimerRef = useRef(0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,58 +23,55 @@ export const Newsletter = () => {
     trackLead({ content_name: 'Newsletter Signup', email_entered: true });
     trackCustomEvent('NewsletterSignup', { email_entered: true });
     // Simulate async — wire up to email provider later
-    setTimeout(() => {
+    submitTimerRef.current = window.setTimeout(() => {
       setFormState('success');
     }, 800);
   };
 
   useEffect(() => {
-    const prefersReducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches;
-    if (prefersReducedMotion) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-    let cleanup: (() => void) | undefined;
+    const section = sectionRef.current;
+    if (!section) return;
 
-    const initGsap = async () => {
-      const { gsap } = await import('gsap');
-      const { ScrollTrigger } = await import('gsap/ScrollTrigger');
+    let disposed = false;
+    let ctx: { revert: () => void } | undefined;
+    let unsyncScroll: (() => void) | undefined;
+
+    void (async () => {
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([import('gsap'), import('gsap/ScrollTrigger')]);
+      if (disposed) return;
       gsap.registerPlugin(ScrollTrigger);
+      unsyncScroll = syncScrollTrigger(ScrollTrigger);
 
-      const section = sectionRef.current;
-      if (!section) return;
-
-      const animTrigger = gsap.fromTo(
-        [contentRef.current, decorRef.current],
-        { opacity: 0, y: 24 },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.85,
-          stagger: 0.15,
-          ease: 'power3.out',
-          scrollTrigger: {
-            trigger: section,
-            start: 'top 85%',
-            once: true,
-          },
-        }
-      );
-
-      return () => {
-        animTrigger?.scrollTrigger?.kill();
-        animTrigger?.kill();
-      };
-    };
-
-    void initGsap().then(cleanupFn => {
-      cleanup = cleanupFn;
-    });
+      ctx = gsap.context(() => {
+        gsap.fromTo(
+          [contentRef.current, decorRef.current],
+          { opacity: 0, y: 24 },
+          {
+            opacity: 1,
+            y: 0,
+            duration: 0.85,
+            stagger: 0.15,
+            ease: 'power3.out',
+            scrollTrigger: {
+              trigger: section,
+              start: 'top 85%',
+              once: true,
+            },
+          }
+        );
+      }, section);
+    })();
 
     return () => {
-      cleanup?.();
+      disposed = true;
+      ctx?.revert();
+      unsyncScroll?.();
     };
   }, []);
+
+  useEffect(() => () => window.clearTimeout(submitTimerRef.current), []);
 
   return (
     <section className="newsletter" ref={sectionRef} aria-label="Newsletter signup">

@@ -6,24 +6,20 @@ export const NextDrop = () => {
     <section className="next-drop">
       <div className="next-drop__media">
         <picture>
+          {/* Full-bleed background: the image always spans the section's full width. */}
           <source
             srcSet="/assets/group-121.webp 800w, /assets/group-121@2x.webp 1600w"
             type="image/webp"
-            sizes="(max-width: 768px) 100vw, 50vw"
+            sizes="100vw"
           />
-          <source
-            srcSet="/assets/group-121-fallback.jpg 800w"
-            type="image/jpeg"
-            sizes="(max-width: 768px) 100vw, 50vw"
-          />
-          <img 
+          <img
             src="/assets/group-121-fallback.jpg"
-            alt="Next Drop Sneaker" 
-            className="next-drop__image" 
+            alt="Next Drop Sneaker"
+            className="next-drop__image"
             loading="lazy"
             decoding="async"
             width="800"
-            height="800"
+            height="267"
           />
         </picture>
       </div>

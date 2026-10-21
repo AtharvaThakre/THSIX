@@ -24,10 +24,10 @@ import globalStyles from './styles/globals.css?url';
 export type RootLoader = typeof loader;
 
 const META_PIXEL_ID_DEFAULT = '1294973553696322';
+// Only the weights the CSS uses: Inter 700/800/900 (400-700 text renders with the 700 face) and
+// Caveat 600 (the decorative 400-weight text renders with the 600 face). Changing these changes the look.
 const FONTS_HREF =
-  'https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Caveat:wght@600;700&display=swap';
-const SHIPROCKET_CSS = 'https://checkout-ui.shiprocket.com/assets/styles/shopify.css';
-const SHIPROCKET_JS = 'https://checkout-ui.shiprocket.com/assets/js/channels/shopify.js';
+  'https://fonts.googleapis.com/css2?family=Inter:wght@700;800;900&family=Caveat:wght@600&display=swap';
 
 /**
  * The root loader data (public env, analytics shop) never changes between navigations,
@@ -58,15 +58,15 @@ export function links() {
     {
       rel: 'preload',
       as: 'image',
-      type: 'image/webp',
-      href: '/assets/hero-shoes-mobile.webp',
+      type: 'image/avif',
+      href: '/assets/hero-shoes-mobile.avif',
       media: '(max-width: 767px)',
     },
     {
       rel: 'preload',
       as: 'image',
-      type: 'image/webp',
-      href: '/assets/hero-shoes-desktop.webp',
+      type: 'image/avif',
+      href: '/assets/hero-shoes-desktop.avif',
       media: '(min-width: 768px)',
     },
   ];
@@ -120,52 +120,45 @@ export async function loader({context}: Route.LoaderArgs) {
 }
 
 /**
- * Meta Pixel base code. Fires the first PageView exactly like the legacy index.html did;
- * later navigations are tracked in <ScrollToTop>.
+ * Meta Pixel. The fbq stub and queue are inline here, so init and the first PageView are
+ * queued at once and fbevents.js processes them when it arrives. fbevents.js itself is injected
+ * only after the window load event and an idle period (or the first user interaction, or an 8s
+ * cap if load is held up). Later navigations are tracked in <ScrollToTop>.
  */
-const metaPixelScript = (pixelId: string) => `!function (f, b, e, v, n, t, s) {
-  if (f.fbq) return; n = f.fbq = function () {
+const metaPixelScript = (pixelId: string) => `!function (f, b) {
+  if (f.fbq) return; var n = f.fbq = function () {
     n.callMethod ?
       n.callMethod.apply(n, arguments) : n.queue.push(arguments)
   };
   if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
-  n.queue = []; t = b.createElement(e); t.async = !0;
-  t.src = v; s = b.getElementsByTagName(e)[0];
-  s.parentNode.insertBefore(t, s)
-}(window, document, 'script',
-  'https://connect.facebook.net/en_US/fbevents.js');
+  n.queue = [];
+}(window, document);
 fbq('init', '${pixelId}');
-fbq('track', 'PageView');`;
+fbq('track', 'PageView');
+(function () {
+  var loaded = false;
+  var events = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
+  function loadPixel() {
+    if (loaded) return;
+    loaded = true;
+    events.forEach(function (e) { window.removeEventListener(e, loadPixel); });
+    var t = document.createElement('script');
+    t.async = true;
+    t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+    document.head.appendChild(t);
+  }
+  function whenIdle() {
+    if ('requestIdleCallback' in window) window.requestIdleCallback(loadPixel, { timeout: 3500 });
+    else setTimeout(loadPixel, 1000);
+  }
+  if (document.readyState === 'complete') whenIdle();
+  else window.addEventListener('load', whenIdle, { once: true });
+  events.forEach(function (e) { window.addEventListener(e, loadPixel, { once: true, passive: true }); });
+  setTimeout(loadPixel, 8000);
+})();`;
 
 /** Google Fonts load without blocking render, then are switched on (was media="print" onload). */
 const fontsScript = `(function(){var l=document.getElementById('thsix-fonts');if(!l)return;function on(){l.media='all'}if(l.sheet){on()}else{l.addEventListener('load',on)}})();`;
-
-/**
- * Shiprocket Checkout: load CSS + JS after first user interaction (scroll/click/touch)
- * or after 4s, whichever comes first, to keep ~75 KB of JS off the critical path.
- */
-const shiprocketScript = `(function () {
-  var loaded = false;
-  function loadShiprocket() {
-    if (loaded) return;
-    loaded = true;
-    var link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = '${SHIPROCKET_CSS}';
-    document.head.appendChild(link);
-    var script = document.createElement('script');
-    script.src = '${SHIPROCKET_JS}';
-    script.defer = true;
-    document.head.appendChild(script);
-  }
-  var events = ['scroll', 'click', 'touchstart', 'mousemove', 'keydown'];
-  function onInteraction() {
-    loadShiprocket();
-    events.forEach(function (e) { window.removeEventListener(e, onInteraction); });
-  }
-  events.forEach(function (e) { window.addEventListener(e, onInteraction, { once: true, passive: true }); });
-  setTimeout(loadShiprocket, 4000);
-})();`;
 
 export function Layout({children}: {children?: React.ReactNode}) {
   const nonce = useNonce();
@@ -183,7 +176,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <Meta />
         <Links />
 
-        {/* Google Fonts: Inter 700-900 and Caveat 600-700, non-blocking */}
+        {/* Google Fonts: Inter 700-900 and Caveat 600, non-blocking */}
         <link id="thsix-fonts" rel="stylesheet" href={FONTS_HREF} media="print" />
         <noscript>
           <link rel="stylesheet" href={FONTS_HREF} />
@@ -211,11 +204,10 @@ export function Layout({children}: {children?: React.ReactNode}) {
         </noscript>
       </head>
       <body>
-        {/* Shiprocket seller domain identifier */}
+        {/* Shiprocket seller domain identifier (read by the checkout script loaded on demand) */}
         <input type="hidden" value="thsix.com" id="sellerDomain" readOnly />
         {children}
         <Scripts nonce={nonce} />
-        <script nonce={nonce} dangerouslySetInnerHTML={{__html: shiprocketScript}} />
       </body>
     </html>
   );
@@ -228,15 +220,19 @@ export function Layout({children}: {children?: React.ReactNode}) {
  */
 function ScrollToTop() {
   const {pathname} = useLocation();
-  const isFirstRender = useRef(true);
+  // Path of the last page view sent. The landing view is already counted (Meta head script,
+  // initGA4). Compared by value, so StrictMode's double effect in dev can't send a duplicate.
+  const trackedPath = useRef<string | null>(null);
 
   useEffect(() => {
     window.scrollTo(0, 0);
 
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
+    if (trackedPath.current === null) {
+      trackedPath.current = pathname;
       return;
     }
+    if (trackedPath.current === pathname) return;
+    trackedPath.current = pathname;
 
     if (typeof window.fbq === 'function') {
       window.fbq('track', 'PageView');

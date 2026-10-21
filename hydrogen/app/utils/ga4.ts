@@ -1,9 +1,10 @@
 /**
  * Google Analytics 4 (GA4) tracking utility — THSIX.
  *
- * Loads gtag.js dynamically at runtime so nothing is added to the critical
- * HTML path. All calls guard against missing gtag / missing measurement ID
- * so the site works fine without GA4 configured.
+ * gtag.js is injected only after the window load event and an idle period, so it stays off the
+ * critical path. Config and events are queued on window.dataLayer before that, and gtag.js
+ * processes the queue when it arrives, so nothing is lost. All calls guard against a missing
+ * gtag / missing measurement ID so the site works fine without GA4 configured.
  *
  * GA4 Enhanced Ecommerce events reference:
  * https://developers.google.com/analytics/devguides/collection/ga4/ecommerce
@@ -20,18 +21,48 @@ declare global {
 }
 
 let initialised = false;
+let scriptRequested = false;
 
 // ── Initialisation ───────────────────────────────────────────────────────────
 
+/** Injects gtag.js once. Called after load + idle, never during the initial render. */
+function loadGtagScript(): void {
+  if (scriptRequested) return;
+  scriptRequested = true;
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
+  document.head.appendChild(script);
+}
+
 /**
- * Dynamically inject gtag.js and initialise GA4.
- * Safe to call multiple times — only loads once.
+ * Inject gtag.js after the window load event and an idle callback (max 3.5s after load).
+ * A hard cap of 8s covers a load event that is held up by slow media.
+ */
+function scheduleGtagScript(): void {
+  const whenIdle = () => {
+    if ('requestIdleCallback' in window) {
+      window.requestIdleCallback(loadGtagScript, { timeout: 3500 });
+    } else {
+      setTimeout(loadGtagScript, 1000);
+    }
+  };
+  if (document.readyState === 'complete') {
+    whenIdle();
+  } else {
+    window.addEventListener('load', whenIdle, { once: true });
+  }
+  setTimeout(loadGtagScript, 8000);
+}
+
+/**
+ * Set up the dataLayer + gtag queue (Google's standard bootstrap) and queue the config and the
+ * landing page_view, then schedule gtag.js. Safe to call multiple times: only initialises once.
  */
 export function initGA4(): void {
   if (initialised || !MEASUREMENT_ID || typeof window === 'undefined') return;
   initialised = true;
 
-  // dataLayer + gtag stub (Google's standard bootstrap)
   window.dataLayer = window.dataLayer || [];
   window.gtag = function gtag() {
     // eslint-disable-next-line prefer-rest-params
@@ -45,11 +76,7 @@ export function initGA4(): void {
     page_title: document.title,
   });
 
-  // Async script load
-  const script = document.createElement('script');
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${MEASUREMENT_ID}`;
-  document.head.appendChild(script);
+  scheduleGtagScript();
 
   if (IS_DEV) {
     console.log(`[GA4] Initialised with ${MEASUREMENT_ID}`);

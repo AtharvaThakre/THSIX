@@ -1,5 +1,5 @@
 export const philosophyData = {
-  image: '/assets/philosophy-lifestyle.jpg?v=2',
+  image: '/assets/philosophy-lifestyle.jpg?v=3',
   eyebrow: "THSIX VISION",
   title: [
     "THSIX",

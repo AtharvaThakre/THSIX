@@ -9,9 +9,9 @@ import { Footer } from '../components/Footer/Footer';
 import { SizeChart } from '../components/SizeChart/SizeChart';
 import { ProductDescription } from '../components/ProductDescription/ProductDescription';
 import { useCart } from '../contexts/CartContext';
-import { loadPickrrScript } from '../utils/pickrr-loader';
+import { loadPickrrScript, warmUpPickrrScript } from '../utils/pickrr-loader';
 import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-checkout';
-import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
+import { buildShopifySrcSet, transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
 import { trackViewContent, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
 import { trackGA4ViewItem, trackGA4BeginCheckout } from '../utils/ga4';
 import { trackShopifyAddToCart } from '../utils/shopify-analytics';
@@ -229,12 +229,11 @@ export const ProductDetailPage = ({ product }: { product: Product | null }) => {
 
   // Main display image follows the selected thumbnail. Picking a size jumps to that
   // size's photo (handleVariantSelect), but thumbnails must still be able to change it.
-  const mainImageUrl = transformShopifyImageUrl(
-    images[selectedImageIndex]?.url ??
-    selectedVariant?.image?.url ??
-    '',
-    { width: PRODUCT_IMAGE_SIZES.detail }
-  );
+  const mainImageRaw = images[selectedImageIndex]?.url ?? selectedVariant?.image?.url ?? '';
+  // The main image is half the viewport on desktop and full width on mobile, so the
+  // browser picks 600/900/1200px for 1x-2x screens (sizes must match the CSS grid).
+  const mainImageUrl = transformShopifyImageUrl(mainImageRaw, { width: 900 });
+  const mainImageSrcSet = buildShopifySrcSet(mainImageRaw, [600, 900, 1200]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
   if (!product) {
@@ -291,10 +290,14 @@ export const ProductDetailPage = ({ product }: { product: Product | null }) => {
                     >
                       <img
                         src={transformShopifyImageUrl(img.url, { width: PRODUCT_IMAGE_SIZES.thumbnail })}
+                        srcSet={buildShopifySrcSet(img.url, [PRODUCT_IMAGE_SIZES.thumbnail, PRODUCT_IMAGE_SIZES.thumbnailRetina])}
+                        sizes="74px"
                         alt={img.altText ?? product.title}
-                        width={80}
-                        height={80}
-                        loading="lazy"
+                        width={74}
+                        height={74}
+                        // Thumbnails sit at the top of the page, so the first few load eagerly.
+                        loading={idx < 4 ? 'eager' : 'lazy'}
+                        decoding="async"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
                     </div>
@@ -313,7 +316,13 @@ export const ProductDetailPage = ({ product }: { product: Product | null }) => {
                   <img
                     id="main-shopify-media"
                     src={mainImageUrl}
+                    srcSet={mainImageSrcSet}
+                    sizes="(max-width: 1024px) 100vw, 50vw"
                     alt={product.title}
+                    // This is the page's LCP image: load it eagerly at high priority.
+                    loading="eager"
+                    fetchPriority="high"
+                    decoding="async"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                 ) : (
@@ -405,6 +414,8 @@ export const ProductDetailPage = ({ product }: { product: Product | null }) => {
                 <button
                   className="product-detail__buy-btn"
                   type="button"
+                  onPointerEnter={warmUpPickrrScript}
+                  onFocus={warmUpPickrrScript}
                   onClick={() => void handleBuyNow()}
                   disabled={isBuyingNow}
                 >
