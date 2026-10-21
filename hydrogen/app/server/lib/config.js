@@ -1,10 +1,9 @@
 /**
  * Server configuration, read lazily from the Oxygen environment.
  *
- * The legacy Vercel functions read `process.env` at import time. On Oxygen the variables live
- * on the request's `env`, so `runApiHandler()` calls `setServerEnv(env)` before running a
- * handler and every field below is a getter that reads from it at call time.
- * The Shopify Storefront token is public (it ships to the browser as well).
+ * Oxygen passes the variables on each request's `env`, so `handleApi()` (lib/http.js) calls
+ * `setServerEnv(env)` before running a handler and every field below is a getter that reads
+ * from it at call time.
  */
 let env = {};
 
@@ -13,7 +12,6 @@ export function setServerEnv(nextEnv) {
 }
 
 const storeDomainUrl = () => {
-  if (env.SHOPIFY_STORE_DOMAIN) return env.SHOPIFY_STORE_DOMAIN;
   const domain = env.PUBLIC_STORE_DOMAIN || '19sjnp-gx.myshopify.com';
   return /^https?:\/\//.test(domain) ? domain : `https://${domain}`;
 };
@@ -31,7 +29,7 @@ export const config = {
     if (env.PRIVATE_STOREFRONT_API_TOKEN) {
       return { 'Shopify-Storefront-Private-Token': env.PRIVATE_STOREFRONT_API_TOKEN };
     }
-    const token = env.SHOPIFY_STOREFRONT_ACCESS_TOKEN || env.PUBLIC_STOREFRONT_API_TOKEN || '';
+    const token = env.PUBLIC_STOREFRONT_API_TOKEN || '';
     return token ? { 'X-Shopify-Storefront-Access-Token': token } : {};
   },
   // Shopify has no weights entered for these products; couriers need one to price shipping

@@ -1,14 +1,15 @@
 import { config } from './config.js';
+import { jsonResponder, queryParams } from './http.js';
 
 /**
  * Response helpers for the catalogue endpoints Shiprocket reads.
  */
-function sendSuccess(res, data) {
-  return res.status(200).json({ ok: true, data, errorCode: null });
+function sendSuccess(reply, data) {
+  return reply(200, { ok: true, data, errorCode: null });
 }
 
-function sendValidationError(res, message) {
-  return res.status(400).json({ ok: false, result: null, errorCode: 'VALIDATION_ERROR', message });
+function sendValidationError(reply, message) {
+  return reply(400, { ok: false, result: null, errorCode: 'VALIDATION_ERROR', message });
 }
 
 /**
@@ -29,32 +30,34 @@ function parsePagination(query) {
 
 /**
  * Wraps a GET catalogue handler: CORS, method check, pagination and error handling.
- * `load(req, { page, limit })` returns the response data, or a string validation error.
+ * `load(query, { page, limit })` returns the response data, or a string validation error.
  */
 function catalogHandler(name, load) {
-  return async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  return async function handler(request) {
+    const reply = jsonResponder({
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    });
 
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
+    if (request.method === 'OPTIONS') {
+      return reply(200);
     }
-    if (req.method !== 'GET') {
-      return res.status(405).json({ ok: false, message: 'Method not allowed' });
+    if (request.method !== 'GET') {
+      return reply(405, { ok: false, message: 'Method not allowed' });
     }
 
-    const pagination = parsePagination(req.query || {});
+    const query = queryParams(request);
+    const pagination = parsePagination(query);
     if (pagination.error) {
-      return sendValidationError(res, pagination.error);
+      return sendValidationError(reply, pagination.error);
     }
 
     try {
-      const data = await load(req, pagination);
-      return typeof data === 'string' ? sendValidationError(res, data) : sendSuccess(res, data);
+      const data = await load(query, pagination);
+      return typeof data === 'string' ? sendValidationError(reply, data) : sendSuccess(reply, data);
     } catch (error) {
       console.error(`[catalog] ${name} failed:`, error);
-      return res.status(500).json({ ok: false, errorCode: 'INTERNAL_ERROR', message: 'Internal server error' });
+      return reply(500, { ok: false, errorCode: 'INTERNAL_ERROR', message: 'Internal server error' });
     }
   };
 }

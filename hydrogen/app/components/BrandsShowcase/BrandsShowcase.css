@@ -115,28 +115,6 @@
   overflow: hidden;
 }
 
-.brand-card__logo-wrapper {
-  height: 75px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px 16px 4px;
-  color: var(--black);
-}
-
-.brand-card__logo-img {
-  max-width: 72%;
-  max-height: 42px;
-  object-fit: contain;
-  filter: grayscale(100%);
-}
-
-.brand-card__logo-svg {
-  width: auto;
-  max-width: 80%;
-  max-height: 42px;
-}
-
 .brand-card__image-container {
   width: 100%;
   aspect-ratio: 1 / 1;

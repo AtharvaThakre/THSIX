@@ -6,7 +6,7 @@ import { config } from './config.js';
  * Shiprocket's webhooks are not signed, so when WEBHOOK_SECRET is set a webhook must carry it,
  * either in the URL registered with Shiprocket (`/api/webhooks/order?token=<secret>`) or in a
  * header (`X-Webhook-Token`, or `X-Api-Key`, which is what the Shiprocket Shipping panel's
- * "Token" field sends). Without WEBHOOK_SECRET the webhooks stay open, as they were on Vercel.
+ * "Token" field sends). Without WEBHOOK_SECRET the webhooks stay open.
  */
 
 /** Constant-time string comparison (Web Crypto has no timingSafeEqual on Workers). */
@@ -22,21 +22,21 @@ export function safeEqual(a, b) {
 }
 
 /** @returns {{ ok: boolean, enforced: boolean }} */
-export function checkWebhookSecret(req) {
+export function checkWebhookSecret(request) {
   const secret = config.webhookSecret;
   if (!secret) return { ok: true, enforced: false };
 
   const candidates = [
-    req.query && req.query.token,
-    req.headers['x-webhook-token'],
-    req.headers['x-api-key'],
+    new URL(request.url).searchParams.get('token'),
+    request.headers.get('x-webhook-token'),
+    request.headers.get('x-api-key'),
   ].filter(Boolean);
   return { ok: candidates.some((value) => safeEqual(value, secret)), enforced: true };
 }
 
 /** True when the request carries `Authorization: Bearer <CRON_SECRET>`. */
-export function hasCronSecret(req) {
+export function hasCronSecret(request) {
   const secret = config.cronSecret;
   if (!secret) return false;
-  return safeEqual(req.headers.authorization || '', `Bearer ${secret}`);
+  return safeEqual(request.headers.get('authorization') || '', `Bearer ${secret}`);
 }

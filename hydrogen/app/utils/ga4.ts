@@ -103,14 +103,6 @@ export function trackGA4AddToCart(item: GA4Item): void {
   });
 }
 
-export function trackGA4ViewCart(items: GA4Item[], value: number): void {
-  fire('view_cart', {
-    currency: 'INR',
-    value,
-    items: items.map(i => ({ ...i, currency: i.currency || 'INR' })),
-  });
-}
-
 export function trackGA4BeginCheckout(items: GA4Item[], value: number): void {
   fire('begin_checkout', {
     currency: 'INR',
