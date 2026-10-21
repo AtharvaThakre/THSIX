@@ -91,29 +91,6 @@ export const trackPurchase = (params: {
 export const trackLead = (params?: FbqParams) =>
   fire('track', 'Lead', params);
 
-/** Fires when search is used. */
-export const trackSearch = (query: string) =>
-  fire('track', 'Search', { search_string: query });
-
-/** Fires on a meaningful page view (SPA navigation). */
-export const trackPageView = () => fire('track', 'PageView');
-
-/** Fires when the user adds payment info. */
-export const trackAddPaymentInfo = (params?: FbqParams) =>
-  fire('track', 'AddPaymentInfo', params);
-
-/** Fires when a user adds to a wishlist. */
-export const trackAddToWishlist = (params: {
-  content_name: string;
-  content_ids: string[];
-  value?: number;
-  currency?: string;
-}) => fire('track', 'AddToWishlist', { content_type: 'product', currency: 'INR', ...params });
-
-/** Fires when a user completes registration. */
-export const trackCompleteRegistration = (params?: FbqParams) =>
-  fire('track', 'CompleteRegistration', params);
-
 // ── Custom Events ────────────────────────────────────────────────────────────
 
 /**
@@ -122,7 +99,3 @@ export const trackCompleteRegistration = (params?: FbqParams) =>
  */
 export const trackCustomEvent = (eventName: string, params?: FbqParams) =>
   fire('trackCustom', eventName, params);
-
-// ── Backwards-compatible generic helper (used in CartContext etc.) ────────────
-export const trackMetaEvent = (eventName: string, params?: FbqParams) =>
-  fire('track', eventName, params);

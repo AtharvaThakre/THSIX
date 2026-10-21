@@ -1,42 +1,33 @@
 # THSIX
 
-Headless sneaker store at [www.thsix.com](https://www.thsix.com): a React + Vite frontend on Vercel, products from Shopify, and checkout through Shiprocket Checkout.
+Sneaker store at [www.thsix.com](https://www.thsix.com), built entirely on Shopify:
 
-## How it fits together
-
-- **Products:** the browser reads Shopify through the Storefront API and Shopify Web Components.
-- **Cart:** kept in the browser (`src/contexts/CartContext.tsx`).
-- **Checkout:** THSIX is a **Custom channel** seller in Shiprocket Checkout, not a Shopify one. Don't use `shiprocketCheckoutEvents.buyDirect()`: it fails with "catalogue service response is null". Instead:
-  1. The browser posts the cart to `/api/checkout/token`.
-  2. The server looks up live prices in Shopify, signs the request with the Shiprocket API secret and returns a checkout token.
-  3. The browser opens checkout with `HeadlessCheckout.addToCart(null, token, { fallbackUrl })`.
-  4. After payment, Shiprocket redirects to `/checkout/success?oid=<order id>&ost=SUCCESS|FAILED`.
-
-## API (`/api`, Vercel functions)
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/checkout/token` | Body `{ items: [{ variant_id, quantity }], redirect_url? }` → `{ ok, token, order_id }` |
-| `GET /api/checkout/health` | Checks the Shiprocket keys are set and accepted (never reveals them) |
-| `GET /api/catalog/products?page&limit` | Shiprocket catalogue: products |
-| `GET /api/catalog/collections?page&limit` | Shiprocket catalogue: collections |
-| `GET /api/catalog/products-by-collection?collection_id&page&limit` | Shiprocket catalogue: products in a collection |
-| `GET /api/catalog/sync` | Pushes the catalogue to Shiprocket's webhooks. Needs `Authorization: Bearer $CRON_SECRET`; Vercel Cron runs it daily |
-| `POST /api/webhooks/order` | Shiprocket order webhook. Checks the order with Shiprocket and, if `SHOPIFY_ADMIN_ACCESS_TOKEN` is set, creates it in Shopify |
-
-Shiprocket's API reference: https://documenter.getpostman.com/view/25617008/2sB34bL3ig
-
-## Setup
-
-```bash
-npm install
-npm run dev      # http://localhost:5173, /api is proxied to production
-npm run build
-npm run lint
+```text
+GitHub ──▶ Shopify Oxygen ──▶ Hydrogen / React storefront ──▶ Shopify Storefront API ──▶ Shopify
 ```
 
-Environment variables are listed in `.env.example`. Set the server ones (`SHIPROCKET_*`, `CRON_SECRET`, `SHOPIFY_ADMIN_ACCESS_TOKEN`) in the Vercel dashboard.
+Checkout runs through Shiprocket Checkout (headless "Custom" channel).
 
-In Shiprocket Checkout settings, set:
-- Order webhook: `https://www.thsix.com/api/webhooks/order`
-- Catalogue URLs: the three `/api/catalog/*` endpoints above
+| Path | Contents |
+| --- | --- |
+| [`hydrogen/`](./hydrogen) | The storefront: Hydrogen + React Router app, its API routes (Shiprocket checkout token, catalogue, webhooks, contact form) and tests. Start with its [README](./hydrogen/README.md) and [ARCHITECTURE.md](./hydrogen/ARCHITECTURE.md). |
+| `.github/workflows/oxygen-deployment.yml` | Deploys `hydrogen/` to Oxygen on every push (`main` → Production, other branches → Preview). |
+| `.github/workflows/catalog-sync.yml` | Daily push of the Shopify catalogue to Shiprocket. |
+| `Assets/` | Source design media (originals of the images and videos in `hydrogen/public`). |
+
+## Quick start
+
+```bash
+cd hydrogen
+npm ci
+npx shopify hydrogen link      # once, to connect the THSIX Hydrogen storefront
+npx shopify hydrogen env pull  # writes .env with the storefront's variables
+npm run dev                    # http://localhost:3000
+```
+
+In Shiprocket Checkout settings:
+- Order webhook: `https://www.thsix.com/api/webhooks/order?token=<WEBHOOK_SECRET>`
+- Catalogue URLs: `https://www.thsix.com/api/catalog/products`, `/api/catalog/collections`,
+  `/api/catalog/products-by-collection`
+
+Shiprocket's API reference: https://documenter.getpostman.com/view/25617008/2sB34bL3ig

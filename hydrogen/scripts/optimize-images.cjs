@@ -3,7 +3,7 @@
 /**
  * Image Optimization Script
  * Requires: npm install sharp --save-dev
- * Run: node scripts/optimize-images.js
+ * Run (from hydrogen/): node scripts/optimize-images.cjs
  */
 
 const fs = require('fs').promises;
@@ -13,7 +13,7 @@ const path = require('path');
 let sharp;
 try {
   sharp = require('sharp');
-} catch (error) {
+} catch {
   console.error('\n❌ Error: Sharp is not installed.');
   console.error('Please run: npm install sharp --save-dev\n');
   process.exit(1);

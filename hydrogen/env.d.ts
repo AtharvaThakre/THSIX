@@ -26,5 +26,4 @@ interface Env {
   META_CAPI_TOKEN?: string;
   WEBHOOK_SECRET?: string;
   CSP_REPORT_ONLY?: string;
-  SHOPIFY_STOREFRONT_ACCESS_TOKEN?: string;
 }

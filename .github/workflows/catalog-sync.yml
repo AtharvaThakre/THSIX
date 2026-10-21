@@ -1,6 +1,6 @@
 # Daily Shiprocket catalogue sync for the Hydrogen/Oxygen storefront.
-# Oxygen has no cron, so this replaces the Vercel Cron entry in vercel.json (same schedule:
-# 20:30 UTC = 02:00 IST). Scheduled workflows run from the default branch only.
+# Oxygen has no cron, so GitHub Actions calls /api/catalog/sync daily at 20:30 UTC (02:00 IST).
+# Scheduled workflows run from the default branch only.
 #
 # Setup (GitHub repo > Settings > Secrets and variables > Actions):
 #   secret   THSIX_CRON_SECRET  = the CRON_SECRET configured on Oxygen

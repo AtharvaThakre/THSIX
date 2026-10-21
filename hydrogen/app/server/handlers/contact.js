@@ -12,6 +12,7 @@
  */
 
 import { config } from '../lib/config.js';
+import { jsonResponder, readBody, clientIp } from '../lib/http.js';
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
@@ -127,42 +128,37 @@ function buildEmailText(firstName, lastName, email, message) {
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', 'https://www.thsix.com');
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 'no-store');
+export default async function handler(request) {
+  const reply = jsonResponder({
+    'Access-Control-Allow-Origin': 'https://www.thsix.com',
+    Vary: 'Origin',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Cache-Control': 'no-store',
+  });
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, error: 'Method not allowed' });
+  if (request.method === 'OPTIONS') return reply(200);
+  if (request.method !== 'POST') {
+    return reply(405, { ok: false, error: 'Method not allowed' });
   }
 
   // Rate limiting
-  const ip = (
-    req.headers['oxygen-buyer-ip']  ||
-    req.headers['cf-connecting-ip'] ||
-    req.headers['x-forwarded-for'] ||
-    req.headers['x-real-ip']        ||
-    req.socket?.remoteAddress       ||
-    'unknown'
-  ).toString().split(',')[0].trim();
+  const ip = clientIp(request);
 
   if (isRateLimited(ip)) {
-    return res.status(429).json({
+    return reply(429, {
       ok: false,
       error: 'Too many requests. Please wait a few minutes before trying again.',
     });
   }
 
   // Parse body
-  let body = req.body;
+  let body = await readBody(request);
   if (typeof body === 'string') {
     try { body = JSON.parse(body); } catch { body = {}; }
   }
   if (!body || typeof body !== 'object') {
-    return res.status(400).json({ ok: false, error: 'Invalid request body.' });
+    return reply(400, { ok: false, error: 'Invalid request body.' });
   }
 
   // Sanitize
@@ -184,12 +180,12 @@ export default async function handler(req, res) {
   if (message.length > MSG_MAX)            errors.push(`Message must be at most ${MSG_MAX} characters.`);
 
   if (errors.length > 0) {
-    return res.status(400).json({ ok: false, error: errors[0], errors });
+    return reply(400, { ok: false, error: errors[0], errors });
   }
 
   if (!config.resendApiKey) {
     console.error('[contact] RESEND_API_KEY is not set.');
-    return res.status(500).json({
+    return reply(500, {
       ok: false,
       error: 'Email service is not configured. Please contact us directly at support@thsix.com.',
     });
@@ -218,19 +214,19 @@ export default async function handler(req, res) {
     if (!response.ok) {
       const error = await response.text().catch(() => '');
       console.error('[contact] Resend error:', response.status, error.slice(0, 500));
-      return res.status(502).json({
+      return reply(502, {
         ok: false,
         error: 'We could not send your message right now. Please try again or email us directly at support@thsix.com.',
       });
     }
 
-    return res.status(200).json({ ok: true, message: 'Message sent successfully.' });
+    return reply(200, { ok: true, message: 'Message sent successfully.' });
 
   } catch (err) {
     console.error('[contact] Unexpected error:', err);
-    return res.status(500).json({
+    return reply(500, {
       ok: false,
       error: 'An unexpected error occurred. Please try again or email us directly at support@thsix.com.',
     });
   }
-};
+}

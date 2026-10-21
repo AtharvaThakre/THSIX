@@ -36,6 +36,7 @@ import { safeParse } from '../lib/shiprocket.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { findOrderByTag, syncFulfillment, addOrderNote, adminGraphQL } from '../lib/shopify-admin.js';
 import { isAdminConfigured } from '../lib/admin-token.js';
+import { jsonResponder, readBody } from '../lib/http.js';
 
 // ── Shiprocket Shipping status mapping ───────────────────────────────────────
 
@@ -74,27 +75,30 @@ const FULFILLABLE_STATUS_IDS = new Set([6, 7, 17, 18]);
 
 // ── Handler ──────────────────────────────────────────────────────────────────
 
-export default async function handler(req, res) {
+export default async function handler(request) {
+  const reply = jsonResponder();
+
   // Handle preflight
-  if (req.method === 'OPTIONS') return res.status(200).end();
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, message: 'Method not allowed' });
+  if (request.method === 'OPTIONS') return reply(200);
+  if (request.method !== 'POST') {
+    return reply(405, { ok: false, message: 'Method not allowed' });
   }
 
-  const auth = checkWebhookSecret(req);
+  const auth = checkWebhookSecret(request);
   if (!auth.ok) {
-    return res.status(401).json({ ok: false, message: 'Unauthorized' });
+    return reply(401, { ok: false, message: 'Unauthorized' });
   }
 
   // Quick validation — respond fast
   if (!isAdminConfigured()) {
     console.error('[shipment-webhook] Shopify Admin API access is not configured');
-    return res.status(200).json({ ok: false, message: 'Shopify Admin not configured' });
+    return reply(200, { ok: false, message: 'Shopify Admin not configured' });
   }
 
-  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body;
+  const rawBody = await readBody(request);
+  const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody;
   if (!body) {
-    return res.status(400).json({ ok: false, message: 'Invalid request body' });
+    return reply(400, { ok: false, message: 'Invalid request body' });
   }
 
   // Log the payload's shape only (it can carry customer names and addresses)
@@ -106,7 +110,7 @@ export default async function handler(req, res) {
   console.log('[shipment-webhook] Parsed:', JSON.stringify(parsed));
 
   if (!parsed.channelOrderId && !parsed.srOrderId) {
-    return res.status(200).json({ ok: true, skipped: 'No order ID in payload' });
+    return reply(200, { ok: true, skipped: 'No order ID in payload' });
   }
 
   // ── Find the Shopify order ─────────────────────────────────────────────────
@@ -132,7 +136,7 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('[shipment-webhook] Shopify lookup failed:', error.message);
     // Return 200 so Shiprocket doesn't flood retries on transient errors
-    return res.status(200).json({ ok: false, error: 'Shopify lookup failed' });
+    return reply(200, { ok: false, error: 'Shopify lookup failed' });
   }
 
   if (!shopifyOrder) {
@@ -141,7 +145,7 @@ export default async function handler(req, res) {
       sr_order_id: parsed.srOrderId,
     });
     // Return 200 — the Shopify order may not have been created yet
-    return res.status(200).json({ ok: true, skipped: 'Shopify order not found' });
+    return reply(200, { ok: true, skipped: 'Shopify order not found' });
   }
 
   console.log('[shipment-webhook] Found Shopify order', shopifyOrder.name);
@@ -173,7 +177,7 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(200).json({ ok: true, ...results });
+  return reply(200, { ok: true, ...results });
 };
 
 // ── Payload parsing ──────────────────────────────────────────────────────────

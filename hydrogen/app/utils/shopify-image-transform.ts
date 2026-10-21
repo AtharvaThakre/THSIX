@@ -63,24 +63,6 @@ export function transformShopifyImageUrl(
 }
 
 /**
- * Generate srcSet string for responsive images from Shopify CDN.
- * 
- * @param url - Original Shopify CDN image URL
- * @param widths - Array of widths to generate (e.g., [375, 750, 1500])
- * @returns srcSet string for use in <img> or <source>
- */
-export function generateShopifySrcSet(
-  url: string | null | undefined,
-  widths: number[]
-): string {
-  if (!url) return '';
-  
-  return widths
-    .map(width => `${transformShopifyImageUrl(url, { width })} ${width}w`)
-    .join(', ');
-}
-
-/**
  * Optimized product image sizes based on actual display dimensions.
  * 
  * - Product cards: 371×371 (was loading 750×750 = 2x waste)

@@ -1,7 +1,6 @@
 import { Lock, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import type { Brand } from '../../types/brand';
-import { BrandLogo } from './BrandLogos';
 import { brandProductImages } from '../../data/brands';
 import { trackCustomEvent } from '../../utils/metaPixel';
 
@@ -39,10 +38,6 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       }}
       style={{ cursor: brand.available ? 'pointer' : 'default' }}
     >
-      {/* <div className="brand-card__logo-wrapper">
-        <BrandLogo brandId={brand.id} name={brand.name} customLogo={brand.logo} />
-      </div> */}
-
       <div className="brand-card__image-container">
         {brand.productImage ? (
           <picture>

@@ -2,6 +2,7 @@ import { config } from '../lib/config.js';
 import { isConfigured, shiprocketPost, safeParse } from '../lib/shiprocket.js';
 import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
+import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
@@ -107,24 +108,24 @@ async function sendMetaCAPIEvent(order, eventId) {
  * orders are created in Shopify (tagged sr-<order id>, so repeats are skipped) to
  * decrement stock and keep orders in Shopify admin.
  */
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, message: 'Method not allowed' });
+export default async function handler(request) {
+  const reply = jsonResponder();
+
+  if (request.method !== 'POST') {
+    return reply(405, { ok: false, message: 'Method not allowed' });
   }
 
-  const auth = checkWebhookSecret(req);
+  const auth = checkWebhookSecret(request);
   if (!auth.ok) {
-    return res.status(401).json({ ok: false, message: 'Unauthorized' });
+    return reply(401, { ok: false, message: 'Unauthorized' });
   }
   if (!auth.enforced) {
     console.warn('[order-webhook] WEBHOOK_SECRET is not set; accepting an unauthenticated webhook');
   }
 
-  let rawBody = req.body;
-  if (rawBody instanceof Uint8Array) {
-    rawBody = new TextDecoder().decode(rawBody);
-  }
-  const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
+  const rawBody = await readBody(request);
+  // A body that isn't valid JSON parses to null; treat it as empty so it gets a 400, not a crash
+  const body = (typeof rawBody === 'string' ? safeParse(rawBody) : rawBody) || {};
   console.log('[order-webhook] Received body keys:', Object.keys(body || {}).join(','));
 
   let orderId = body.order_id || body.cart_id || body.id || (body.payload && (body.payload.order_id || body.payload.id || body.payload.cart_id)) || (body.data && (body.data.order_id || body.data.id || body.data.cart_id)) || '';
@@ -133,14 +134,14 @@ export default async function handler(req, res) {
   // Accept 24-char hex (MongoDB ObjectId), UUIDs, and plain numeric/alphanumeric IDs
   if (!orderId || orderId.length < 6 || orderId.length > 128 || !/^[a-z0-9\-_]+$/i.test(orderId)) {
     console.error('[order-webhook] Invalid or missing order_id. Body keys:', Object.keys(body || {}).join(','));
-    return res.status(400).json({ ok: false, message: 'order_id is required', received: orderId });
+    return reply(400, { ok: false, message: 'order_id is required', received: orderId });
   }
 
   console.log('[order-webhook] Processing orderId:', orderId);
 
   if (!isConfigured()) {
     console.error('[order-webhook] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set; cannot verify order');
-    return res.status(500).json({ ok: false });
+    return reply(500, { ok: false });
   }
 
   // ── 1. Strategy A: Check if the webhook body already contains the full order ──
@@ -272,7 +273,7 @@ export default async function handler(req, res) {
   // If still not found, return 500 (NOT 400) so Shiprocket retries the webhook when order finishes indexing
   if (!order) {
     console.error('[order-webhook] Could not resolve order details for', orderId);
-    return res.status(500).json({ ok: false, message: 'Order details pending indexing, retry requested' });
+    return reply(500, { ok: false, message: 'Order details pending indexing, retry requested' });
   }
 
   console.log('[order-webhook] Verified order:', JSON.stringify({
@@ -310,13 +311,13 @@ export default async function handler(req, res) {
           if (['SHIPPED', 'IN_TRANSIT', 'OUT_FOR_DELIVERY', 'DELIVERED'].includes(status)) {
              await syncFulfillment(shopifyOrder, tracking);
           }
-          return res.status(200).json({ ok: true, synced_status: status });
+          return reply(200, { ok: true, synced_status: status });
         }
       } catch (err) {
         console.error('[order-webhook] Status sync failed:', err.message);
       }
     }
-    return res.status(200).json({ ok: true, skipped: `order status is ${order.status}` });
+    return reply(200, { ok: true, skipped: `order status is ${order.status}` });
   }
 
   // Server-side Meta CAPI Purchase. event_id = order id, which the success page also uses for the
@@ -324,12 +325,12 @@ export default async function handler(req, res) {
   await sendMetaCAPIEvent(order, order.order_id);
 
   if (!isAdminConfigured()) {
-    return res.status(200).json({ ok: true, shopify: 'not configured' });
+    return reply(200, { ok: true, shopify: 'not configured' });
   }
 
   try {
     const shopifyOrder = await createShopifyOrder(order, body);
-    return res.status(200).json({ ok: true, shopify_order: shopifyOrder });
+    return reply(200, { ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
 
@@ -339,11 +340,11 @@ export default async function handler(req, res) {
       const shopifyOrder = await createShopifyOrder(order, body);
       console.log('[order-webhook] Retry succeeded');
 
-      return res.status(200).json({ ok: true, shopify_order: shopifyOrder, retried: true });
+      return reply(200, { ok: true, shopify_order: shopifyOrder, retried: true });
     } catch (retryError) {
       console.error('[order-webhook] Retry also failed:', retryError.message || retryError);
       // Return 500 so Shiprocket retries the webhook later
-      return res.status(500).json({ ok: false, message: 'Shopify order creation failed after retry' });
+      return reply(500, { ok: false, message: 'Shopify order creation failed after retry' });
     }
   }
 };

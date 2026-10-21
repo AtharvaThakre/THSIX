@@ -1,6 +1,7 @@
 import { config } from '../lib/config.js';
 import { isConfigured, shiprocketPost, safeParse } from '../lib/shiprocket.js';
 import { fetchVariantsByIds } from '../lib/data-service.js';
+import { jsonResponder, readBody } from '../lib/http.js';
 
 // Where Shiprocket may send the shopper after payment. It appends ?oid=<order id>&ost=<status>.
 // Oxygen preview deployments (*.myshopify.dev) and the configured WEBSITE_BASE_URL are allowed too.
@@ -27,25 +28,28 @@ function isAllowedRedirectHost(hostname) {
  * Each item carries catalog_data (price, name, image) read from Shopify here, so Shiprocket
  * has the product even if its catalogue sync is behind, and the browser can't set prices.
  */
-export default async function handler(req, res) {
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+export default async function handler(request) {
+  const reply = jsonResponder();
+
+  if (request.method === 'OPTIONS') {
+    return reply(200);
   }
 
-  if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, message: 'Method not allowed' });
+  if (request.method !== 'POST') {
+    return reply(405, { ok: false, message: 'Method not allowed' });
   }
 
   if (!isConfigured()) {
     console.error('[checkout-token] SHIPROCKET_API_KEY / SHIPROCKET_API_SECRET are not set');
-    return res.status(500).json({ ok: false, message: 'Checkout is not configured yet.' });
+    return reply(500, { ok: false, message: 'Checkout is not configured yet.' });
   }
 
-  const body = typeof req.body === 'string' ? safeParse(req.body) : req.body || {};
+  const rawBody = await readBody(request);
+  const body = typeof rawBody === 'string' ? safeParse(rawBody) : rawBody || {};
   const { items } = body || {};
 
   if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ ok: false, message: 'Your cart is empty.' });
+    return reply(400, { ok: false, message: 'Your cart is empty.' });
   }
 
   // Shiprocket requires each variant_id to appear once, so merge duplicate lines
@@ -54,10 +58,10 @@ export default async function handler(req, res) {
     const variantId = String((item && item.variant_id) || '').trim();
     const quantity = Number(item && item.quantity);
     if (!/^\d+$/.test(variantId)) {
-      return res.status(400).json({ ok: false, message: 'Invalid product in cart. Please re-add it.' });
+      return reply(400, { ok: false, message: 'Invalid product in cart. Please re-add it.' });
     }
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
-      return res.status(400).json({ ok: false, message: 'Invalid quantity in cart.' });
+      return reply(400, { ok: false, message: 'Invalid quantity in cart.' });
     }
     quantities.set(variantId, (quantities.get(variantId) || 0) + quantity);
   }
@@ -67,17 +71,17 @@ export default async function handler(req, res) {
     variants = await fetchVariantsByIds([...quantities.keys()]);
   } catch (error) {
     console.error('[checkout-token] Shopify variant lookup failed:', error);
-    return res.status(502).json({ ok: false, message: 'Checkout is unavailable right now. Please try again.' });
+    return reply(502, { ok: false, message: 'Checkout is unavailable right now. Please try again.' });
   }
 
   const cartItems = [];
   for (const [variantId, quantity] of quantities) {
     const variant = variants.get(variantId);
     if (!variant) {
-      return res.status(400).json({ ok: false, message: 'A product in your cart is no longer available. Please remove it.' });
+      return reply(400, { ok: false, message: 'A product in your cart is no longer available. Please remove it.' });
     }
     if (!variant.availableForSale) {
-      return res.status(400).json({
+      return reply(400, {
         ok: false,
         message: `${variant.product.title} (${variant.title}) is sold out. Please remove it from your cart.`,
       });
@@ -105,10 +109,10 @@ export default async function handler(req, res) {
   });
 
   if (!result.token) {
-    return res.status(502).json({ ok: false, message: result.message });
+    return reply(502, { ok: false, message: result.message });
   }
 
-  return res.status(200).json({ ok: true, token: result.token, order_id: result.orderId });
+  return reply(200, { ok: true, token: result.token, order_id: result.orderId });
 };
 
 async function requestToken(payload) {

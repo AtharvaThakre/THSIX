@@ -6,49 +6,19 @@ import { ArrowLeft } from 'lucide-react';
 import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Footer } from '../components/Footer/Footer';
-import { ProductReviews } from '../components/ProductReviews/ProductReviews';
 import { SizeChart } from '../components/SizeChart/SizeChart';
 import { ProductDescription } from '../components/ProductDescription/ProductDescription';
 import { useCart } from '../contexts/CartContext';
 import { loadPickrrScript } from '../utils/pickrr-loader';
 import { waitForShiprocket, checkoutWithProducts } from '../services/shiprocket-checkout';
 import { transformShopifyImageUrl, PRODUCT_IMAGE_SIZES } from '../utils/shopify-image-transform';
-import { trackViewContent, trackAddToCart, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
+import { trackViewContent, trackInitiateCheckout, trackCustomEvent } from '../utils/metaPixel';
 import { trackGA4ViewItem, trackGA4BeginCheckout } from '../utils/ga4';
 import { trackShopifyAddToCart } from '../utils/shopify-analytics';
 import Faqs01 from '../components/ui/faqs-01';
 import './ProductDetailPage.css';
 
-// ─── Fake review data ────────────────────────────────────────────────────────
-const fakeReviews = [
-  {
-    id: 1,
-    name: "ShellyBel",
-    rating: 5,
-    date: "3 months ago",
-    comment: "I Was Blown Away By The Shoe When I First Tried It On. I Honestly Thought That It Would Cost More Than What I Paid $$$ It. I Fit Size 9 For My Running, I Was...",
-    helpful: 6,
-    avatar: "SB",
-    images: [
-      "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=400&h=400&fit=crop",
-      "https://images.unsplash.com/photo-1600185365483-26d7a4cc7519?w=400&h=400&fit=crop",
-    ]
-  },
-  {
-    id: 2,
-    name: "Hochanger",
-    rating: 5,
-    date: "7 months ago",
-    comment: "I Got The Similar Product On They Are In My Then. They Are Very Light And Super Comfy. There's Lots Of Bounce For Energy Return As Proper Runners Like To Call It. Which Makes Upend The Pace Easier...",
-    helpful: 4,
-    avatar: "H",
-    images: [
-      "https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=400&h=400&fit=crop",
-    ]
-  },
-];
-
+// Rating summary shown on every product page (hardcoded, not real customer reviews)
 const fakeRatingBreakdown = { 5: 14500, 4: 1430, 3: 244, 2: 103, 1: 44 };
 
 // ─── Helper ──────────────────────────────────────────────────────────────────
@@ -523,12 +493,6 @@ export const ProductDetailPage = ({ product }: { product: Product | null }) => {
         </div>
 
         <div className="product-detail__container" style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px' }}>
-          {/* <ProductReviews
-            reviews={fakeReviews}
-            averageRating={averageRating}
-            totalReviews={totalReviews}
-            ratingBreakdown={fakeRatingBreakdown}
-          /> */}
           <Faqs01 />
         </div>
       </main>
