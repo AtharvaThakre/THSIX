@@ -194,4 +194,4 @@ async function syncFulfillment(shopifyOrder, tracking) {
   return { action: 'created', fulfillment_id: newId };
 }
 
-export { adminGraphQL, adminREST, findOrderByTag, getFulfillmentOrders, getOrderFulfillments, createFulfillment, updateFulfillmentTracking, addOrderNote, syncFulfillment, };
+export { adminGraphQL, adminREST, findOrderByTag, addOrderNote, syncFulfillment, };
