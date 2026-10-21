@@ -33,7 +33,6 @@ const read = (key: PublicEnvKey): string => {
 
 export const SHOP_ID = read('PUBLIC_SHOPIFY_SHOP_ID');
 export const GA4_MEASUREMENT_ID = read('PUBLIC_GA4_MEASUREMENT_ID') || undefined;
-export const META_PIXEL_ID = read('PUBLIC_META_PIXEL_ID');
 /** Numeric Hydrogen storefront ID (normalised by the root loader), or '' if not configured. */
 export const STOREFRONT_ID = read('PUBLIC_STOREFRONT_ID');
 export const IS_DEV = import.meta.env.DEV;

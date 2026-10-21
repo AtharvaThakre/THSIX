@@ -39,4 +39,4 @@ Shopify admin > Hydrogen > Storefront settings > Environments and variables (sec
 ## Media scripts
 
 `scripts/` holds one-off asset tools, run from this folder: `optimize-hero-video.{sh,ps1}`
-(ffmpeg) and the `optimize-*images` scripts (need `npm install --no-save sharp`).
+(ffmpeg).
