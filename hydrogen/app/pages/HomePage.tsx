@@ -3,7 +3,7 @@ import { AnnouncementBar } from '../components/Header/AnnouncementBar';
 import { Header } from '../components/Header/Header';
 import { Hero } from '../components/Hero/Hero';
 import { BlankSection } from '../components/BlankSection/BlankSection';
-import { ProductShowcase, type ShowcaseProduct } from '../components/ProductShowcase/ProductShowcase';
+import { ProductShowcase, type ShowcaseCollection, type ShowcaseProduct } from '../components/ProductShowcase/ProductShowcase';
 import { Philosophy } from '../components/Philosophy/Philosophy';
 import { BrandsShowcase } from '../components/BrandsShowcase/BrandsShowcase';
 import { Footer } from '../components/Footer/Footer';
@@ -103,7 +103,15 @@ function startSmoothScroll(): () => void {
   };
 }
 
-export function HomePage({ products }: { products: ShowcaseProduct[] }) {
+export function HomePage({
+  products,
+  collections,
+  error,
+}: {
+  products: ShowcaseProduct[];
+  collections: ShowcaseCollection[];
+  error?: boolean;
+}) {
   // Links like /#shop from other pages: scroll once the section has rendered
   useEffect(() => {
     const id = window.location.hash.slice(1);
@@ -128,7 +136,7 @@ export function HomePage({ products }: { products: ShowcaseProduct[] }) {
       <main>
         <Hero />
         <BlankSection />
-        <ProductShowcase products={products} />
+        <ProductShowcase products={products} collections={collections} error={error} />
         <Philosophy />
         <BrandsShowcase />
         <LazySection>

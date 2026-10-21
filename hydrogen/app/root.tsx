@@ -19,6 +19,7 @@ import {CheckoutNotice} from './components/Cart/CheckoutNotice';
 import {initGA4, trackGA4PageView} from './utils/ga4';
 import {seoMeta, DEFAULT_SITE_URL} from './lib/seo';
 import {normalizeStorefrontId} from './lib/storefront-id';
+import {MENU_COLLECTIONS_QUERY} from './lib/queries';
 import globalStyles from './styles/globals.css?url';
 
 export type RootLoader = typeof loader;
@@ -87,7 +88,22 @@ export async function loader({context}: Route.LoaderArgs) {
     );
   }
 
+  // Collections for the menu drawer. Not awaited: it streams in after the shell, so it never
+  // delays the first byte. null = Shopify unreachable (the menu shows an error state).
+  // Runs on every document request, so it is cached for a minute (refreshed in the background
+  // for 10 more): a collection added or removed in Shopify shows up within about a minute.
+  const menuCollections = context.storefront
+    .query(MENU_COLLECTIONS_QUERY, {
+      cache: context.storefront.CacheCustom({mode: 'public', maxAge: 60, staleWhileRevalidate: 600}),
+    })
+    .then(({collections}) => collections.nodes)
+    .catch((error: unknown) => {
+      console.error('[menu] Failed to load collections:', error);
+      return null;
+    });
+
   return {
+    menuCollections,
     // Written to window.ENV by <Layout> so client modules (lib/config.ts) can read them
     ENV: {
       PUBLIC_SHOPIFY_SHOP_ID: shopId,

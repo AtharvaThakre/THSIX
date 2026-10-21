@@ -12,33 +12,72 @@ const IMAGE_FIELDS = `#graphql
   }
 `;
 
-/** Home page "Latest drops" carousel (was <shopify-list-context query="products" first=250>). */
+/** Fields every product card needs (home carousels, collection pages). */
+const PRODUCT_CARD_FIELDS = `#graphql
+  fragment ProductCard on Product {
+    id
+    handle
+    title
+    vendor
+    selectedOrFirstAvailableVariant {
+      id
+      image {
+        ...ImageFields
+      }
+      price {
+        amount
+        currencyCode
+      }
+    }
+  }
+`;
+
+/**
+ * Home page: the "Latest drops" carousel (all products) plus one carousel per collection.
+ * One request; collections without products are dropped by the loader.
+ */
 export const HOME_PRODUCTS_QUERY = `#graphql
   query HomeProducts(
     $first: Int!
+    $collections: Int!
+    $perCollection: Int!
     $country: CountryCode
     $language: LanguageCode
   ) @inContext(country: $country, language: $language) {
     products(first: $first) {
       nodes {
+        ...ProductCard
+      }
+    }
+    collections(first: $collections, sortKey: TITLE) {
+      nodes {
         id
         handle
         title
-        vendor
-        selectedOrFirstAvailableVariant {
-          id
-          image {
-            ...ImageFields
-          }
-          price {
-            amount
-            currencyCode
+        products(first: $perCollection) {
+          nodes {
+            ...ProductCard
           }
         }
       }
     }
   }
+  ${PRODUCT_CARD_FIELDS}
   ${IMAGE_FIELDS}
+` as const;
+
+/** Every published collection, for the collection menu (root loader). */
+export const MENU_COLLECTIONS_QUERY = `#graphql
+  query MenuCollections($country: CountryCode, $language: LanguageCode)
+  @inContext(country: $country, language: $language) {
+    collections(first: 250, sortKey: TITLE) {
+      nodes {
+        id
+        handle
+        title
+      }
+    }
+  }
 ` as const;
 
 /** Product detail page. Edge/node shape kept so the page component is unchanged. */
@@ -99,11 +138,17 @@ export const PRODUCT_QUERY = `#graphql
   ${IMAGE_FIELDS}
 ` as const;
 
-/** Brand page: a Shopify collection and its products. */
+/**
+ * Collection page: a Shopify collection and one page of its products. Cursor variables come from
+ * Hydrogen's getPaginationVariables() so <Pagination> can load more.
+ */
 export const COLLECTION_QUERY = `#graphql
   query CollectionByHandle(
     $handle: String!
-    $first: Int!
+    $first: Int
+    $last: Int
+    $startCursor: String
+    $endCursor: String
     $country: CountryCode
     $language: LanguageCode
   ) @inContext(country: $country, language: $language) {
@@ -119,36 +164,20 @@ export const COLLECTION_QUERY = `#graphql
       image {
         ...ImageFields
       }
-      products(first: $first) {
+      products(first: $first, last: $last, before: $startCursor, after: $endCursor) {
         nodes {
-          id
-          title
-          handle
-          vendor
-          availableForSale
-          featuredImage {
-            ...ImageFields
-          }
-          priceRange {
-            minVariantPrice {
-              amount
-              currencyCode
-            }
-          }
-          variants(first: 1) {
-            nodes {
-              id
-              title
-              price {
-                amount
-                currencyCode
-              }
-            }
-          }
+          ...ProductCard
+        }
+        pageInfo {
+          hasPreviousPage
+          hasNextPage
+          startCursor
+          endCursor
         }
       }
     }
   }
+  ${PRODUCT_CARD_FIELDS}
   ${IMAGE_FIELDS}
 ` as const;
 
@@ -177,7 +206,7 @@ export const POLICIES_QUERY = `#graphql
   }
 ` as const;
 
-/** Product handles for sitemap.xml. */
+/** Product and collection handles for sitemap.xml. */
 export const SITEMAP_PRODUCTS_QUERY = `#graphql
   query SitemapProducts($country: CountryCode, $language: LanguageCode)
   @inContext(country: $country, language: $language) {
@@ -186,6 +215,17 @@ export const SITEMAP_PRODUCTS_QUERY = `#graphql
         handle
         updatedAt
         onlineStoreUrl
+      }
+    }
+    collections(first: 250) {
+      nodes {
+        handle
+        updatedAt
+        products(first: 1) {
+          nodes {
+            id
+          }
+        }
       }
     }
   }

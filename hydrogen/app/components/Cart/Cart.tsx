@@ -26,6 +26,8 @@ export const Cart = ({ isOpen, onClose }: CartProps) => {
       warmUpPickrrScript();
     } else {
       document.body.style.overflow = '';
+      // Reset so a later reopen slides in again (the menu can close the cart externally)
+      setIsAnimating(false);
     }
 
     return () => {

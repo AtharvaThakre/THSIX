@@ -18,7 +18,7 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
   const navigate = useNavigate();
 
   const handleClick = () => {
-    if (brand.available && brand.id === 'adidas') {
+    if (brand.available) {
       trackCustomEvent('BrandClicked', { brand_name: brand.name, brand_id: brand.id });
       void navigate(`/brands/${brand.id}`);
     } else {
@@ -81,7 +81,7 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
       </div>
 
       <div className="brand-card__footer">
-        {brand.available && brand.id === 'adidas' ? (
+        {brand.available ? (
           <div className="brand-card__action">
             <button
               type="button"
@@ -89,9 +89,9 @@ export const BrandCard = ({ brand }: BrandCardProps) => {
               onClick={(e) => {
                 e.stopPropagation();
                 trackCustomEvent('BrandClicked', { brand_name: brand.name, brand_id: brand.id });
-                void navigate('/brands/adidas');
+                void navigate(`/brands/${brand.id}`);
               }}
-              aria-label="See all Adidas products"
+              aria-label={`See all ${brand.name} products`}
             >
               <span>See All</span>
               <ArrowRight size={13} strokeWidth={2} className="brand-card__see-all-arrow" />

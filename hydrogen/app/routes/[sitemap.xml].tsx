@@ -1,5 +1,4 @@
 import type {Route} from './+types/[sitemap.xml]';
-import {brandsData} from '~/data/brands';
 import {SITEMAP_PRODUCTS_QUERY} from '~/lib/queries';
 
 const STATIC_PATHS = [
@@ -21,20 +20,24 @@ export async function loader({request, context}: Route.LoaderArgs) {
   const origin = (env.WEBSITE_BASE_URL || new URL(request.url).origin).replace(/\/+$/, '');
 
   let products: {handle: string; updatedAt: string}[] = [];
+  let collections: {handle: string; updatedAt: string}[] = [];
   try {
     const result = await storefront.query(SITEMAP_PRODUCTS_QUERY, {
       cache: storefront.CacheLong(),
     });
     products = result.products.nodes;
+    // Empty collections are noindex, so they stay out of the sitemap until they have products
+    collections = result.collections.nodes.filter((collection) => collection.products.nodes.length > 0);
   } catch (error) {
-    console.error('[sitemap] Failed to load products:', error);
+    console.error('[sitemap] Failed to load products and collections:', error);
   }
 
   const urls = [
     ...STATIC_PATHS.map((path) => ({loc: `${origin}${path}`})),
-    ...brandsData
-      .filter((brand) => brand.available)
-      .map((brand) => ({loc: `${origin}/brands/${brand.id}`})),
+    ...collections.map((collection) => ({
+      loc: `${origin}/collections/${encodeURIComponent(collection.handle)}`,
+      lastmod: collection.updatedAt,
+    })),
     ...products.map((product) => ({
       loc: `${origin}/product/${product.handle}`,
       lastmod: product.updatedAt,

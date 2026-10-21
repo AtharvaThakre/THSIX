@@ -1,0 +1,144 @@
+/* Horizontal product carousel: scroll container, arrow buttons and the card track.
+   Card widths are set here (the card itself is layout-agnostic). */
+
+.product-carousel {
+  position: relative;
+  display: flow-root; /* contain the scroll container's negative top margin */
+}
+
+.product-carousel__scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 8px;
+  /* Room inside the clip box for the card lift, hover scale and focus ring; the negative margins
+     cancel it so the cards sit exactly where they did before (2px from the content edge). */
+  padding: 6px 8px 12px; /* bottom: space for the scrollbar */
+  margin: -6px -6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: #d0d0cc #ffffff;
+}
+
+.product-carousel__scroll::-webkit-scrollbar {
+  height: 6px;
+}
+
+.product-carousel__scroll::-webkit-scrollbar-track {
+  background: #ffffff;
+  border-radius: 3px;
+}
+
+.product-carousel__scroll::-webkit-scrollbar-thumb {
+  background: #d0d0cc;
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.product-carousel__scroll::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}
+
+.product-carousel__track {
+  display: flex;
+  gap: clamp(12px, 2vw, 20px);
+}
+
+.product-carousel__track > .product-card {
+  flex: 0 0 300px;
+  width: 300px;
+  scroll-snap-align: start;
+}
+
+@media (max-width: 768px) {
+  .product-carousel__track > .product-card {
+    flex-basis: 250px;
+    width: 250px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-carousel__track > .product-card {
+    flex-basis: 220px;
+    width: 220px;
+  }
+}
+
+/* ─── Arrow buttons (pointer devices); touch devices swipe ──── */
+.product-carousel__btn {
+  position: absolute;
+  top: 140px; /* vertical centre of the card image area */
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid #e0e0dc;
+  background: var(--white);
+  color: var(--black);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transform: translateY(-50%);
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease,
+    background-color 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.product-carousel__btn--left {
+  left: 8px;
+}
+
+.product-carousel__btn--right {
+  right: 8px;
+}
+
+.product-carousel__btn:hover:not(:disabled) {
+  background: var(--black);
+  border-color: var(--black);
+  color: var(--white);
+}
+
+.product-carousel__btn:focus-visible {
+  outline: 2px solid var(--black);
+  outline-offset: 2px;
+}
+
+/* Nothing to scroll in this direction (or at all): the button disappears */
+.product-carousel__btn:disabled {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+@media (max-width: 768px) {
+  .product-carousel__btn {
+    top: 110px;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-carousel__btn {
+    top: 100px;
+  }
+}
+
+@media (hover: none) {
+  .product-carousel__btn {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-carousel__scroll {
+    scroll-behavior: auto;
+  }
+
+  .product-carousel__btn {
+    transition: none;
+  }
+}
