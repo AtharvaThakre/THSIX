@@ -319,6 +319,13 @@ globalThis.fetch = async (url, init = {}) => String(url).includes('details/list'
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: nothing found -> response shape reported, no values', r.body.shiprocket_response_shape?.result?.rows === 'array(0)' && r.body.shiprocket_response_shape.result.msg === 'string' && !JSON.stringify(r.body).includes('"x"'), JSON.stringify(r.body.shiprocket_response_shape));
 
+mockStore({details: srOrder('single123456')});
+calls.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'single123456'}});
+check('reconcile: ?order_id recovers one order via Order Details', r.status === 200 && r.body.shopify_order === '#1001' && !calls.some((c) => c.url.includes('details/list')), JSON.stringify(r.body));
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'bad id!'}});
+check('reconcile: invalid order_id -> 400', r.status === 400);
+
 mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);

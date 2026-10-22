@@ -28,6 +28,16 @@ export default async function handler(request) {
     return reply(500, { ok: false, message: 'Shopify Admin API access is not configured' });
   }
 
+  // ?order_id=<Shiprocket order id>: recover one order, read from Shiprocket's Order Details API
+  const singleId = String(queryParams(request).order_id || '').trim();
+  if (singleId) {
+    if (singleId.length < 6 || singleId.length > 128 || !/^[a-z0-9\-_]+$/i.test(singleId)) {
+      return reply(400, { ok: false, message: 'order_id is invalid' });
+    }
+    const { status, payload } = await processOrder(singleId, {}, { strict: true });
+    return reply(status, { order_id: singleId, ...payload });
+  }
+
   const requested = Number(queryParams(request).hours);
   const hours = Number.isFinite(requested) && requested > 0 ? Math.min(requested, MAX_HOURS) : DEFAULT_HOURS;
   const endDate = new Date();
