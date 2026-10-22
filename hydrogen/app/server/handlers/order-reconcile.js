@@ -33,9 +33,9 @@ export default async function handler(request) {
   const endDate = new Date();
   const startDate = new Date(endDate.getTime() - hours * 60 * 60 * 1000);
 
-  let orders;
+  let orders, shape;
   try {
-    orders = await listShiprocketOrders(startDate, endDate);
+    ({ orders, shape } = await listShiprocketOrders(startDate, endDate));
   } catch (error) {
     console.error('[order-reconcile] Listing Shiprocket orders failed:', error.message);
     return reply(502, { ok: false, message: error.message });
@@ -66,5 +66,7 @@ export default async function handler(request) {
     // Shopify order names (#1001 …) for every order that is now in Shopify, new or not
     in_shopify: results.filter((r) => r.shopify_order).map((r) => r.shopify_order),
     results,
+    // Nothing found: show how Shiprocket's reply is structured (names/types only, no values)
+    ...(results.length === 0 && { shiprocket_response_shape: shape }),
   });
 }

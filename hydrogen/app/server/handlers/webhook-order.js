@@ -201,7 +201,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
           }).catch(err => ({ status: 0, text: err.message }));
           console.log('[order-webhook] Shiprocket /details/list response:', listRes && listRes.status, String(listRes && listRes.text).slice(0, 300));
 
-          const list = listRes && listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+          const list = findOrderList(listRes && listRes.data);
           if (Array.isArray(list)) {
             const customerPhone = order.phone || (order.shipping_address && order.shipping_address.phone);
             const match = list.find(item =>
@@ -271,7 +271,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
           page: 0,
         });
 
-        const list = listRes.data && (listRes.data.result || listRes.data.orders || (Array.isArray(listRes.data) ? listRes.data : []));
+        const list = findOrderList(listRes.data);
         if (Array.isArray(list)) {
           const match = list.find(item =>
             String(item.order_id) === orderId ||
@@ -385,12 +385,52 @@ export function shiprocketOrderId(raw) {
   return String(raw.order_id || raw.id || raw.cart_id || '').trim();
 }
 
+const looksLikeOrder = (item) =>
+  item && typeof item === 'object' && !Array.isArray(item) &&
+  ['order_id', 'id', 'cart_id', 'channel_order_id', 'fastrr_order_id'].some((key) => item[key] != null);
+
+/** The order array inside a /details/list response, wherever Shiprocket nests it. */
+function findOrderList(data, depth = 0) {
+  if (Array.isArray(data)) return data.length === 0 || data.some(looksLikeOrder) ? data : null;
+  if (!data || typeof data !== 'object' || depth > 4) return null;
+  for (const key of ['result', 'orders', 'data', 'items', 'list', 'records', 'docs']) {
+    if (data[key] !== undefined) {
+      const found = findOrderList(data[key], depth + 1);
+      if (found) return found;
+    }
+  }
+  for (const value of Object.values(data)) {
+    const found = findOrderList(value, depth + 1);
+    if (found) return found;
+  }
+  return null;
+}
+
+/**
+ * A response's structure (field names, types, array lengths) without any values, so it can be
+ * logged or returned for diagnosis without exposing customer data.
+ */
+export function describeShape(value, depth = 0) {
+  if (Array.isArray(value)) {
+    return value.length && depth < 4 ? [`array(${value.length})`, describeShape(value[0], depth + 1)] : `array(${value.length})`;
+  }
+  if (value && typeof value === 'object') {
+    if (depth >= 4) return 'object';
+    return Object.fromEntries(Object.entries(value).slice(0, 40).map(([k, v]) => [k, describeShape(v, depth + 1)]));
+  }
+  return value === null ? 'null' : typeof value;
+}
+
 /**
  * Orders placed on Shiprocket Checkout between `startDate` and `endDate`, all pages.
- * @returns {Promise<object[]>}
+ * Shiprocket doesn't publish this endpoint's format, so the order array is searched for and
+ * paging works whether it starts at 0 or 1. `shape` describes the first response (no values).
+ * @returns {Promise<{orders: object[], shape: unknown}>}
  */
 export async function listShiprocketOrders(startDate, endDate, pageSize = 50, maxPages = 20) {
-  const all = [];
+  const orders = [];
+  const seenIds = new Set();
+  let shape;
   for (let page = 0; page < maxPages; page++) {
     const res = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
       startDate: startDate.toISOString(),
@@ -402,12 +442,21 @@ export async function listShiprocketOrders(startDate, endDate, pageSize = 50, ma
     if (!res.ok) {
       throw new Error(`Shiprocket ${res.status}: ${String(res.text).slice(0, 300)}`);
     }
-    const list = res.data && (res.data.result || res.data.orders || (Array.isArray(res.data) ? res.data : []));
-    if (!Array.isArray(list) || list.length === 0) break;
-    all.push(...list);
-    if (list.length < pageSize) break;
+    if (shape === undefined) shape = describeShape(res.data ?? res.text);
+    const list = findOrderList(res.data) || [];
+    // Page 0 empty may just mean pages start at 1
+    if (list.length === 0 && page === 0) continue;
+    const fresh = list.filter((item) => {
+      const id = shiprocketOrderId(item);
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+    orders.push(...fresh);
+    // Stop at the last page, or if the API ignores `page` and repeats itself
+    if (list.length < pageSize || fresh.length === 0) break;
   }
-  return all;
+  return { orders, shape };
 }
 
 async function createShopifyOrder(order, rawWebhookBody = {}) {

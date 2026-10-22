@@ -298,6 +298,27 @@ check('reconcile: lists Shiprocket orders via the signed API', Boolean(listCall?
 mockStore({list: []});
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {hours: 'abc'}});
 check('reconcile: bad hours -> default 3h window', r.status === 200 && r.body.hours === 3);
+// Other plausible response formats: nested under result.orders, pages starting at 1
+mockStore({inShopify: []});
+const storeRoutes = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => {
+  if (String(url).includes('details/list')) {
+    calls.push({url: String(url), init});
+    const page = JSON.parse(init.body).page;
+    const orders = page === 1 ? [srOrder('nested123456')] : [];
+    return new Response(JSON.stringify({success: true, data: {orders, total: 1}}), {status: 200});
+  }
+  return storeRoutes(url, init);
+};
+calls.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
+check('reconcile: finds orders nested under data.orders with 1-based pages', r.status === 200 && r.body.checked === 1 && shopifyCreates().length === 1, JSON.stringify(r.body).slice(0, 200));
+globalThis.fetch = async (url, init = {}) => String(url).includes('details/list')
+  ? new Response(JSON.stringify({ok: true, result: {rows: [], count: 0, msg: 'x'}}), {status: 200})
+  : storeRoutes(url, init);
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
+check('reconcile: nothing found -> response shape reported, no values', r.body.shiprocket_response_shape?.result?.rows === 'array(0)' && r.body.shiprocket_response_shape.result.msg === 'string' && !JSON.stringify(r.body).includes('"x"'), JSON.stringify(r.body.shiprocket_response_shape));
+
 mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);
