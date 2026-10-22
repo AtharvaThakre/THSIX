@@ -21,7 +21,7 @@ export const footerColumns: FooterColumn[] = [
       { label: 'New Drops', href: '/#shop' },
       { label: 'Best sellers', href: '/#shop' },
       { label: 'Brands', href: '/#brands' },
-      { label: 'All products', href: '/brands/adidas' },
+      { label: 'All products', href: '/#shop' },
     ],
   },
   {

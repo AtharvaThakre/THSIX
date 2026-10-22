@@ -1,13 +1,31 @@
-import { ShoppingBag } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Menu, ShoppingBag } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCart } from '../../contexts/CartContext';
 import { openCart } from '../Cart/openCart';
+import { CollectionMenu, type MenuNavLink } from '../CollectionMenu/CollectionMenu';
+import { announceMenuOpen, COLLECTION_MENU_ID } from '../CollectionMenu/menuEvents';
 import { trackCustomEvent } from '../../utils/metaPixel';
 import './Header.css';
+
+const NAV_LINKS: MenuNavLink[] = [
+  { href: '/#shop', label: 'Shop', sectionId: 'shop' },
+  { href: '/#brands', label: 'Brands', sectionId: 'brands' },
+  { href: '/#about', label: 'About', sectionId: 'about' },
+  { href: '/contactus', label: 'Contact' },
+];
 
 export const Header = () => {
   const { totalItems } = useCart();
   const [isPulsing, setIsPulsing] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const menuBtnRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setIsMenuOpen(false), []);
+
+  const openMenu = () => {
+    announceMenuOpen(); // closes the cart if it is open
+    setIsMenuOpen(true);
+    trackCustomEvent('MenuIconClicked');
+  };
 
   // Trigger animation when items are added
   useEffect(() => {
@@ -35,7 +53,23 @@ export const Header = () => {
     }
   };
 
+  // Menu (mobile) nav links: close the drawer first, then scroll once its scroll lock is released
+  const handleMenuNavClick = (e: React.MouseEvent<HTMLAnchorElement>, link: MenuNavLink) => {
+    setIsMenuOpen(false);
+    if (!link.sectionId) return;
+    const id = link.sectionId;
+    trackCustomEvent('NavLinkClicked', { section: id });
+    if (window.location.pathname === '/' && document.getElementById(id)) {
+      e.preventDefault();
+      window.setTimeout(() => {
+        document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        window.history.replaceState(null, '', `/#${id}`);
+      }, 60);
+    }
+  };
+
   return (
+    <>
     <header className="header">
       <div
         className="header-left"
@@ -54,6 +88,18 @@ export const Header = () => {
       </nav>
       <div className="header-right">
         <button
+          ref={menuBtnRef}
+          className="icon-btn menu-btn"
+          aria-label="Open collections menu"
+          aria-haspopup="dialog"
+          aria-expanded={isMenuOpen}
+          aria-controls={COLLECTION_MENU_ID}
+          onClick={openMenu}
+          type="button"
+        >
+          <Menu size={24} strokeWidth={1.5} />
+        </button>
+        <button
           className={`icon-btn cart-btn ${isPulsing ? 'cart-btn--notify' : ''} ${totalItems > 0 ? 'cart-btn--has-items' : ''}`}
           aria-label={`Cart ${totalItems > 0 ? `with ${totalItems} item${totalItems > 1 ? 's' : ''}` : ''}`}
           onClick={() => { openCart(); trackCustomEvent('CartIconClicked', { item_count: totalItems }); }}
@@ -70,5 +116,13 @@ export const Header = () => {
         </button>
       </div>
     </header>
+    <CollectionMenu
+      isOpen={isMenuOpen}
+      onClose={closeMenu}
+      triggerRef={menuBtnRef}
+      navLinks={NAV_LINKS}
+      onNavLinkClick={handleMenuNavClick}
+    />
+    </>
   );
 };

@@ -33,11 +33,13 @@ GitHub ──push──▶ .github/workflows/oxygen-deployment.yml ──▶ Sho
 
 | Route | Loader query | Notes |
 | --- | --- | --- |
-| `/` | `HOME_PRODUCTS_QUERY` (250 products) | Product cards are SSR'd |
+| every page (root) | `MENU_COLLECTIONS_QUERY` | All collections for the menu drawer; returned unawaited (streams after the shell), cached 60 s + 10 min SWR |
+| `/` | `HOME_PRODUCTS_QUERY` (250 products + 250 collections × 20) | "All Products" row + one row per collection with products; one request, SSR'd |
 | `/product/:handle` | `PRODUCT_QUERY` | Real 404 status when missing; Product JSON-LD |
-| `/brands/:brandId` | `COLLECTION_QUERY` | adidas → `frontpage`; static Adidas fallback for Shopify outages |
+| `/collections/:handle` | `COLLECTION_QUERY` (24 per page, cursor pagination) | Any Shopify collection; 404 / empty / 503 states |
+| `/brands/:brandId` | `MENU_COLLECTIONS_QUERY` | Redirect only (see §2) |
 | Policy pages | `STATIC_POLICIES`, else `POLICIES_QUERY` | All four policies are static copy today |
-| `/sitemap.xml` | `SITEMAP_PRODUCTS_QUERY` | |
+| `/sitemap.xml` | `SITEMAP_PRODUCTS_QUERY` | Products + collections that have products |
 
 Product cards link with `<Link prefetch="intent">`, so navigation is client-side with loader data.
 
@@ -62,6 +64,8 @@ Workers ones: Web Crypto for HMAC/SHA-256, `fetch` for Shiprocket, Resend, Meta 
 | `/api/catalog/sync` | GET/POST | `Authorization: Bearer $CRON_SECRET` (always 401 when unset) | 401, 500, 502 partial failure |
 | `/api/webhooks/order` | POST | `WEBHOOK_SECRET` (see §5) | 400, 401, 405, 500 → Shiprocket retries |
 | `/api/webhooks/shipment` | POST (OPTIONS) | `WEBHOOK_SECRET` | 400, 401, 405 |
+| `/api/orders/confirm` | POST | none (order re-read from Shiprocket) | 400, 405, 500 |
+| `/api/orders/reconcile` | GET, POST | `CRON_SECRET` (Bearer) | 401, 500, 502 |
 
 ## 2. Routes and redirects
 
@@ -70,15 +74,35 @@ Workers ones: Web Crypto for HMAC/SHA-256, `fetch` for Shiprocket, Resend, Meta 
 | `/`, `/about`, `/contactus`, `/shipping`, `/returns`, `/terms`, `/privacy`, `/payment-policy` | 200 |
 | `/product/:handle` | 200, or 404 page with 404 status |
 | `/products/:handle` | 301 → `/product/:handle` (query kept) |
-| `/brands/:brandId` | 200 for known brands, 404 otherwise |
+| `/collections/:handle` | 200 (`noindex` while the collection is empty), 404 page with 404 status for unknown handles, 503 when Shopify is unreachable; a different-case handle 301s to Shopify's handle |
+| `/brands/:brandId` | 301 → `/collections/<handle>` when a collection has that handle; 302 when matched by title (`adidas` → the "ADIDAS" collection, handle `frontpage`) or unmatched (→ 404) |
 | `/about-us`, `/about us` | 301 → `/about` |
 | `/contact`, `/contact-us` | 301 → `/contactus` |
 | `/cart`, `/cart/*` | 302 → `/` |
 | `/checkout/success`, `/checkouts/*`, `/:shopId/orders/:token` | checkout result page (noindex) |
 | `/policies/{shipping,refund,privacy}-policy`, `/policies/terms-of-service` | 301 → THSIX policy pages |
 | `/pages/about(-us)`, `/pages/contact(-us)` | 301 → `/about`, `/contactus` |
-| `/collections`, `/collections/all` | 301 → `/#shop`; `/collections/frontpage` → `/brands/adidas`; `/collections/<brand>` → `/brands/<brand>` |
+| `/collections`, `/collections/all` | 301 → `/#shop` (unless a real collection uses the handle `all`) |
 | anything else | 404 (after Shopify admin URL redirects via `storefrontRedirect`) |
+
+### Collections (Shopify is the source of truth)
+
+Nothing about collections is hardcoded: adding, renaming, emptying or unpublishing a collection in
+Shopify admin changes the site with no code change.
+
+- **Menu** (`app/components/CollectionMenu/`): the menu button next to the cart opens a drawer
+  listing every published collection (Shopify title, `/collections/<handle>`). The links are in the
+  SSR HTML (crawlable); the drawer is `inert` while closed, traps focus while open, closes on
+  Esc / overlay / link / route change, and is mutually exclusive with the cart drawer.
+- **Home**: the existing carousel (`ProductShowcase` → `ProductCarousel`) shows "All Products",
+  then one row per collection that has at least one product, each with a "View all" link.
+  Empty collections get no row.
+- **Collection page** (`app/pages/CollectionPage.tsx`): 2 columns on mobile, 3 from 768 px, 4 from
+  1024 px; Hydrogen `<Pagination>` with crawlable "Load more" / "Load previous" links.
+- Product cards everywhere use `app/components/ProductCard/` (one `ProductCard` GraphQL fragment).
+- Changes appear within about a minute (menu cache) and within seconds elsewhere (`CacheShort`).
+- The homepage "More brands" cards (`app/data/brands.ts`) are static marketing art; they link
+  through `/brands/:id`, which resolves the collection from Shopify.
 
 ## 3. Cart decision: localStorage, not the Shopify Cart API
 
@@ -133,6 +157,15 @@ Shiprocket does not sign them.
   payload has no items, returns 500 so Shiprocket retries while an order is indexing, and
   creates Shopify orders idempotently (tag `sr-<order id>`) when Admin API access is configured.
   A body that is not JSON gets a 400.
+- Two backups make sure an order reaches Shopify when the webhook doesn't (all three share
+  `processOrder()` in `webhook-order.js`, so an order is created once whichever path runs first):
+  - `POST /api/orders/confirm {order_id}`: the success page sends the `oid` Shiprocket
+    redirected back with (after 15s, retrying at 30s and 60s). Public, but the order is re-read
+    from Shiprocket's signed API, unpaid prepaid orders are skipped and nothing is echoed back.
+  - `GET /api/orders/reconcile?hours=3` (`Authorization: Bearer <CRON_SECRET>`): lists
+    Shiprocket orders in the window and creates the missing ones.
+    `.github/workflows/order-reconcile.yml` runs it every 15 minutes (needs `THSIX_CRON_SECRET`);
+    "Run workflow" with a larger `hours` backfills older orders (max 720).
 - Admin API access (`app/server/lib/admin-token.js`): Shopify's Dev Dashboard apps have no
   permanent token, so with `SHOPIFY_ADMIN_CLIENT_ID` + `SHOPIFY_ADMIN_CLIENT_SECRET` the server
   exchanges them for a ~24h token (client credentials grant), caches it per isolate and renews it

@@ -1,7 +1,6 @@
 import {data, redirect} from 'react-router';
 import type {Route} from './+types/$';
 import {NotFoundPage} from '~/pages/NotFoundPage';
-import {brandsData} from '~/data/brands';
 import {seoMeta} from '~/lib/seo';
 
 // Shopify Online Store URLs (order emails, old backlinks) -> their THSIX pages
@@ -15,8 +14,6 @@ const SHOPIFY_PATHS: Record<string, string> = {
   '/pages/contact': '/contactus',
   '/pages/contact-us': '/contactus',
   '/collections': '/#shop',
-  '/collections/all': '/#shop',
-  '/collections/frontpage': '/brands/adidas',
 };
 
 export async function loader({request}: Route.LoaderArgs) {
@@ -35,11 +32,6 @@ export async function loader({request}: Route.LoaderArgs) {
 
   if (SHOPIFY_PATHS[normalized]) {
     return redirect(SHOPIFY_PATHS[normalized], 301);
-  }
-
-  const collection = normalized.match(/^\/collections\/([^/]+)$/)?.[1];
-  if (collection && brandsData.some((b) => b.id === collection)) {
-    return redirect(`/brands/${collection}`, 301);
   }
 
   return data(null, {status: 404});
