@@ -137,6 +137,25 @@ export default async function handler(request) {
     return reply(400, { ok: false, message: 'order_id is required', received: orderId });
   }
 
+  const result = await processOrder(orderId, body);
+  return reply(result.status, result.payload);
+};
+
+/**
+ * Verify one Shiprocket order and create it in Shopify (idempotent: tag sr-<order id>).
+ * Shared by the webhook, the checkout success page (/api/orders/confirm) and the scheduled
+ * reconciliation (/api/orders/reconcile), so an order reaches Shopify even when one path fails.
+ *
+ * @param {string} orderId
+ * @param {object} body   Webhook body; `{}` makes the order come only from Shiprocket's signed API
+ * @param {object} [options]
+ * @param {boolean} [options.strict] Skip prepaid orders whose payment hasn't succeeded yet
+ *   (for the paths that aren't Shiprocket itself saying an order was placed)
+ * @param {object} [options.knownOrder] The order's record, already read from Shiprocket's list API
+ * @returns {Promise<{status: number, payload: object}>}
+ */
+export async function processOrder(orderId, body = {}, { strict = false, knownOrder = null } = {}) {
+  const reply = (status, payload) => ({ status, payload });
   console.log('[order-webhook] Processing orderId:', orderId);
 
   if (!isConfigured()) {
@@ -149,7 +168,9 @@ export default async function handler(request) {
   const candidateItems = (candidate.cart_data && candidate.cart_data.items) || candidate.items || candidate.line_items;
   let order = null;
 
-  if (Array.isArray(candidateItems) && candidateItems.length > 0) {
+  if (knownOrder && hasItems(knownOrder)) {
+    order = normalizeOrder(knownOrder, orderId);
+  } else if (Array.isArray(candidateItems) && candidateItems.length > 0) {
     console.log('[order-webhook] Webhook payload already contains order items, using directly');
     order = normalizeOrder(candidate, orderId);
 
@@ -293,6 +314,11 @@ export default async function handler(request) {
 
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
+  const paymentKnown = order.payment_type ? String(order.payment_type).toUpperCase() : null;
+  if (strict && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
+    return reply(200, { ok: true, skipped: `prepaid payment is ${order.payment_status}` });
+  }
+
   if (!SUCCESS_STATUSES.includes(status)) {
     if (SHIPPING_STATUSES.includes(status) && isAdminConfigured()) {
       try {
@@ -347,7 +373,42 @@ export default async function handler(request) {
       return reply(500, { ok: false, message: 'Shopify order creation failed after retry' });
     }
   }
-};
+}
+
+function hasItems(raw) {
+  const items = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items;
+  return Array.isArray(items) && items.length > 0;
+}
+
+/** Shiprocket's id for a record from /custom-platform-order/details/list. */
+export function shiprocketOrderId(raw) {
+  return String(raw.order_id || raw.id || raw.cart_id || '').trim();
+}
+
+/**
+ * Orders placed on Shiprocket Checkout between `startDate` and `endDate`, all pages.
+ * @returns {Promise<object[]>}
+ */
+export async function listShiprocketOrders(startDate, endDate, pageSize = 50, maxPages = 20) {
+  const all = [];
+  for (let page = 0; page < maxPages; page++) {
+    const res = await shiprocketPost('/api/v1/custom-platform-order/details/list', {
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      timestamp: new Date().toISOString(),
+      limit: pageSize,
+      page,
+    });
+    if (!res.ok) {
+      throw new Error(`Shiprocket ${res.status}: ${String(res.text).slice(0, 300)}`);
+    }
+    const list = res.data && (res.data.result || res.data.orders || (Array.isArray(res.data) ? res.data : []));
+    if (!Array.isArray(list) || list.length === 0) break;
+    all.push(...list);
+    if (list.length < pageSize) break;
+  }
+  return all;
+}
 
 async function createShopifyOrder(order, rawWebhookBody = {}) {
   const tag = `sr-${order.order_id}`;

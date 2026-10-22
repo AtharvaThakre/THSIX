@@ -1,0 +1,46 @@
+# Safety net for Shiprocket order webhooks that don't arrive: every 15 minutes, GitHub Actions
+# calls /api/orders/reconcile, which creates any Shiprocket Checkout order from the last few
+# hours that isn't in Shopify yet. Orders already in Shopify are skipped.
+# Scheduled workflows run from the default branch only.
+#
+# Setup: the same THSIX_CRON_SECRET secret as catalog-sync.yml.
+# Backfill: Actions > Order reconcile > Run workflow, with a larger "hours" (e.g. 168).
+name: Order reconcile
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: 'How many hours back to check'
+        default: '3'
+
+permissions: {}
+
+concurrency:
+  group: order-reconcile
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call /api/orders/reconcile
+        env:
+          CRON_SECRET: ${{ secrets.THSIX_CRON_SECRET }}
+          SITE_URL: ${{ vars.THSIX_SITE_URL || 'https://www.thsix.com' }}
+          HOURS: ${{ inputs.hours || '3' }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::THSIX_CRON_SECRET is not set; skipping order reconcile."
+            exit 0
+          fi
+          case "$HOURS" in (*[!0-9]*|'') echo "::error::hours must be a number"; exit 1;; esac
+          status=$(curl -sS -o response.json -w '%{http_code}' --max-time 300 \
+            -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/orders/reconcile?hours=$HOURS")
+          cat response.json; echo
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Order reconcile failed with HTTP $status"
+            exit 1
+          fi

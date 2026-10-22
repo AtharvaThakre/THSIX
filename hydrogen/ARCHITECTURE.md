@@ -64,6 +64,8 @@ Workers ones: Web Crypto for HMAC/SHA-256, `fetch` for Shiprocket, Resend, Meta 
 | `/api/catalog/sync` | GET/POST | `Authorization: Bearer $CRON_SECRET` (always 401 when unset) | 401, 500, 502 partial failure |
 | `/api/webhooks/order` | POST | `WEBHOOK_SECRET` (see §5) | 400, 401, 405, 500 → Shiprocket retries |
 | `/api/webhooks/shipment` | POST (OPTIONS) | `WEBHOOK_SECRET` | 400, 401, 405 |
+| `/api/orders/confirm` | POST | none (order re-read from Shiprocket) | 400, 405, 500 |
+| `/api/orders/reconcile` | GET, POST | `CRON_SECRET` (Bearer) | 401, 500, 502 |
 
 ## 2. Routes and redirects
 
@@ -155,6 +157,15 @@ Shiprocket does not sign them.
   payload has no items, returns 500 so Shiprocket retries while an order is indexing, and
   creates Shopify orders idempotently (tag `sr-<order id>`) when Admin API access is configured.
   A body that is not JSON gets a 400.
+- Two backups make sure an order reaches Shopify when the webhook doesn't (all three share
+  `processOrder()` in `webhook-order.js`, so an order is created once whichever path runs first):
+  - `POST /api/orders/confirm {order_id}`: the success page sends the `oid` Shiprocket
+    redirected back with (after 15s, retrying at 30s and 60s). Public, but the order is re-read
+    from Shiprocket's signed API, unpaid prepaid orders are skipped and nothing is echoed back.
+  - `GET /api/orders/reconcile?hours=3` (`Authorization: Bearer <CRON_SECRET>`): lists
+    Shiprocket orders in the window and creates the missing ones.
+    `.github/workflows/order-reconcile.yml` runs it every 15 minutes (needs `THSIX_CRON_SECRET`);
+    "Run workflow" with a larger `hours` backfills older orders (max 720).
 - Admin API access (`app/server/lib/admin-token.js`): Shopify's Dev Dashboard apps have no
   permanent token, so with `SHOPIFY_ADMIN_CLIENT_ID` + `SHOPIFY_ADMIN_CLIENT_SECRET` the server
   exchanges them for a ~24h token (client credentials grant), caches it per isolate and renews it

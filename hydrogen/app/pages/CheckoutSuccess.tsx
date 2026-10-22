@@ -6,6 +6,25 @@ import { trackPurchase } from '../utils/metaPixel';
 import { trackGA4Purchase } from '../utils/ga4';
 import './CheckoutSuccess.css';
 
+// First try waits so Shiprocket's own webhook (usually seconds) creates the order first
+const CONFIRM_DELAYS_MS = [15000, 30000, 60000];
+
+async function confirmOrder(orderId: string) {
+  for (const delay of CONFIRM_DELAYS_MS) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    try {
+      const res = await fetch('/api/orders/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId }),
+        keepalive: true,
+      });
+      // 4xx won't get better by retrying; 5xx = order still indexing or Shopify busy
+      if (res.status < 500) return;
+    } catch { /* network blip: retry */ }
+  }
+}
+
 export const CheckoutSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -22,6 +41,11 @@ export const CheckoutSuccess = () => {
     hasFired.current = true;
 
     clearCart();
+
+    // Make sure the order reaches Shopify even if Shiprocket's order webhook doesn't arrive.
+    // The server re-reads the order from Shiprocket and skips it if it's already in Shopify.
+    // Retries cover Shiprocket still indexing a just-placed order.
+    if (orderId) void confirmOrder(orderId);
 
     // Retrieve the checkout value saved before the Shiprocket redirect.
     // localStorage is used as primary source because cross-origin payment-gateway

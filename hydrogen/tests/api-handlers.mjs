@@ -218,5 +218,92 @@ check('clientIp: oxygen-buyer-ip first, x-forwarded-for first hop',
   clientIp(new Request('https://x', {headers: {'oxygen-buyer-ip': '1.1.1.1', 'x-forwarded-for': '2.2.2.2'}})) === '1.1.1.1'
   && clientIp(new Request('https://x', {headers: {'x-forwarded-for': '3.3.3.3, 4.4.4.4'}})) === '3.3.3.3');
 
+// ── Shopify order creation: webhook, success-page confirm, scheduled reconcile ──
+const confirmHandler = (await imp('handlers/order-confirm.js')).default;
+const reconcileHandler = (await imp('handlers/order-reconcile.js')).default;
+const ADMIN_ENV = {...ENV, SHOPIFY_ADMIN_ACCESS_TOKEN: 'shpat_test'};
+const srOrder = (id, extra = {}) => ({
+  order_id: id, status: 'SUCCESS', payment_type: 'COD', payment_status: 'PENDING', total_amount_payable: 2999,
+  phone: '9876543210', cart_data: {items: [{variant_id: '50501821923493', quantity: 1}]},
+  shipping_address: {first_name: 'A', last_name: 'B', line1: 'x', city: 'Pune', pincode: '411001', phone: '9876543210'},
+  ...extra,
+});
+// inShopify: tags whose order already exists in Shopify
+function mockStore({details, list = [], inShopify = []}) {
+  mockFetch([
+    ['custom-platform-order/details/list', (url, init) => ({body: {result: JSON.parse(init.body).page === 0 ? list : []}})],
+    ['custom-platform-order/details', {body: {ok: true, result: details}}],
+    ['graph.facebook.com', {body: {events_received: 1}}],
+    ['customers/search.json', {body: {customers: []}}],
+    ['/admin/api/2026-10/orders.json', {status: 201, body: {order: {name: '#1001'}}}],
+    ['/admin/api/2026-10/graphql.json', (url, init) => {
+      const q = JSON.parse(init.body).variables?.q || '';
+      const hit = inShopify.find((tag) => q.includes(tag));
+      return {body: {data: {orders: {edges: hit ? [{node: {id: 'gid://shopify/Order/9', name: '#0900'}}] : []}, customers: {edges: []}}}};
+    }],
+    ['/api/2026-04/graphql.json', {body: {data: {nodes: [{__typename: 'ProductVariant', id: 'gid://shopify/ProductVariant/50501821923493', title: 'UK4', availableForSale: true, price: {amount: '2999.0'}, image: null, product: {title: 'Samba', featuredImage: null}}]}}}],
+  ]);
+}
+const shopifyCreates = () => calls.filter((c) => c.url.includes('/orders.json') && c.init.method === 'POST');
+
+setServerEnv(ADMIN_ENV);
+mockStore({details: srOrder('codorder1234')});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'codorder1234'}});
+const created = shopifyCreates()[0];
+const createdOrder = created && JSON.parse(created.init.body).order;
+check('order webhook: COD order created in Shopify', r.status === 200 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
+check('order webhook: Shopify order tagged sr-<id>, cod, pending', createdOrder?.tags.includes('sr-codorder1234') && createdOrder.tags.includes('cod') && createdOrder.financial_status === 'pending');
+
+mockStore({details: srOrder('codorder1234'), inShopify: ['sr-codorder1234']});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'codorder1234'}});
+check('order webhook: repeat delivery creates no duplicate', r.status === 200 && shopifyCreates().length === 0 && r.body.shopify_order === '#0900', JSON.stringify(r.body));
+
+r = await call(confirmHandler, {method: 'GET'});
+check('confirm: GET -> 405', r.status === 405);
+r = await call(confirmHandler, {body: {order_id: 'x'}});
+check('confirm: invalid order_id -> 400', r.status === 400);
+mockStore({details: srOrder('prepaid12345', {payment_type: 'PREPAID', payment_status: 'SUCCESS'})});
+calls.length = 0;
+r = await call(confirmHandler, {body: {order_id: 'prepaid12345', total_amount_payable: 1}});
+const paidOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
+check('confirm: paid prepaid order created, from Shiprocket data (not the browser body)', r.status === 200 && r.body.ok === true && paidOrder?.financial_status === 'paid' && paidOrder.transactions[0].amount === '2999.00', JSON.stringify(r.body));
+check('confirm: no order details echoed to the browser', Object.keys(r.body).join() === 'ok');
+mockStore({details: srOrder('unpaid123456', {payment_type: 'PREPAID', payment_status: 'PENDING'})});
+calls.length = 0;
+r = await call(confirmHandler, {body: {order_id: 'unpaid123456'}});
+check('confirm: prepaid order with unpaid payment is not created', r.status === 200 && shopifyCreates().length === 0);
+mockFetch([['custom-platform-order/details', {status: 400, body: {ok: false, message: 'Order not found'}}]]);
+r = await call(confirmHandler, {body: {order_id: 'forged123456'}});
+check('confirm: unknown order -> 500 (retry later), nothing created', r.status === 500 && shopifyCreates().length === 0);
+
+r = await call(reconcileHandler, {method: 'GET'});
+check('reconcile: no cron secret -> 401', r.status === 401);
+mockStore({list: [
+  srOrder('missing12345'),
+  srOrder('already12345'),
+  srOrder('missing12345'),
+  srOrder('unpaidlist12', {payment_type: 'PREPAID', payment_status: 'FAILED'}),
+], inShopify: ['sr-already12345']});
+calls.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {hours: '72'}});
+const listCall = calls.find((c) => c.url.includes('details/list'));
+const listBody = listCall && JSON.parse(listCall.init.body);
+const windowHours = listBody && (new Date(listBody.endDate) - new Date(listBody.startDate)) / 3600000;
+check('reconcile: 200, checks each order once', r.status === 200 && r.body.checked === 3, JSON.stringify(r.body).slice(0, 300));
+check('reconcile: creates only the missing order', shopifyCreates().length === 1 && JSON.parse(shopifyCreates()[0].init.body).order.tags.includes('sr-missing12345'));
+check('reconcile: hours=72 -> 72h Shiprocket window', windowHours === 72 && r.body.hours === 72);
+check('reconcile: lists Shiprocket orders via the signed API', Boolean(listCall?.init.headers['X-Api-HMAC-SHA256']));
+mockStore({list: []});
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {hours: 'abc'}});
+check('reconcile: bad hours -> default 3h window', r.status === 200 && r.body.hours === 3);
+mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
+check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);
+setServerEnv(ENV);
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
+check('reconcile: no Admin API access -> 500', r.status === 500);
+
 console.log(`\n${pass}/${pass + fail} server checks passed`);
 process.exit(fail ? 1 : 0);
