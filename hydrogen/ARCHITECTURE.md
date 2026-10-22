@@ -166,6 +166,14 @@ Shiprocket does not sign them.
     Shiprocket orders in the window and creates the missing ones.
     `.github/workflows/order-reconcile.yml` runs it every 15 minutes (needs `THSIX_CRON_SECRET`);
     "Run workflow" with a larger `hours` backfills older orders (max 720).
+- No duplicates when paths overlap (`app/server/lib/order-lock.js`): Shopify's order search lags
+  behind new orders, so besides the `tag:sr-<id>` search the newest 50 orders are checked
+  directly, and creation is claimed with a shop metafield (`$app:shiprocket_orders`, key
+  `sr-<id>`) written with `metafieldsSet` + `compareDigest: null`, which only succeeds for the
+  first request. The value becomes the Shopify order name once created. A claim is released if
+  Shopify rejects the order, kept if the response is lost (so a retry can't make a second copy),
+  and taken over after 10 minutes if its order never appeared. If the lock can't be used, the
+  two checks still run.
 - Admin API access (`app/server/lib/admin-token.js`): Shopify's Dev Dashboard apps have no
   permanent token, so with `SHOPIFY_ADMIN_CLIENT_ID` + `SHOPIFY_ADMIN_CLIENT_SECRET` the server
   exchanges them for a ~24h token (client credentials grant), caches it per isolate and renews it

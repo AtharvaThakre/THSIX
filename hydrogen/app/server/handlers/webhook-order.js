@@ -4,6 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
+import { claimOrder, markOrderCreated, releaseOrder } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
 const SHOPIFY_ADMIN_API = '2026-10';
@@ -360,6 +361,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
 
   try {
     const shopifyOrder = await createShopifyOrder(order, body);
+    if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
     return reply(200, { ok: true, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
@@ -368,6 +370,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const shopifyOrder = await createShopifyOrder(order, body);
+      if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
       console.log('[order-webhook] Retry succeeded');
 
       return reply(200, { ok: true, shopify_order: shopifyOrder, retried: true });
@@ -463,7 +466,64 @@ export async function listShiprocketOrders(startDate, endDate, pageSize = 50, ma
   return { orders, shape };
 }
 
+/**
+ * Create the Shopify order for a Shiprocket order exactly once, however many paths (webhook,
+ * success page, reconcile, Shiprocket redeliveries) handle it at the same moment.
+ * @returns {Promise<string|null>} the Shopify order name, or null if another request is
+ *   creating it right now
+ */
 async function createShopifyOrder(order, rawWebhookBody = {}) {
+  const tag = `sr-${order.order_id}`;
+  // Search can lag behind new orders, so also look at the newest orders directly
+  const existing = (await findShopifyOrderByTag(tag)) || (await findRecentOrderByTag(tag));
+  if (existing) {
+    console.log('[order-webhook] Already in Shopify:', existing);
+    return existing;
+  }
+
+  const lock = await claimOrder(order.order_id);
+  if (lock.state === 'exists') {
+    console.log('[order-webhook] Already created:', lock.name);
+    return lock.name;
+  }
+  if (lock.state === 'in_progress') {
+    console.log('[order-webhook] Another request is creating', order.order_id);
+    return null;
+  }
+  if (lock.state === 'unavailable') {
+    console.error('[order-webhook] Order lock unavailable, relying on the duplicate checks:', lock.error);
+  }
+
+  const progress = {};
+  try {
+    const name = await submitShopifyOrder(order, rawWebhookBody, progress);
+    if (lock.state === 'claimed') await markOrderCreated(order.order_id, name);
+    return name;
+  } catch (error) {
+    // Free the claim only when no order can exist (failed before sending, or Shopify said no).
+    // After a lost response the claim stays and expires, so a retry can't make a second copy.
+    if (lock.state === 'claimed' && (!progress.posted || progress.rejected)) {
+      await releaseOrder(order.order_id);
+    }
+    throw error;
+  }
+}
+
+/** The newest orders, read directly rather than through search (which lags behind). */
+async function findRecentOrderByTag(tag) {
+  try {
+    const data = await adminGraphQL(
+      '{ orders(first: 50, sortKey: CREATED_AT, reverse: true) { nodes { name tags } } }'
+    );
+    const match = (data?.data?.orders?.nodes || []).find((node) => (node.tags || []).includes(tag));
+    return match ? match.name : null;
+  } catch (err) {
+    console.error('[order-webhook] Recent orders check failed:', err.message);
+    return null;
+  }
+}
+
+async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
   const tag = `sr-${order.order_id}`;
   const existing = await findShopifyOrderByTag(tag);
   if (existing) {
@@ -576,6 +636,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
 
   console.log(`[order-webhook] Submitting order to Shopify (${payload.order.line_items.length} line items)`);
 
+  progress.posted = true;
   let response = await fetch(`${config.shopifyStoreDomain}/admin/api/${SHOPIFY_ADMIN_API}/orders.json`, {
     method: 'POST',
     headers: await adminAuthHeaders(),
@@ -626,6 +687,8 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
   }
 
   if (!response.ok) {
+    // Shopify answered with an error, so no order was created and a retry is safe
+    progress.rejected = true;
     throw new Error(`Shopify ${response.status}: ${text.slice(0, 500)}`);
   }
   const created = safeParse(text);

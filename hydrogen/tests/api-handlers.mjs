@@ -229,7 +229,12 @@ const srOrder = (id, extra = {}) => ({
   ...extra,
 });
 // inShopify: tags whose order already exists in Shopify
+const lockStore = new Map();
+let lockDigest = 0;
+let recentOrders = [];
 function mockStore({details, list = [], inShopify = []}) {
+  lockStore.clear();
+  recentOrders = [];
   mockFetch([
     ['custom-platform-order/details/list', (url, init) => ({body: {result: JSON.parse(init.body).page === 0 ? list : []}})],
     ['custom-platform-order/details', {body: {ok: true, result: details}}],
@@ -237,7 +242,30 @@ function mockStore({details, list = [], inShopify = []}) {
     ['customers/search.json', {body: {customers: []}}],
     ['/admin/api/2026-10/orders.json', {status: 201, body: {order: {name: '#1001'}}}],
     ['/admin/api/2026-10/graphql.json', (url, init) => {
-      const q = JSON.parse(init.body).variables?.q || '';
+      const {query, variables = {}} = JSON.parse(init.body);
+      // Order lock: shop metafields, created only if absent when compareDigest is null
+      if (query.includes('shop { id }')) return {body: {data: {shop: {id: 'gid://shopify/Shop/1'}}}};
+      if (query.includes('metafieldsSet')) {
+        const m = variables.m[0];
+        const cur = lockStore.get(m.key);
+        if ('compareDigest' in m && (m.compareDigest === null ? cur : cur?.digest !== m.compareDigest)) {
+          return {body: {data: {metafieldsSet: {metafields: null, userErrors: [{field: ['metafields'], code: 'STALE_OBJECT', message: 'The resource has been updated since it was loaded.'}]}}}};
+        }
+        lockStore.set(m.key, {value: m.value, digest: `d${++lockDigest}`});
+        return {body: {data: {metafieldsSet: {metafields: [{id: 'm'}], userErrors: []}}}};
+      }
+      if (query.includes('metafieldsDelete')) {
+        lockStore.delete(variables.m[0].key);
+        return {body: {data: {metafieldsDelete: {userErrors: []}}}};
+      }
+      if (query.includes('metafield(namespace')) {
+        const cur = lockStore.get(variables.key);
+        return {body: {data: {shop: {metafield: cur ? {value: cur.value, compareDigest: cur.digest} : null}}}};
+      }
+      if (query.includes('sortKey: CREATED_AT')) {
+        return {body: {data: {orders: {nodes: recentOrders}}}};
+      }
+      const q = variables.q || '';
       const hit = inShopify.find((tag) => q.includes(tag));
       return {body: {data: {orders: {edges: hit ? [{node: {id: 'gid://shopify/Order/9', name: '#0900'}}] : []}, customers: {edges: []}}}};
     }],
@@ -259,6 +287,72 @@ mockStore({details: srOrder('codorder1234'), inShopify: ['sr-codorder1234']});
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'codorder1234'}});
 check('order webhook: repeat delivery creates no duplicate', r.status === 200 && shopifyCreates().length === 0 && r.body.shopify_order === '#0900', JSON.stringify(r.body));
+
+// ── Duplicate protection (Shopify search lags behind new orders: inShopify stays empty) ──
+const withSlowCreate = (ms, {fail} = {}) => {
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).includes('/orders.json') && init.method === 'POST') {
+      calls.push({url: String(url), init});
+      await new Promise((res) => setTimeout(res, ms));
+      if (fail === 'lost') throw new Error('network connection lost');
+      if (fail === 'reject') return new Response('{"errors":"line_items invalid"}', {status: 422});
+      return new Response(JSON.stringify({order: {name: '#1001'}}), {status: 201});
+    }
+    return inner(url, init);
+  };
+};
+setServerEnv(ADMIN_ENV);
+mockStore({details: srOrder('dupe12345678')});
+withSlowCreate(300);
+calls.length = 0;
+const [a, b] = await Promise.all([
+  call(orderHandler, {body: {order_id: 'dupe12345678'}}),
+  call(confirmHandler, {body: {order_id: 'dupe12345678'}}),
+]);
+check('duplicates: webhook + success page at the same moment -> one Shopify order', shopifyCreates().length === 1 && a.status === 200 && b.status === 200, `${shopifyCreates().length} creates; ${JSON.stringify(a.body)}`);
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'dupe12345678'}});
+check('duplicates: later redelivery (search still empty) -> no new order, same name', shopifyCreates().length === 0 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
+calls.length = 0;
+mockStore({details: srOrder('triple123456')});
+withSlowCreate(300);
+calls.length = 0;
+const triple = await Promise.all([1, 2, 3].map(() => call(orderHandler, {body: {order_id: 'triple123456'}})));
+check('duplicates: three simultaneous deliveries -> one order', shopifyCreates().length === 1 && triple.every((t) => t.status === 200));
+
+mockStore({details: srOrder('recent123456')});
+recentOrders = [{name: '#1040', tags: ['shiprocket', 'sr-recent123456', 'cod']}];
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'recent123456'}});
+check('duplicates: found among newest orders even when search misses it', shopifyCreates().length === 0 && r.body.shopify_order === '#1040', JSON.stringify(r.body));
+
+mockStore({details: srOrder('lost12345678')});
+withSlowCreate(10, {fail: 'lost'});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'lost12345678'}});
+check('duplicates: lost Shopify response -> the retry does not create a second copy', shopifyCreates().length === 1 && r.status === 200 && r.body.in_progress === true, JSON.stringify(r.body));
+
+mockStore({details: srOrder('reject123456')});
+withSlowCreate(10, {fail: 'reject'});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'reject123456'}});
+check('duplicates: Shopify rejects -> claim released, retried, 500 for Shiprocket to retry', shopifyCreates().length === 2 && r.status === 500 && !lockStore.has('sr-reject123456'));
+
+mockStore({details: srOrder('stale1234567')});
+lockStore.set('sr-stale1234567', {value: `claimed:${Date.now() - 11 * 60 * 1000}`, digest: 'old'});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'stale1234567'}});
+check('duplicates: claim abandoned >10 min ago is taken over', shopifyCreates().length === 1 && r.body.shopify_order === '#1001' && lockStore.get('sr-stale1234567').value === '#1001');
+
+mockStore({details: srOrder('nolock123456')});
+const lockless = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => (String(url).includes('/admin/api/') && String(init.body || '').includes('shop { id }'))
+  ? new Response('{"errors":[{"message":"Access denied"}]}', {status: 200})
+  : lockless(url, init);
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'nolock123456'}});
+check('duplicates: lock unavailable -> order still created (falls back to the checks)', shopifyCreates().length === 1 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
 
 r = await call(confirmHandler, {method: 'GET'});
 check('confirm: GET -> 405', r.status === 405);
