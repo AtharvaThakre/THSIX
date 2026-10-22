@@ -323,6 +323,17 @@ mockStore({details: srOrder('single123456')});
 calls.length = 0;
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'single123456'}});
 check('reconcile: ?order_id recovers one order via Order Details', r.status === 200 && r.body.shopify_order === '#1001' && !calls.some((c) => c.url.includes('details/list')), JSON.stringify(r.body));
+mockStore({details: srOrder('pending12345', {status: 'INITIATED', payment_type: 'PREPAID', payment_status: 'Pending'})});
+calls.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'pending12345'}});
+check('reconcile: unpaid prepaid order skipped without force', r.status === 200 && shopifyCreates().length === 0 && /Pending/.test(r.body.skipped));
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'pending12345', force: '1'}});
+const forced = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
+check('reconcile: force=1 creates it unpaid, tagged prepaid-unpaid, no transaction', r.body.shopify_order === '#1001' && forced?.financial_status === 'pending' && !forced.transactions && forced.tags.includes('prepaid-unpaid'), JSON.stringify(forced?.tags));
+mockStore({list: [srOrder('listpend1234', {payment_type: 'PREPAID', payment_status: 'Pending'})]});
+calls.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {force: '1'}});
+check('reconcile: force is ignored for the hours scan', shopifyCreates().length === 0);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'bad id!'}});
 check('reconcile: invalid order_id -> 400', r.status === 400);
 

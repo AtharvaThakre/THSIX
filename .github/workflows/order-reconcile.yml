@@ -18,6 +18,10 @@ on:
       order_id:
         description: 'Or: one Shiprocket order ID to recover (leave empty to scan by hours)'
         default: ''
+      force:
+        description: 'With order_id: create it even if Shiprocket says unpaid/not placed (created as unpaid in Shopify)'
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -35,6 +39,7 @@ jobs:
           SITE_URL: ${{ vars.THSIX_SITE_URL || 'https://www.thsix.com' }}
           HOURS: ${{ inputs.hours || '3' }}
           ORDER_ID: ${{ inputs.order_id }}
+          FORCE: ${{ inputs.force && '1' || '0' }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::warning::THSIX_CRON_SECRET is not set; skipping order reconcile."
@@ -43,7 +48,7 @@ jobs:
           case "$ORDER_ID" in (*[!A-Za-z0-9_-]*) echo "::error::order_id has invalid characters"; exit 1;; esac
           case "$HOURS" in (*[!0-9]*|'') echo "::error::hours must be a number"; exit 1;; esac
           status=$(curl -sS -o response.json -w '%{http_code}' --max-time 300 \
-            -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/orders/reconcile?hours=$HOURS&order_id=$ORDER_ID")
+            -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/orders/reconcile?hours=$HOURS&order_id=$ORDER_ID&force=$FORCE")
           cat response.json; echo
           if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
             echo "::error::Order reconcile failed with HTTP $status"

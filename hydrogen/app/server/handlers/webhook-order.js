@@ -152,9 +152,11 @@ export default async function handler(request) {
  * @param {boolean} [options.strict] Skip prepaid orders whose payment hasn't succeeded yet
  *   (for the paths that aren't Shiprocket itself saying an order was placed)
  * @param {object} [options.knownOrder] The order's record, already read from Shiprocket's list API
+ * @param {boolean} [options.force] Create it even if Shiprocket reports it unpaid or not placed
+ *   (manual recovery of one order an admin chose; it is created unpaid, never as paid)
  * @returns {Promise<{status: number, payload: object}>}
  */
-export async function processOrder(orderId, body = {}, { strict = false, knownOrder = null } = {}) {
+export async function processOrder(orderId, body = {}, { strict = false, knownOrder = null, force = false } = {}) {
   const reply = (status, payload) => ({ status, payload });
   console.log('[order-webhook] Processing orderId:', orderId);
 
@@ -315,11 +317,13 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
   const paymentKnown = order.payment_type ? String(order.payment_type).toUpperCase() : null;
-  if (strict && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
+  if (strict && !force && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
     return reply(200, { ok: true, skipped: `prepaid payment is ${order.payment_status}` });
   }
 
-  if (!SUCCESS_STATUSES.includes(status)) {
+  if (force && !SUCCESS_STATUSES.includes(status)) {
+    console.warn(`[order-webhook] Forced creation of ${order.order_id} with status ${order.status}`);
+  } else if (!SUCCESS_STATUSES.includes(status)) {
     if (SHIPPING_STATUSES.includes(status) && isAdminConfigured()) {
       try {
         const tag = `sr-${order.order_id}`;
@@ -559,7 +563,7 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
           type: 'fixed_amount',
         }],
       }),
-      tags: ['shiprocket', tag, isPaid ? 'prepaid' : 'cod'].join(', '),
+      tags: ['shiprocket', tag, isPaid ? 'prepaid' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
       note_attributes: [
         { name: 'shiprocket_order_id', value: order.order_id },
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },

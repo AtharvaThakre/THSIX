@@ -34,7 +34,9 @@ export default async function handler(request) {
     if (singleId.length < 6 || singleId.length > 128 || !/^[a-z0-9\-_]+$/i.test(singleId)) {
       return reply(400, { ok: false, message: 'order_id is invalid' });
     }
-    const { status, payload } = await processOrder(singleId, {}, { strict: true });
+    // &force=1: create it even though Shiprocket reports it unpaid/not placed (created unpaid)
+    const force = queryParams(request).force === '1';
+    const { status, payload } = await processOrder(singleId, {}, { strict: true, force });
     return reply(status, { order_id: singleId, ...payload });
   }
 
