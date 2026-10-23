@@ -28,6 +28,11 @@ export default async function handler(request) {
   const result = await processOrder(orderId, {}, { strict: true });
   // Only what the success page needs: retry or not, and whether to report a Purchase (with the
   // value Shiprocket charged). No customer details go back to the browser.
+  // `placed` means the Shopify order exists. While another request is still creating it,
+  // answer 503 so the page asks again a few seconds later.
+  if (result.payload.in_progress) {
+    return reply(503, { ok: false, placed: false });
+  }
   const placed = result.payload.placed === true;
   return reply(result.status, {
     ok: result.status < 300,

@@ -351,18 +351,25 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     return reply(200, { ok: true, skipped: `order status is ${order.status}` });
   }
 
-  // Server-side Meta CAPI Purchase. event_id = order id, which the success page also uses for the
-  // browser Purchase, so Meta deduplicates the pair (and repeated webhook deliveries).
-  await sendMetaCAPIEvent(order, order.order_id);
-
+  // A Purchase counts only once the Shopify order exists. Until then nothing is reported.
   if (!isAdminConfigured()) {
-    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify: 'not configured' });
+    return reply(200, { ok: true, shopify: 'not configured' });
   }
+
+  // Order is in Shopify: send the server-side Meta CAPI Purchase. event_id = order id, which the
+  // success page also uses for the browser Purchase, so Meta counts the pair (and repeated
+  // deliveries of the same order) once.
+  const placed = async (shopifyOrder, extra = {}) => {
+    // A force-created order is unpaid/not placed per Shiprocket: in Shopify, but not a purchase
+    if (!force) await sendMetaCAPIEvent(order, order.order_id);
+    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, ...extra });
+  };
 
   try {
     const shopifyOrder = await createShopifyOrder(order, body);
-    if (shopifyOrder === null) return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, in_progress: true });
-    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder });
+    // Another request is creating it right now and will report it
+    if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
+    return await placed(shopifyOrder);
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
 
@@ -370,10 +377,10 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const shopifyOrder = await createShopifyOrder(order, body);
-      if (shopifyOrder === null) return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, in_progress: true });
+      if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
       console.log('[order-webhook] Retry succeeded');
 
-      return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, retried: true });
+      return await placed(shopifyOrder, { retried: true });
     } catch (retryError) {
       console.error('[order-webhook] Retry also failed:', retryError.message || retryError);
       // Return 500 so Shiprocket retries the webhook later

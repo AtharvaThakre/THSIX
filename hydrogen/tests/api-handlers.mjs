@@ -119,18 +119,11 @@ mockFetch([
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'abcdef123456'}, query: {token: 'wh-secret'}});
 const capi = calls.find((c) => c.url.includes('graph.facebook.com'));
-const capiBody = capi && JSON.parse(capi.init.body);
-const ev = capiBody?.data?.[0];
 const {createHash} = await import('node:crypto');
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 check('order webhook: correct secret accepted (200)', r.status === 200, JSON.stringify(r.body));
 check('order webhook: Shiprocket order verified via signed API', calls.some((c) => c.url.includes('custom-platform-order/details') && c.init.headers['X-Api-HMAC-SHA256']));
-check('CAPI: sent without Admin token configured', Boolean(capi), capi?.url.replace(/access_token=[^&]+/, 'access_token=***'));
-check('CAPI: Purchase, event_id = order id (dedup with browser)', ev?.event_name === 'Purchase' && ev?.event_id === 'abcdef123456' && ev?.action_source === 'website');
-check('CAPI: value/currency/contents', ev?.custom_data.value === 2999 && ev?.custom_data.currency === 'INR' && ev?.custom_data.contents[0].id === '50501821923493');
-check('CAPI: email/phone SHA-256 hashed, normalised', ev?.user_data.em === await sha('buyer@example.com') && ev?.user_data.ph === await sha('9876543210'));
-check('CAPI: Graph API version current (v23.0)', capi?.url.includes('/v23.0/'));
-check('order webhook: no Admin token -> skips Shopify order', r.body?.shopify === 'not configured');
+check('order webhook: no Admin token -> no Shopify order and no Purchase sent to Meta', r.body?.shopify === 'not configured' && !capi && r.body.placed !== true);
 
 // Unauthenticated mode (no WEBHOOK_SECRET): the webhooks stay open
 setServerEnv(ENV);
@@ -275,13 +268,22 @@ function mockStore({details, list = [], inShopify = []}) {
 const shopifyCreates = () => calls.filter((c) => c.url.includes('/orders.json') && c.init.method === 'POST');
 
 setServerEnv(ADMIN_ENV);
-mockStore({details: srOrder('codorder1234')});
+mockStore({details: srOrder('codorder1234', {email: 'Buyer@Example.com'})});
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'codorder1234'}});
 const created = shopifyCreates()[0];
 const createdOrder = created && JSON.parse(created.init.body).order;
 check('order webhook: COD order created in Shopify', r.status === 200 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
 check('order webhook: Shopify order tagged sr-<id>, cod, pending', createdOrder?.tags.includes('sr-codorder1234') && createdOrder.tags.includes('cod') && createdOrder.financial_status === 'pending');
+{
+  const capi2 = calls.find((c) => c.url.includes('graph.facebook.com'));
+  const ev2 = capi2 && JSON.parse(capi2.init.body).data[0];
+  check('CAPI: sent once the Shopify order exists', Boolean(capi2), capi2?.url.replace(/access_token=[^&]+/, 'access_token=***'));
+  check('CAPI: Purchase, event_id = order id (dedup with browser)', ev2?.event_name === 'Purchase' && ev2?.event_id === 'codorder1234' && ev2?.action_source === 'website');
+  check('CAPI: value/currency/contents', ev2?.custom_data.value === 2999 && ev2?.custom_data.currency === 'INR' && ev2?.custom_data.contents[0].id === '50501821923493');
+  check('CAPI: email/phone SHA-256 hashed, normalised', ev2?.user_data.em === await sha('buyer@example.com') && ev2?.user_data.ph === await sha('9876543210'));
+  check('CAPI: Graph API version current (v23.0)', capi2?.url.includes('/v23.0/'));
+}
 
 mockStore({details: srOrder('codorder1234'), inShopify: ['sr-codorder1234']});
 calls.length = 0;
@@ -310,7 +312,7 @@ const [a, b] = await Promise.all([
   call(orderHandler, {body: {order_id: 'dupe12345678'}}),
   call(confirmHandler, {body: {order_id: 'dupe12345678'}}),
 ]);
-check('duplicates: webhook + success page at the same moment -> one Shopify order', shopifyCreates().length === 1 && a.status === 200 && b.status === 200, `${shopifyCreates().length} creates; ${JSON.stringify(a.body)}`);
+check('duplicates: webhook + success page at the same moment -> one Shopify order', shopifyCreates().length === 1 && a.status === 200 && [200, 503].includes(b.status), `${shopifyCreates().length} creates; ${JSON.stringify(a.body)}`);
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'dupe12345678'}});
 check('duplicates: later redelivery (search still empty) -> no new order, same name', shopifyCreates().length === 0 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
