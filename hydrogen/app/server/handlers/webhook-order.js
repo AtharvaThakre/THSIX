@@ -356,13 +356,13 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   await sendMetaCAPIEvent(order, order.order_id);
 
   if (!isAdminConfigured()) {
-    return reply(200, { ok: true, shopify: 'not configured' });
+    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify: 'not configured' });
   }
 
   try {
     const shopifyOrder = await createShopifyOrder(order, body);
-    if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
-    return reply(200, { ok: true, shopify_order: shopifyOrder });
+    if (shopifyOrder === null) return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, in_progress: true });
+    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder });
   } catch (error) {
     console.error('[order-webhook] Creating Shopify order failed (attempt 1):', error.message || error);
 
@@ -370,10 +370,10 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const shopifyOrder = await createShopifyOrder(order, body);
-      if (shopifyOrder === null) return reply(200, { ok: true, in_progress: true });
+      if (shopifyOrder === null) return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, in_progress: true });
       console.log('[order-webhook] Retry succeeded');
 
-      return reply(200, { ok: true, shopify_order: shopifyOrder, retried: true });
+      return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, retried: true });
     } catch (retryError) {
       console.error('[order-webhook] Retry also failed:', retryError.message || retryError);
       // Return 500 so Shiprocket retries the webhook later

@@ -141,7 +141,7 @@ export async function loader({context}: Route.LoaderArgs) {
  * only after the window load event and an idle period (or the first user interaction, or an 8s
  * cap if load is held up). Later navigations are tracked in <ScrollToTop>.
  */
-const metaPixelScript = (pixelId: string) => `!function (f, b) {
+const metaPixelScript = (pixelId: string, siteHost: string) => `!function (f, b) {
   if (f.fbq) return; var n = f.fbq = function () {
     n.callMethod ?
       n.callMethod.apply(n, arguments) : n.queue.push(arguments)
@@ -149,6 +149,8 @@ const metaPixelScript = (pixelId: string) => `!function (f, b) {
   if (!f._fbq) f._fbq = n; n.push = n; n.loaded = !0; n.version = '2.0';
   n.queue = [];
 }(window, document);
+// Only the live site reports to Meta: localhost, previews and other hosts would pollute the data
+if (location.hostname === '${siteHost}') {
 fbq('init', '${pixelId}');
 fbq('track', 'PageView');
 (function () {
@@ -171,7 +173,8 @@ fbq('track', 'PageView');
   else window.addEventListener('load', whenIdle, { once: true });
   events.forEach(function (e) { window.addEventListener(e, loadPixel, { once: true, passive: true }); });
   setTimeout(loadPixel, 8000);
-})();`;
+})();
+}`;
 
 /** Google Fonts load without blocking render, then are switched on (was media="print" onload). */
 const fontsScript = `(function(){var l=document.getElementById('thsix-fonts');if(!l)return;function on(){l.media='all'}if(l.sheet){on()}else{l.addEventListener('load',on)}})();`;
@@ -208,7 +211,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         />
 
         {/* Meta Pixel */}
-        <script nonce={nonce} dangerouslySetInnerHTML={{__html: metaPixelScript(pixelId)}} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{__html: metaPixelScript(pixelId, new URL(data?.siteUrl || DEFAULT_SITE_URL).hostname)}} />
         <noscript>
           <img
             height="1"

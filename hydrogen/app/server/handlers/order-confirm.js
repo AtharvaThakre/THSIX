@@ -26,6 +26,12 @@ export default async function handler(request) {
   }
 
   const result = await processOrder(orderId, {}, { strict: true });
-  // The browser only needs to know whether to retry; don't echo order details back
-  return reply(result.status, { ok: result.status < 300 });
+  // Only what the success page needs: retry or not, and whether to report a Purchase (with the
+  // value Shiprocket charged). No customer details go back to the browser.
+  const placed = result.payload.placed === true;
+  return reply(result.status, {
+    ok: result.status < 300,
+    placed,
+    ...(placed && { value: result.payload.value }),
+  });
 }
