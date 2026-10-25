@@ -4,7 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
-import { claimOrder, markOrderCreated, releaseOrder } from '../lib/order-lock.js';
+import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
 const SHOPIFY_ADMIN_API = '2026-10';
@@ -356,13 +356,13 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     return reply(200, { ok: true, shopify: 'not configured' });
   }
 
-  // Order is in Shopify: send the server-side Meta CAPI Purchase. event_id = order id, which the
-  // success page also uses for the browser Purchase, so Meta counts the pair (and repeated
-  // deliveries of the same order) once.
+  // Order is in Shopify: send the server-side Meta CAPI Purchase. event_id = the Shopify order
+  // name, which the success page also uses for the browser Purchase, so Meta counts the pair,
+  // repeated deliveries and a purchase Shiprocket recorded under two ids all once.
   const placed = async (shopifyOrder, extra = {}) => {
     // A force-created order is unpaid/not placed per Shiprocket: in Shopify, but not a purchase
-    if (!force) await sendMetaCAPIEvent(order, order.order_id);
-    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, ...extra });
+    if (!force) await sendMetaCAPIEvent(order, shopifyOrder);
+    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, event_id: shopifyOrder, ...extra });
   };
 
   try {
@@ -473,57 +473,140 @@ export async function listShiprocketOrders(startDate, endDate, pageSize = 50, ma
   return { orders, shape };
 }
 
+// Shiprocket can record one prepaid payment as two orders with different ids, a second apart.
+// Orders for the same customer with the same items this close together are the same order;
+// a genuine repeat needs a new checkout and payment, which takes far longer.
+const SAME_ORDER_WINDOW_MS = 2 * 60 * 1000;
+
+/** When Shiprocket created the order: its ids are MongoDB ObjectIds, which start with the time. */
+function placedAt(order) {
+  const id = String(order.order_id || '');
+  return /^[0-9a-f]{24}$/i.test(id) ? parseInt(id.slice(0, 8), 16) * 1000 : Date.now();
+}
+
+const last10 = (phone) => String(phone || '').replace(/D/g, '').slice(-10);
+
+/** Who ordered (phone, else email) and what (variant:quantity, sorted); null if unknown. */
+function orderFingerprint(order) {
+  const who = last10(order.phone || (order.shipping_address && order.shipping_address.phone)) ||
+    String(order.email || '').trim().toLowerCase();
+  const items = ((order.cart_data && order.cart_data.items) || [])
+    .map((item) => `${String(item.variant_id).split('/').pop()}:${Number(item.quantity) || 1}`)
+    .sort()
+    .join(',');
+  return who && items ? `${who}|${items}` : null;
+}
+
 /**
  * Create the Shopify order for a Shiprocket order exactly once, however many paths (webhook,
- * success page, reconcile, Shiprocket redeliveries) handle it at the same moment.
+ * success page, reconcile, Shiprocket redeliveries) handle it at the same moment, and even when
+ * Shiprocket gives the same purchase two order ids.
  * @returns {Promise<string|null>} the Shopify order name, or null if another request is
  *   creating it right now
  */
 async function createShopifyOrder(order, rawWebhookBody = {}) {
   const tag = `sr-${order.order_id}`;
+  const fingerprint = orderFingerprint(order);
   // Search can lag behind new orders, so also look at the newest orders directly
-  const existing = (await findShopifyOrderByTag(tag)) || (await findRecentOrderByTag(tag));
+  const at = placedAt(order);
+  const existing = (await findShopifyOrderByTag(tag)) || (await findRecentDuplicate(tag, fingerprint, at));
   if (existing) {
     console.log('[order-webhook] Already in Shopify:', existing);
     return existing;
   }
 
-  const lock = await claimOrder(order.order_id);
-  if (lock.state === 'exists') {
-    console.log('[order-webhook] Already created:', lock.name);
-    return lock.name;
+  const idKey = orderKey(order.order_id);
+  const idLock = await claimOrder(idKey);
+  if (idLock.state === 'exists') {
+    console.log('[order-webhook] Already created:', idLock.name);
+    return idLock.name;
   }
-  if (lock.state === 'in_progress') {
+  if (idLock.state === 'in_progress') {
     console.log('[order-webhook] Another request is creating', order.order_id);
     return null;
   }
-  if (lock.state === 'unavailable') {
-    console.error('[order-webhook] Order lock unavailable, relying on the duplicate checks:', lock.error);
+  if (idLock.state === 'unavailable') {
+    console.error('[order-webhook] Order lock unavailable, relying on the duplicate checks:', idLock.error);
   }
 
+  // Same customer + items under another Shiprocket id moments ago = the same purchase
+  const fpKey = fingerprint && idLock.state === 'claimed' ? await fingerprintKey(fingerprint) : null;
+  const fpLock = fpKey ? await claimOrder(fpKey, { windowMs: SAME_ORDER_WINDOW_MS, at }) : { state: 'none' };
+  if (fpLock.state === 'exists') {
+    console.log(`[order-webhook] ${order.order_id} is the same purchase as ${fpLock.name} (Shiprocket gave it another id)`);
+    await markOrderCreated(idKey, fpLock.name);
+    await addOrderTag(fpLock.name, tag);
+    return fpLock.name;
+  }
+  if (fpLock.state === 'in_progress') {
+    // Its twin is being created right now; free this id so a later retry resolves to that order
+    console.log(`[order-webhook] ${order.order_id}: the same purchase is being created under another id`);
+    await releaseOrder(idKey);
+    return null;
+  }
+
+  const claimed = [idLock.state === 'claimed' && idKey, fpLock.state === 'claimed' && fpKey].filter(Boolean);
   const progress = {};
   try {
     const name = await submitShopifyOrder(order, rawWebhookBody, progress);
-    if (lock.state === 'claimed') await markOrderCreated(order.order_id, name);
+    for (const key of claimed) await markOrderCreated(key, name, at);
     return name;
   } catch (error) {
-    // Free the claim only when no order can exist (failed before sending, or Shopify said no).
-    // After a lost response the claim stays and expires, so a retry can't make a second copy.
-    if (lock.state === 'claimed' && (!progress.posted || progress.rejected)) {
-      await releaseOrder(order.order_id);
+    // Free the claims only when no order can exist (failed before sending, or Shopify said no).
+    // After a lost response they stay and expire, so a retry can't make a second copy.
+    if (!progress.posted || progress.rejected) {
+      for (const key of claimed) await releaseOrder(key);
     }
     throw error;
   }
 }
 
-/** The newest orders, read directly rather than through search (which lags behind). */
-async function findRecentOrderByTag(tag) {
+/** Tag an existing order (by name) with another Shiprocket id, so every path finds it. */
+async function addOrderTag(name, tag) {
   try {
     const data = await adminGraphQL(
-      '{ orders(first: 50, sortKey: CREATED_AT, reverse: true) { nodes { name tags } } }'
+      'query ($q: String!) { orders(first: 1, query: $q) { nodes { id } } }',
+      { q: `name:${String(name).replace(/^#/, '')}` }
     );
-    const match = (data?.data?.orders?.nodes || []).find((node) => (node.tags || []).includes(tag));
-    return match ? match.name : null;
+    const id = data?.data?.orders?.nodes?.[0]?.id;
+    if (id) await adminGraphQL('mutation ($id: ID!, $tags: [String!]!) { tagsAdd(id: $id, tags: $tags) { userErrors { message } } }', { id, tags: [tag] });
+  } catch (err) {
+    console.error('[order-webhook] Could not tag', name, err.message);
+  }
+}
+
+/**
+ * The newest orders, read directly rather than through search (which lags behind): one with
+ * this tag, or a Shiprocket order for the same customer and items placed moments apart.
+ */
+async function findRecentDuplicate(tag, fingerprint, at) {
+  try {
+    const data = await adminGraphQL(
+      `{ orders(first: 50, sortKey: CREATED_AT, reverse: true) { nodes {
+        name tags createdAt email phone
+        shippingAddress { phone }
+        lineItems(first: 50) { nodes { quantity variant { legacyResourceId } } }
+      } } }`
+    );
+    const nodes = data?.data?.orders?.nodes || [];
+    const byTag = nodes.find((node) => (node.tags || []).includes(tag));
+    if (byTag) return byTag.name;
+    if (!fingerprint) return null;
+    const twin = nodes.find((node) => {
+      if (!(node.tags || []).includes('shiprocket')) return false;
+      // Created moments after its twin was placed (the Shopify order is made right away)
+      if (Math.abs(new Date(node.createdAt).getTime() - at) > SAME_ORDER_WINDOW_MS) return false;
+      const items = (node.lineItems?.nodes || [])
+        .map((li) => `${li.variant?.legacyResourceId}:${li.quantity}`)
+        .sort()
+        .join(',');
+      const [who, wanted] = fingerprint.split('|');
+      const sameWho = who.includes('@')
+        ? String(node.email || '').toLowerCase() === who
+        : [node.phone, node.shippingAddress?.phone].some((p) => last10(p) === who);
+      return sameWho && items === wanted;
+    });
+    return twin ? twin.name : null;
   } catch (err) {
     console.error('[order-webhook] Recent orders check failed:', err.message);
     return null;

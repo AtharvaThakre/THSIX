@@ -13,9 +13,9 @@ const REPORTED_KEY = 'thsix_purchases_reported';
 
 /**
  * Asks the server to verify the order with Shiprocket (and create it in Shopify if needed).
- * Resolves to the order value if Shiprocket says it was really placed, otherwise null.
+ * Resolves to the order's value and Meta event id once its Shopify order exists, otherwise null.
  */
-async function confirmOrder(orderId: string): Promise<number | null> {
+async function confirmOrder(orderId: string): Promise<{ value: number; eventId: string } | null> {
   for (const delay of CONFIRM_DELAYS_MS) {
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     try {
@@ -27,8 +27,8 @@ async function confirmOrder(orderId: string): Promise<number | null> {
       });
       // 4xx won't get better by retrying; 5xx = order still indexing or Shopify busy
       if (res.status < 500) {
-        const data = (await res.json().catch(() => ({}))) as { placed?: boolean; value?: number };
-        return data.placed ? Number(data.value) || 0 : null;
+        const data = (await res.json().catch(() => ({}))) as { placed?: boolean; value?: number; event_id?: string };
+        return data.placed ? { value: Number(data.value) || 0, eventId: data.event_id || orderId } : null;
       }
     } catch { /* network blip: retry */ }
   }
@@ -91,13 +91,13 @@ export const CheckoutSuccess = () => {
     // The server verifies the order with Shiprocket (and makes sure it reaches Shopify). Purchase
     // is reported only for orders Shiprocket really placed — not abandoned or unpaid checkouts —
     // and once per order, so a refresh or revisit doesn't count again.
-    void confirmOrder(orderId).then((verifiedValue) => {
-      if (verifiedValue === null || !firstReport(orderId)) return;
-      const value = verifiedValue || checkoutValue;
+    void confirmOrder(orderId).then((verified) => {
+      if (verified === null || !firstReport(verified.eventId)) return;
+      const value = verified.value || checkoutValue;
 
-      // Meta Pixel Purchase. event_id = order id, matching the server-side CAPI Purchase
-      trackPurchase({ value, currency, order_id: orderId }, orderId);
-      trackGA4Purchase(orderId, checkoutItems, value);
+      // Meta Pixel Purchase. event_id = Shopify order name, matching the server-side CAPI Purchase
+      trackPurchase({ value, currency, order_id: verified.eventId }, verified.eventId);
+      trackGA4Purchase(verified.eventId, checkoutItems, value);
     });
   }, [failed, clearCart, orderId]);
 

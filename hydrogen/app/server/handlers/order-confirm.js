@@ -37,6 +37,7 @@ export default async function handler(request) {
   return reply(result.status, {
     ok: result.status < 300,
     placed,
-    ...(placed && { value: result.payload.value }),
+    // Event id for the browser Purchase: the Shopify order name, the same one the server uses
+    ...(placed && { value: result.payload.value, event_id: result.payload.event_id }),
   });
 }

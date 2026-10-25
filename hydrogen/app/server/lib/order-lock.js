@@ -24,14 +24,25 @@ async function shopId() {
   return shopIdPromise;
 }
 
-const keyFor = (orderId) => `sr-${orderId}`.slice(0, 64);
+/** Lock key for a Shiprocket order id. */
+export const orderKey = (orderId) => `sr-${orderId}`.slice(0, 64);
 
-async function setMetafield(orderId, value, compareDigest) {
+/**
+ * Lock key for an order's content (customer + items). Shiprocket can record one prepaid
+ * payment as two orders with different ids a second apart, so the id alone can't catch it.
+ */
+export async function fingerprintKey(fingerprint) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(fingerprint));
+  const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  return `fp-${hex.slice(0, 40)}`;
+}
+
+async function setMetafield(key, value, compareDigest) {
   const res = await adminGraphQL(
     `mutation ($m: [MetafieldsSetInput!]!) {
       metafieldsSet(metafields: $m) { metafields { id } userErrors { field message code } }
     }`,
-    { m: [{ ownerId: await shopId(), namespace: NAMESPACE, key: keyFor(orderId), type: 'single_line_text_field', value, compareDigest }] },
+    { m: [{ ownerId: await shopId(), namespace: NAMESPACE, key, type: 'single_line_text_field', value, compareDigest }] },
   );
   if (res?.errors?.length) {
     return { ok: false, conflict: false, error: res.errors.map((e) => e.message).join('; ') };
@@ -42,15 +53,19 @@ async function setMetafield(orderId, value, compareDigest) {
   return { ok: false, conflict: /digest|stale|concurren|already|exist|taken/i.test(text), error: text || 'no response' };
 }
 
-async function readMetafield(orderId) {
+async function readMetafield(key) {
   const res = await adminGraphQL(
     'query ($ns: String!, $key: String!) { shop { metafield(namespace: $ns, key: $key) { value compareDigest } } }',
-    { ns: NAMESPACE, key: keyFor(orderId) },
+    { ns: NAMESPACE, key },
   );
   return res?.data?.shop?.metafield || null;
 }
 
 /**
+ * Claim `key`. Values: "claimed:<ms>" while creating, then "<order name>|<at>", where `at` is
+ * when the order was placed. A created order matches another placed within `windowMs` of it
+ * (forever for an order id; briefly for a content fingerprint, so a genuine repeat order by
+ * the same customer still goes through, however late either one is processed).
  * @returns {Promise<
  *   {state: 'claimed'} |
  *   {state: 'exists', name: string} |
@@ -58,20 +73,25 @@ async function readMetafield(orderId) {
  *   {state: 'unavailable', error: string}
  * >}
  */
-export async function claimOrder(orderId) {
+export async function claimOrder(key, { windowMs = Infinity, at = Date.now() } = {}) {
   try {
-    const first = await setMetafield(orderId, `claimed:${Date.now()}`, null);
+    const now = Date.now();
+    const first = await setMetafield(key, `claimed:${now}`, null);
     if (first.ok) return { state: 'claimed' };
     if (!first.conflict) return { state: 'unavailable', error: first.error };
 
-    const current = await readMetafield(orderId);
+    const current = await readMetafield(key);
     if (!current) return { state: 'unavailable', error: 'lock conflict but no lock found' };
-    if (current.value.startsWith('#')) return { state: 'exists', name: current.value };
-
-    const claimedAt = Number(current.value.split(':')[1]) || 0;
-    if (Date.now() - claimedAt < STALE_MS) return { state: 'in_progress' };
-    // Stale claim: take it over, again atomically (only if nobody else just did)
-    const takeover = await setMetafield(orderId, `claimed:${Date.now()}`, current.compareDigest);
+    if (current.value.startsWith('#')) {
+      const [name, placedAt] = current.value.split('|');
+      // Older values have no time: they belong to an order id, which never expires
+      if (!placedAt || Math.abs(at - Number(placedAt)) < windowMs) return { state: 'exists', name };
+    } else {
+      const claimedAt = Number(current.value.split(':')[1]) || 0;
+      if (now - claimedAt < Math.min(STALE_MS, windowMs)) return { state: 'in_progress' };
+    }
+    // Expired or abandoned: take it over, again atomically (only if nobody else just did)
+    const takeover = await setMetafield(key, `claimed:${now}`, current.compareDigest);
     return takeover.ok ? { state: 'claimed' } : { state: 'in_progress' };
   } catch (err) {
     return { state: 'unavailable', error: err.message };
@@ -79,25 +99,25 @@ export async function claimOrder(orderId) {
 }
 
 /** Record the created order's name, so later attempts see it at once (no search lag). */
-export async function markOrderCreated(orderId, name) {
+export async function markOrderCreated(key, name, at = Date.now()) {
   try {
-    const res = await setMetafield(orderId, String(name || '#created'), undefined);
-    if (!res.ok) console.error('[order-lock] Could not record', orderId, res.error);
+    const res = await setMetafield(key, `${name || '#created'}|${at}`, undefined);
+    if (!res.ok) console.error('[order-lock] Could not record', key, res.error);
   } catch (err) {
-    console.error('[order-lock] Could not record', orderId, err.message);
+    console.error('[order-lock] Could not record', key, err.message);
   }
 }
 
 /** Drop a claim whose order wasn't created, so the next attempt can retry straight away. */
-export async function releaseOrder(orderId) {
+export async function releaseOrder(key) {
   try {
     await adminGraphQL(
       `mutation ($m: [MetafieldIdentifierInput!]!) {
         metafieldsDelete(metafields: $m) { userErrors { message } }
       }`,
-      { m: [{ ownerId: await shopId(), namespace: NAMESPACE, key: keyFor(orderId) }] },
+      { m: [{ ownerId: await shopId(), namespace: NAMESPACE, key }] },
     );
   } catch (err) {
-    console.error('[order-lock] Could not release', orderId, err.message);
+    console.error('[order-lock] Could not release', key, err.message);
   }
 }

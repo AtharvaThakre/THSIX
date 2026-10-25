@@ -225,6 +225,7 @@ const srOrder = (id, extra = {}) => ({
 const lockStore = new Map();
 let lockDigest = 0;
 let recentOrders = [];
+const taggedOrders = [];
 function mockStore({details, list = [], inShopify = []}) {
   lockStore.clear();
   recentOrders = [];
@@ -255,6 +256,13 @@ function mockStore({details, list = [], inShopify = []}) {
         const cur = lockStore.get(variables.key);
         return {body: {data: {shop: {metafield: cur ? {value: cur.value, compareDigest: cur.digest} : null}}}};
       }
+      if (query.includes('tagsAdd')) {
+        taggedOrders.push(...variables.tags);
+        return {body: {data: {tagsAdd: {userErrors: []}}}};
+      }
+      if ((variables.q || '').startsWith('name:')) {
+        return {body: {data: {orders: {nodes: [{id: 'gid://shopify/Order/77'}]}}}};
+      }
       if (query.includes('sortKey: CREATED_AT')) {
         return {body: {data: {orders: {nodes: recentOrders}}}};
       }
@@ -279,7 +287,7 @@ check('order webhook: Shopify order tagged sr-<id>, cod, pending', createdOrder?
   const capi2 = calls.find((c) => c.url.includes('graph.facebook.com'));
   const ev2 = capi2 && JSON.parse(capi2.init.body).data[0];
   check('CAPI: sent once the Shopify order exists', Boolean(capi2), capi2?.url.replace(/access_token=[^&]+/, 'access_token=***'));
-  check('CAPI: Purchase, event_id = order id (dedup with browser)', ev2?.event_name === 'Purchase' && ev2?.event_id === 'codorder1234' && ev2?.action_source === 'website');
+  check('CAPI: Purchase, event_id = order id (dedup with browser)', ev2?.event_name === 'Purchase' && ev2?.event_id === '#1001' && ev2?.action_source === 'website');
   check('CAPI: value/currency/contents', ev2?.custom_data.value === 2999 && ev2?.custom_data.currency === 'INR' && ev2?.custom_data.contents[0].id === '50501821923493');
   check('CAPI: email/phone SHA-256 hashed, normalised', ev2?.user_data.em === await sha('buyer@example.com') && ev2?.user_data.ph === await sha('9876543210'));
   check('CAPI: Graph API version current (v23.0)', capi2?.url.includes('/v23.0/'));
@@ -345,7 +353,7 @@ mockStore({details: srOrder('stale1234567')});
 lockStore.set('sr-stale1234567', {value: `claimed:${Date.now() - 11 * 60 * 1000}`, digest: 'old'});
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'stale1234567'}});
-check('duplicates: claim abandoned >10 min ago is taken over', shopifyCreates().length === 1 && r.body.shopify_order === '#1001' && lockStore.get('sr-stale1234567').value === '#1001');
+check('duplicates: claim abandoned >10 min ago is taken over', shopifyCreates().length === 1 && r.body.shopify_order === '#1001' && lockStore.get('sr-stale1234567').value.startsWith('#1001|'));
 
 mockStore({details: srOrder('nolock123456')});
 const lockless = globalThis.fetch;
@@ -356,6 +364,59 @@ calls.length = 0;
 r = await call(orderHandler, {body: {order_id: 'nolock123456'}});
 check('duplicates: lock unavailable -> order still created (falls back to the checks)', shopifyCreates().length === 1 && r.body.shopify_order === '#1001', JSON.stringify(r.body));
 
+// ── Shiprocket recording one prepaid payment as two orders (ids a second apart) ──
+// Real case: #1040/#1041 from 6adca615a4c2260345906f2d and 6adca6146209f04ade2b5c7d
+const TWIN_A = '6adca6146209f04ade2b5c7d';
+const TWIN_B = '6adca615a4c2260345906f2d';
+const LATER = (0x6adca614 + 10 * 60).toString(16) + '6209f04ade2b5c7e'; // same buyer, 10 min later
+const paidTwin = (id) => srOrder(id, {payment_type: 'PREPAID', payment_status: 'SUCCESS'});
+const twinStore = (opts = {}) => {
+  mockStore({details: paidTwin(TWIN_A), ...opts});
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).includes('custom-platform-order/details') && !String(url).includes('/list')) {
+      calls.push({url: String(url), init});
+      const id = JSON.parse(init.body).order_id;
+      return new Response(JSON.stringify({ok: true, result: paidTwin(id)}), {status: 200});
+    }
+    return inner(url, init);
+  };
+  withSlowCreate(300);
+};
+setServerEnv(ADMIN_ENV);
+twinStore();
+calls.length = 0;
+const twins = await Promise.all([
+  call(orderHandler, {body: {order_id: TWIN_A}}),
+  call(confirmHandler, {body: {order_id: TWIN_B}}),
+]);
+const twinCreatedTags = shopifyCreates()[0] ? JSON.parse(shopifyCreates()[0].init.body).order.tags : '';
+check('twin ids: webhook (id A) + success page (id B) at once -> one Shopify order', shopifyCreates().length === 1, `${shopifyCreates().length} creates; ${twins.map((t) => t.status).join(',')}`);
+
+calls.length = 0;
+taggedOrders.length = 0;
+r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: TWIN_B}});
+check('twin ids: id B processed later (reconcile) -> same order, no new one, order tagged sr-B', shopifyCreates().length === 0 && r.body.shopify_order === '#1001' && (taggedOrders.includes(`sr-${TWIN_B}`) || twinCreatedTags.includes(`sr-${TWIN_B}`)), JSON.stringify(r.body));
+
+twinStore();
+calls.length = 0;
+await call(orderHandler, {body: {order_id: TWIN_A}});
+await call(orderHandler, {body: {order_id: LATER}});
+check('twin ids: same customer + items 10 min later is a real new order -> created', shopifyCreates().length === 2);
+
+twinStore();
+recentOrders = [{name: '#1041', tags: ['shiprocket', `sr-${TWIN_A}`], createdAt: new Date(0x6adca614 * 1000 + 3000).toISOString(),
+  phone: '+919876543210', email: null, shippingAddress: {phone: '+919876543210'},
+  lineItems: {nodes: [{quantity: 1, variant: {legacyResourceId: '50501821923493'}}]}}];
+lockStore.clear();
+const lockless2 = globalThis.fetch;
+globalThis.fetch = async (url, init = {}) => (String(url).includes('/admin/api/') && String(init.body || '').includes('shop { id }'))
+  ? new Response('{"errors":[{"message":"Access denied"}]}', {status: 200})
+  : lockless2(url, init);
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: TWIN_B}});
+check('twin ids: lock unavailable -> twin still found among newest orders', shopifyCreates().length === 0 && r.body.shopify_order === '#1041', JSON.stringify(r.body));
+
 r = await call(confirmHandler, {method: 'GET'});
 check('confirm: GET -> 405', r.status === 405);
 r = await call(confirmHandler, {body: {order_id: 'x'}});
@@ -365,7 +426,7 @@ calls.length = 0;
 r = await call(confirmHandler, {body: {order_id: 'prepaid12345', total_amount_payable: 1}});
 const paidOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
 check('confirm: paid prepaid order created, from Shiprocket data (not the browser body)', r.status === 200 && r.body.ok === true && paidOrder?.financial_status === 'paid' && paidOrder.transactions[0].amount === '2999.00', JSON.stringify(r.body));
-check('confirm: only ok/placed/value returned (no customer details)', Object.keys(r.body).sort().join() === 'ok,placed,value' && r.body.placed === true && r.body.value === 2999, JSON.stringify(r.body));
+check('confirm: only ok/placed/value/event_id returned (no customer details)', Object.keys(r.body).sort().join() === 'event_id,ok,placed,value' && r.body.event_id === '#1001' && r.body.placed === true && r.body.value === 2999, JSON.stringify(r.body));
 mockStore({details: srOrder('unpaid123456', {payment_type: 'PREPAID', payment_status: 'PENDING'})});
 calls.length = 0;
 r = await call(confirmHandler, {body: {order_id: 'unpaid123456'}});

@@ -78,8 +78,8 @@ export const trackInitiateCheckout = (params: {
 }) => fire('track', 'InitiateCheckout', { currency: 'INR', ...params });
 
 /**
- * Fires when an order is confirmed. Pass the Shiprocket order id as eventId: the order webhook
- * sends the server-side (CAPI) Purchase with event_id = order id, so Meta deduplicates the two.
+ * Fires when an order is confirmed. Pass the Shopify order name as eventId: the server sends the
+ * server-side (CAPI) Purchase with the same event_id, so Meta deduplicates the two.
  */
 export const trackPurchase = (params: {
   value: number;
