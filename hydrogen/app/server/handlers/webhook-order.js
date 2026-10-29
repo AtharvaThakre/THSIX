@@ -4,6 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
+import { paymentBreakdown } from '../lib/partial-cod.js';
 import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
@@ -228,6 +229,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
                 order.payment_type = enriched.payment_type;
                 order.payment_status = enriched.payment_status || order.payment_status;
                 order.cod_charges = enriched.cod_charges || order.cod_charges;
+                if (enriched.partial_cod.partial) order.partial_cod = enriched.partial_cod;
                 console.log('[order-webhook] Enriched payment_type from /details/list:', order.payment_type);
               }
             }
@@ -318,7 +320,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
   const paymentKnown = order.payment_type ? String(order.payment_type).toUpperCase() : null;
-  if (strict && !force && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
+  if (strict && !force && !order.partial_cod?.partial && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
     return reply(200, { ok: true, skipped: `prepaid payment is ${order.payment_status}` });
   }
 
@@ -388,6 +390,27 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     }
   }
 }
+
+/**
+ * Shiprocket's record of one order: Order Details, or failing that the last 30 days of the
+ * order list. Null if Shiprocket doesn't know it.
+ */
+export async function getShiprocketOrder(orderId) {
+  const res = await shiprocketPost('/api/v1/custom-platform-order/details', {
+    order_id: orderId,
+    cart_id: orderId,
+    channel_order_id: orderId,
+    timestamp: new Date().toISOString(),
+  });
+  const data = res.data && (res.data.result || res.data);
+  if (res.ok && data && res.data.ok !== false && typeof data === 'object') return data;
+  const now = new Date();
+  const { orders } = await listShiprocketOrders(new Date(now.getTime() - 30 * 24 * 3600 * 1000), now);
+  return orders.find((item) => [item.order_id, item.id, item.cart_id, item.channel_order_id, item.fastrr_order_id]
+    .some((value) => value != null && String(value) === orderId)) || null;
+}
+
+export { normalizeOrder };
 
 function hasItems(raw) {
   const items = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items;
@@ -627,23 +650,32 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
   const paymentType = order.payment_type ? String(order.payment_type).toUpperCase() : null;
   // Only mark as prepaid when payment_type is explicitly non-COD AND payment succeeded.
   // If payment_type is unknown (null), default safe to COD/pending to avoid false "paid" orders.
-  const isPaid = paymentType !== null && paymentType !== 'COD' && /success/i.test(String(order.payment_status));
+  const partial = order.partial_cod && order.partial_cod.partial ? order.partial_cod : null;
+  // Partial COD is never "paid": the advance is recorded and the balance stays to collect
+  const isPaid = !partial && paymentType !== null && paymentType !== 'COD' && /success/i.test(String(order.payment_status));
   const shippingLines = [{ title: order.shipping_plan || 'Standard', price: String(order.shipping_charges || 0), code: 'shiprocket' }];
   if (Number(order.cod_charges) > 0) {
     shippingLines.push({ title: 'COD charges', price: String(order.cod_charges), code: 'cod' });
   }
 
+  const itemsTotal = items.reduce((sum, item) => {
+    const variant = variants.get(String(item.variant_id));
+    const price = variant ? Number(variant.price.amount || 0) : 0;
+    return sum + price * (Number(item.quantity) || 1);
+  }, 0);
+  const shippingTotal = Number(order.shipping_charges || 0) + Number(order.cod_charges || 0);
+  // What Shopify would total from list prices, and what Shiprocket actually charged. A gap means
+  // a Shiprocket checkout offer (e.g. a partial-COD discount) Shiprocket didn't itemise; it goes
+  // on the order as a discount so Shopify's total and balance due match the customer's.
+  const shopifyTotal = itemsTotal + shippingTotal - Number(order.total_discount || 0);
+  const chargedTotal = Number(order.total_amount_payable || 0);
+  const discountAmount = Number(order.total_discount || 0) +
+    (chargedTotal > 0 && itemsTotal > 0 && shopifyTotal - chargedTotal > 0.5 ? shopifyTotal - chargedTotal : 0);
+
   // Calculate total amount from items if missing or zero
-  let totalAmount = Number(order.total_amount_payable || 0);
+  let totalAmount = chargedTotal;
   if (totalAmount <= 0) {
-    const itemsTotal = items.reduce((sum, item) => {
-      const variant = variants.get(String(item.variant_id));
-      const price = variant ? Number(variant.price.amount || 0) : 0;
-      return sum + price * (Number(item.quantity) || 1);
-    }, 0);
-    const shippingTotal = Number(order.shipping_charges || 0) + Number(order.cod_charges || 0);
-    const discountTotal = Number(order.total_discount || 0);
-    totalAmount = Math.max(0, itemsTotal + shippingTotal - discountTotal);
+    totalAmount = Math.max(0, shopifyTotal);
   }
 
   const shippingAddress = toShopifyAddress(order.shipping_address);
@@ -696,7 +728,16 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
         ...(customerEmail && { email: customerEmail }),
       },
       shipping_lines: shippingLines,
-      financial_status: isPaid ? 'paid' : 'pending',
+      financial_status: isPaid ? 'paid' : partial ? 'partially_paid' : 'pending',
+      // Partial COD: the advance as a payment, so Shopify shows the balance still to collect
+      ...(partial && {
+        transactions: [{
+          kind: 'sale',
+          status: 'success',
+          amount: partial.paid.toFixed(2),
+          gateway: 'Shiprocket Checkout (advance)',
+        }],
+      }),
       // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
       ...(isPaid && totalAmount > 0 && {
         transactions: [{
@@ -706,16 +747,20 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
           gateway: (order.payments && order.payments[0] && order.payments[0].gateway) || 'Shiprocket Checkout',
         }],
       }),
-      ...(Number(order.total_discount) > 0 && {
+      ...(discountAmount > 0 && {
         discount_codes: [{
           code: (order.coupon_codes && order.coupon_codes[0]) || 'SHIPROCKET',
-          amount: Number(order.total_discount).toFixed(2),
+          amount: discountAmount.toFixed(2),
           type: 'fixed_amount',
         }],
       }),
-      tags: ['shiprocket', tag, isPaid ? 'prepaid' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
+      tags: ['shiprocket', tag, isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
       note_attributes: [
         { name: 'shiprocket_order_id', value: order.order_id },
+        ...(partial ? [
+          { name: 'advance_paid_online', value: partial.paid.toFixed(2) },
+          { name: 'cod_balance_to_collect', value: partial.due.toFixed(2) },
+        ] : []),
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },
       ],
       inventory_behaviour: 'decrement_obeying_policy',
@@ -1028,9 +1073,12 @@ function normalizeOrder(raw, fallbackId) {
   const orderId = String(raw.order_id || raw.id || raw.cart_id || fallbackId || '').trim();
   const rawItems = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items || [];
   const resolvedEmail = findEmail(raw);
+  const total = Number(raw.total_amount_payable || raw.total || raw.order_total || 0);
 
   return {
     order_id: orderId,
+    // Partial COD: advance paid online, balance in cash (lib/partial-cod.js)
+    partial_cod: paymentBreakdown(raw, total),
     fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
     status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
     payment_type: raw.payment_type || raw.payment_method ||

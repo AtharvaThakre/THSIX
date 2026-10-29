@@ -3,6 +3,7 @@ import { hasCronSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, queryParams } from '../lib/http.js';
 import { isAdminConfigured } from '../lib/admin-token.js';
 import { processOrder, listShiprocketOrders, shiprocketOrderId } from './webhook-order.js';
+import { inspectOrder, fixPartialOrder } from './order-partial.js';
 
 const DEFAULT_HOURS = 3;
 const MAX_HOURS = 24 * 30;
@@ -34,8 +35,20 @@ export default async function handler(request) {
     if (singleId.length < 6 || singleId.length > 128 || !/^[a-z0-9\-_]+$/i.test(singleId)) {
       return reply(400, { ok: false, message: 'order_id is invalid' });
     }
+    const params = queryParams(request);
+    // &inspect=1: show Shiprocket's payment fields for the order (read-only)
+    if (params.inspect === '1') {
+      const { status, payload } = await inspectOrder(singleId);
+      return reply(status, payload);
+    }
+    // &fix_partial=1: correct an existing Shopify order for a partial-COD payment
+    // (a preview unless &apply=1)
+    if (params.fix_partial === '1') {
+      const { status, payload } = await fixPartialOrder(singleId, { apply: params.apply === '1' });
+      return reply(status, payload);
+    }
     // &force=1: create it even though Shiprocket reports it unpaid/not placed (created unpaid)
-    const force = queryParams(request).force === '1';
+    const force = params.force === '1';
     const { status, payload } = await processOrder(singleId, {}, { strict: true, force });
     return reply(status, { order_id: singleId, ...payload });
   }

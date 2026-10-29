@@ -226,6 +226,8 @@ const lockStore = new Map();
 let lockDigest = 0;
 let recentOrders = [];
 const taggedOrders = [];
+const manualPayments = [];
+let shopifyOrderState = null;
 function mockStore({details, list = [], inShopify = []}) {
   lockStore.clear();
   recentOrders = [];
@@ -255,6 +257,13 @@ function mockStore({details, list = [], inShopify = []}) {
       if (query.includes('metafield(namespace')) {
         const cur = lockStore.get(variables.key);
         return {body: {data: {shop: {metafield: cur ? {value: cur.value, compareDigest: cur.digest} : null}}}};
+      }
+      if (query.includes('displayFinancialStatus') && !query.includes('orderCreateManualPayment')) {
+        return {body: {data: {order: shopifyOrderState}}};
+      }
+      if (query.includes('orderCreateManualPayment')) {
+        manualPayments.push(variables.amount);
+        return {body: {data: {orderCreateManualPayment: {order: {displayFinancialStatus: 'PARTIALLY_PAID', totalReceivedSet: {shopMoney: {amount: variables.amount.amount}}}, userErrors: []}}}};
       }
       if (query.includes('tagsAdd')) {
         taggedOrders.push(...variables.tags);
@@ -416,6 +425,68 @@ globalThis.fetch = async (url, init = {}) => (String(url).includes('/admin/api/'
 calls.length = 0;
 r = await call(orderHandler, {body: {order_id: TWIN_B}});
 check('twin ids: lock unavailable -> twin still found among newest orders', shopifyCreates().length === 0 && r.body.shopify_order === '#1041', JSON.stringify(r.body));
+
+// ── Partial COD (₹199 advance online, balance in cash) ──
+const {paymentBreakdown} = await imp('lib/partial-cod.js');
+check('partial COD: advance field', JSON.stringify(paymentBreakdown({prepaid_amount: 199}, 2999)) === JSON.stringify({partial: true, paid: 199, due: 2800, source: 'advance amount'}));
+check('partial COD: COD amount to collect', paymentBreakdown({cod_amount: '2600'}, 2799).paid === 199);
+check('partial COD: online payment amount below total', paymentBreakdown({payment_type: 'COD', paymentDetails: {amount: 199, transactionId: 't'}}, 2999).paid === 199);
+check('partial COD: 5% prepaid discount is not partial', paymentBreakdown({payment_type: 'PREPAID', paymentDetails: {amount: 2849}}, 2999).partial === false);
+check('partial COD: flagged partial with a large advance', paymentBreakdown({payment_type: 'PARTIAL_COD', advance_amount: 1600}, 2999).paid === 1600);
+check('partial COD: plain COD and full prepaid are not partial', !paymentBreakdown({payment_type: 'COD', cod_amount: 2999}, 2999).partial && !paymentBreakdown({payment_type: 'PREPAID', paymentDetails: {amount: 2999}}, 2999).partial);
+
+const partialOrder = (id, extra = {}) => srOrder(id, {payment_type: 'PARTIAL_COD', payment_status: 'PENDING', prepaid_amount: 199, email: 'x@y.com', ...extra});
+setServerEnv(ADMIN_ENV);
+mockStore({details: partialOrder('partial12345')});
+calls.length = 0;
+r = await call(confirmHandler, {body: {order_id: 'partial12345'}});
+const pOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
+check('partial COD: created (not skipped as unpaid prepaid) from the success page', r.status === 200 && Boolean(pOrder), JSON.stringify(r.body));
+check('partial COD: Shopify order partially paid, advance recorded, never "paid"', pOrder?.financial_status === 'partially_paid' && pOrder.transactions.length === 1 && pOrder.transactions[0].amount === '199.00', JSON.stringify(pOrder?.transactions));
+check('partial COD: tagged partial-cod, balance noted', pOrder?.tags.includes('partial-cod') && pOrder.note_attributes.some((a) => a.name === 'cod_balance_to_collect' && a.value === '2800.00'));
+mockStore({details: partialOrder('partpaid1234', {payment_status: 'SUCCESS'})});
+calls.length = 0;
+await call(orderHandler, {body: {order_id: 'partpaid1234'}});
+const pOrder2 = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
+check('partial COD: advance paid successfully still not marked fully paid (#1043 case)', pOrder2?.financial_status === 'partially_paid' && pOrder2.transactions[0].amount === '199.00');
+
+// Shiprocket charged ₹2,799 (₹199 now + ₹2,600 on delivery) for a ₹2,999 item: offer not itemised
+mockStore({details: partialOrder('offer1234567', {total_amount_payable: 2799})});
+calls.length = 0;
+await call(orderHandler, {body: {order_id: 'offer1234567'}});
+const offerOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
+check('partial COD: Shiprocket offer becomes a ₹200 discount, so ₹2,600 shows as due', offerOrder?.discount_codes?.[0]?.amount === '200.00' && offerOrder.transactions[0].amount === '199.00' && offerOrder.note_attributes.some((a) => a.name === 'cod_balance_to_collect' && a.value === '2600.00'), JSON.stringify(offerOrder?.discount_codes));
+mockStore({details: srOrder('fullprice123')});
+calls.length = 0;
+await call(orderHandler, {body: {order_id: 'fullprice123'}});
+check('no offer -> no discount added', !JSON.parse(shopifyCreates()[0].init.body).order.discount_codes);
+
+const cronGet = (query) => call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query});
+mockStore({details: partialOrder('partial12345', {shipping_address: {name: 'Secret Person', phone: '9999999999', line1: '1 Hidden St', city: 'Pune'}})});
+calls.length = 0;
+r = await cronGet({order_id: 'partial12345', inspect: '1'});
+const inspected = JSON.stringify(r.body);
+check('inspect: shows payment fields and the detected split', r.status === 200 && r.body.shiprocket_payment_fields.prepaid_amount === 199 && r.body.detected.partial_cod.due === 2800, inspected.slice(0, 300));
+check('inspect: no customer name/phone/address/email', !/Secret|9999999999|Hidden|x@y\.com/.test(inspected));
+check('inspect: creates nothing', shopifyCreates().length === 0);
+
+mockStore({details: partialOrder('partial12345'), inShopify: ['sr-partial12345']});
+shopifyOrderState = {name: '#1044', displayFinancialStatus: 'PENDING', totalReceivedSet: {shopMoney: {amount: '0.0', currencyCode: 'INR'}}, totalPriceSet: {shopMoney: {amount: '2999.0'}}};
+manualPayments.length = 0;
+r = await cronGet({order_id: 'partial12345', fix_partial: '1'});
+check('fix partial: preview changes nothing', r.status === 200 && r.body.applied === false && manualPayments.length === 0 && /would record ₹199/.test(r.body.result), JSON.stringify(r.body));
+r = await cronGet({order_id: 'partial12345', fix_partial: '1', apply: '1'});
+check('fix partial: apply records the advance on the existing order', r.body.applied === true && manualPayments.length === 1 && manualPayments[0].amount === '199.00' && r.body.balance_to_collect === 2800, JSON.stringify(r.body));
+shopifyOrderState = {...shopifyOrderState, displayFinancialStatus: 'PARTIALLY_PAID', totalReceivedSet: {shopMoney: {amount: '199.0', currencyCode: 'INR'}}};
+manualPayments.length = 0;
+r = await cronGet({order_id: 'partial12345', fix_partial: '1', apply: '1'});
+check('fix partial: running again does nothing (already correct)', r.body.result === 'already correct' && manualPayments.length === 0);
+shopifyOrderState = {...shopifyOrderState, name: '#1043', displayFinancialStatus: 'PAID', totalReceivedSet: {shopMoney: {amount: '2999.0', currencyCode: 'INR'}}};
+r = await cronGet({order_id: 'partial12345', fix_partial: '1', apply: '1'});
+check('fix partial: wrongly "Paid" in full -> manual correction explained, nothing changed', r.body.result === 'needs a manual correction' && /refund ₹2800\.00/.test(r.body.how) && manualPayments.length === 0, JSON.stringify(r.body).slice(0, 300));
+mockStore({details: srOrder('plaincod1234'), inShopify: ['sr-plaincod1234']});
+r = await cronGet({order_id: 'plaincod1234', fix_partial: '1', apply: '1'});
+check('fix partial: plain COD order left alone', /not partial COD/.test(r.body.result) && manualPayments.length === 0);
 
 r = await call(confirmHandler, {method: 'GET'});
 check('confirm: GET -> 405', r.status === 405);
