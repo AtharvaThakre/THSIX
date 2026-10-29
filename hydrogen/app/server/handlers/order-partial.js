@@ -1,5 +1,5 @@
 import { adminGraphQL, findOrderByTag, addOrderNote } from '../lib/shopify-admin.js';
-import { paymentFields } from '../lib/partial-cod.js';
+import { paymentFields, allFields } from '../lib/partial-cod.js';
 import { getShiprocketOrder, normalizeOrder } from './webhook-order.js';
 
 /**
@@ -23,6 +23,8 @@ export async function inspectOrder(orderId) {
         partial_cod: order.partial_cod,
       },
       shiprocket_payment_fields: paymentFields(raw),
+      // Everything else Shiprocket holds for the order, minus customer details
+      shiprocket_all_fields: allFields(raw),
     },
   };
 }

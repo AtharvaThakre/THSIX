@@ -76,27 +76,39 @@ const PARTIAL_FLAG = /partial|advance/i;
 
 const round = (n) => Math.round(n * 100) / 100;
 
-// Never shown by inspect: customer identity and address
-const PRIVATE_KEYS = /name|phone|mobile|email|mail|address|line\d|street|city|pin|zip|postal|state|landmark|lat|lng|ip|token|otp|upi_?id|vpa|card/i;
+// Never shown: customer identity, address and payment credentials. Matched on whole words of a
+// field name (customer_phone, shippingAddress, …), so e.g. shipping_charges stays visible.
+const PRIVATE_WORDS = new Set(['name', 'phone', 'mobile', 'email', 'mail', 'address', 'line1', 'line2', 'line3',
+  'street', 'city', 'pincode', 'pin', 'zip', 'zipcode', 'postal', 'postcode', 'state', 'landmark', 'lat', 'lng',
+  'latitude', 'longitude', 'ip', 'token', 'otp', 'vpa', 'upi', 'card', 'gstin', 'pan', 'dob', 'firstname', 'lastname', 'fullname']);
+const words = (key) => String(key).replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+const isPrivate = (key) => words(key).some((w) => PRIVATE_WORDS.has(w));
 
-/**
- * The order's payment-related fields with their values, for diagnosis. Customer details are
- * left out.
- */
-export function paymentFields(raw, depth = 0, prefix = '', out = {}) {
-  if (!raw || typeof raw !== 'object' || depth > 3) return out;
+const PAYMENT_KEY = /pay|amount|cod|total|paid|prepaid|advance|partial|status|charge|discount|price|gateway|method|mode|balance|due|collect|type|is_/i;
+
+/** Scalar fields, flattened to dotted paths, skipping private ones; `keep` filters by key. */
+function flatten(raw, keep, depth = 0, prefix = '', out = {}) {
+  if (!raw || typeof raw !== 'object' || depth > 4) return out;
   for (const [key, value] of Object.entries(raw)) {
-    if (PRIVATE_KEYS.test(key)) continue;
+    if (isPrivate(key)) continue;
     const path = prefix ? `${prefix}.${key}` : key;
-    if (value && typeof value === 'object') {
-      if (Array.isArray(value)) {
-        if (/pay|transaction/i.test(key)) value.slice(0, 5).forEach((v, i) => paymentFields(v, depth + 1, `${path}[${i}]`, out));
-      } else {
-        paymentFields(value, depth + 1, path, out);
-      }
-    } else if (/pay|amount|cod|total|paid|prepaid|advance|partial|status|charge|discount|price|gateway|method|mode|balance|due|collect|type|is_/i.test(key)) {
-      out[path] = value;
+    if (Array.isArray(value)) {
+      value.slice(0, 3).forEach((v, i) => {
+        if (v && typeof v === 'object') flatten(v, keep, depth + 1, `${path}[${i}]`, out);
+        else if (keep(key)) out[`${path}[${i}]`] = v;
+      });
+      if (value.length === 0 && keep(key)) out[path] = [];
+    } else if (value && typeof value === 'object') {
+      flatten(value, keep, depth + 1, path, out);
+    } else if (keep(key)) {
+      out[path] = typeof value === 'string' && value.length > 80 ? `${value.slice(0, 80)}…` : value;
     }
   }
   return out;
 }
+
+/** The order's payment-related fields with their values. Customer details are left out. */
+export const paymentFields = (raw) => flatten(raw, (key) => PAYMENT_KEY.test(key));
+
+/** Every field of the order except customer details, for finding where a value is reported. */
+export const allFields = (raw) => flatten(raw, () => true);

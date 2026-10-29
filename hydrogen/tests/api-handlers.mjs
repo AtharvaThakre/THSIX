@@ -466,10 +466,20 @@ calls.length = 0;
 await call(orderHandler, {body: {order_id: 'hookpay12345', payment: {mode: 'PARTIAL', advance_amount: 199}, customer: {name: 'Secret', phone: '9999999999'}}});
 {
   const attrs = JSON.parse(shopifyCreates()[0].init.body).order.note_attributes;
-  const hook = attrs.find((a) => a.name === 'shiprocket_webhook_payment');
+  const hook = attrs.find((a) => a.name === 'shiprocket_webhook_fields');
   const hookOrder = JSON.parse(shopifyCreates()[0].init.body).order;
   check('advance only in the webhook (record says plain COD) -> still recorded as partial', hookOrder.financial_status === 'partially_paid' && hookOrder.transactions[0].amount === '199.00');
-  check('webhook payment fields kept on the order, no customer data', hook && hook.value.includes('"payment.advance_amount":199') && !/Secret|9999999999/.test(hook.value), hook && hook.value);
+  check('webhook fields kept on the order, no customer data', hook && hook.value.includes('"payment.advance_amount":199') && hook.value.includes('"payment.mode":"PARTIAL"') && !/Secret|9999999999/.test(hook.value), hook && hook.value);
+}
+
+mockStore({details: srOrder('noitems12345', {cart_data: {items: []}})});
+calls.length = 0;
+r = await call(orderHandler, {body: {order_id: 'noitems12345'}});
+check('order with no items (#1052) is not created', shopifyCreates().length === 0 && r.status === 200 && r.body.skipped === 'order has no items', JSON.stringify(r.body));
+{
+  const {allFields} = await imp('lib/partial-cod.js');
+  const f = allFields({shipping_charges: 0, customer_phone: '9999999999', shippingAddress: {city: 'Pune', line1: 'x'}, billing: {firstName: 'A', state: 'MH'}, rto_shield: {upfront_fee: 199}, upi_id: 'a@b', status: 'SUCCESS'});
+  check('field filter: keeps shipping_charges and unknown payment fields, drops customer details', f.shipping_charges === 0 && f['rto_shield.upfront_fee'] === 199 && f.status === 'SUCCESS' && !JSON.stringify(f).match(/9999|Pune|"x"|"A"|MH|a@b/), JSON.stringify(f));
 }
 
 const cronGet = (query) => call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query});

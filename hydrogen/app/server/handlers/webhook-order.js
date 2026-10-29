@@ -4,7 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
-import { paymentBreakdown, paymentFields } from '../lib/partial-cod.js';
+import { paymentBreakdown, allFields } from '../lib/partial-cod.js';
 import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
@@ -300,6 +300,13 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   if (!order) {
     console.error('[order-webhook] Could not resolve order details for', orderId);
     return reply(500, { ok: false, message: 'Order details pending indexing, retry requested' });
+  }
+
+  // Never create an order without products (#1052 came in as ₹0 with 0 items). The 15-minute
+  // reconcile picks the order up again once Shiprocket has its items.
+  if (!order.cart_data || !order.cart_data.items || order.cart_data.items.length === 0) {
+    console.error('[order-webhook] Order', orderId, 'has no items yet; not creating it');
+    return reply(200, { ok: true, skipped: 'order has no items' });
   }
 
   // The webhook may report a partial-COD advance that Shiprocket's order record doesn't
@@ -751,7 +758,7 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
   // Only mark as prepaid when payment_type is explicitly non-COD AND payment succeeded.
   // If payment_type is unknown (null), default safe to COD/pending to avoid false "paid" orders.
   const partial = order.partial_cod && order.partial_cod.partial ? order.partial_cod : null;
-  const webhookPayment = paymentFields(rawWebhookBody || {});
+  const webhookFields = allFields(rawWebhookBody || {});
   // Partial COD is never "paid": the advance is recorded and the balance stays to collect
   const isPaid = !partial && paymentType !== null && paymentType !== 'COD' && /success/i.test(String(order.payment_status));
   const shippingLines = [{ title: order.shipping_plan || 'Standard', price: String(order.shipping_charges || 0), code: 'shiprocket' }];
@@ -858,10 +865,10 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
       tags: ['shiprocket', tag, isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
       note_attributes: [
         { name: 'shiprocket_order_id', value: order.order_id },
-        // What Shiprocket's webhook said about payment (amounts/statuses only, no customer data),
-        // so a payment the order record doesn't show (e.g. a partial-COD advance) can be seen
-        ...(Object.keys(webhookPayment).length ? [
-          { name: 'shiprocket_webhook_payment', value: JSON.stringify(webhookPayment).slice(0, 1000) },
+        // What Shiprocket's webhook sent (every field except customer details), so a payment the
+        // order record doesn't show (e.g. a partial-COD advance) can be found
+        ...(Object.keys(webhookFields).length ? [
+          { name: 'shiprocket_webhook_fields', value: JSON.stringify(webhookFields).slice(0, 2500) },
         ] : []),
         ...(partial ? [
           { name: 'advance_paid_online', value: partial.paid.toFixed(2) },
