@@ -461,6 +461,17 @@ calls.length = 0;
 await call(orderHandler, {body: {order_id: 'fullprice123'}});
 check('no offer -> no discount added', !JSON.parse(shopifyCreates()[0].init.body).order.discount_codes);
 
+mockStore({details: srOrder('hookpay12345')});
+calls.length = 0;
+await call(orderHandler, {body: {order_id: 'hookpay12345', payment: {mode: 'PARTIAL', advance_amount: 199}, customer: {name: 'Secret', phone: '9999999999'}}});
+{
+  const attrs = JSON.parse(shopifyCreates()[0].init.body).order.note_attributes;
+  const hook = attrs.find((a) => a.name === 'shiprocket_webhook_payment');
+  const hookOrder = JSON.parse(shopifyCreates()[0].init.body).order;
+  check('advance only in the webhook (record says plain COD) -> still recorded as partial', hookOrder.financial_status === 'partially_paid' && hookOrder.transactions[0].amount === '199.00');
+  check('webhook payment fields kept on the order, no customer data', hook && hook.value.includes('"payment.advance_amount":199') && !/Secret|9999999999/.test(hook.value), hook && hook.value);
+}
+
 const cronGet = (query) => call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query});
 mockStore({details: partialOrder('partial12345', {shipping_address: {name: 'Secret Person', phone: '9999999999', line1: '1 Hidden St', city: 'Pune'}})});
 calls.length = 0;
