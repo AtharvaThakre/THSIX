@@ -621,6 +621,40 @@ check('reconcile: invalid order_id -> 400', r.status === 400);
   check('lookup: miss shows Shiprocket error text', r.status === 404 && r.body.lookup.details_message === 'Order not found', JSON.stringify(r.body.lookup));
 }
 
+// #1050: the list holds summaries only; the full record comes from Order Details by list id
+{
+  const WEBHOOK_ID = '6ae2c53a9c1a5e7bf2f457b7';
+  const LIST_ID = '6ae2c53b0000000000000001';
+  const FAR_ID = '6ae2a0000000000000000002'; // hours earlier: not read in full
+  const full = srOrder(LIST_ID, {payment_type: 'PARTIAL_COD', payment_status: 'PENDING', prepaid_amount: 199});
+  const detailsAsked = [];
+  mockStore({});
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('details/list')) {
+      const page = Math.max(1, JSON.parse(init.body).page);
+      return new Response(JSON.stringify({result: page === 1 ? [{order_id: FAR_ID, status: 'INITIATED'}, {order_id: LIST_ID, status: 'SUCCESS'}] : []}), {status: 200});
+    }
+    if (u.includes('custom-platform-order/details')) {
+      const id = JSON.parse(init.body).order_id;
+      detailsAsked.push(id);
+      return id === LIST_ID
+        ? new Response(JSON.stringify({ok: true, result: full}), {status: 200})
+        : new Response(JSON.stringify({ok: false, error: {message: 'Order not found'}}), {status: 400});
+    }
+    if (u.includes('/admin/api/') && String(init.body).includes('lineItems') && String(init.body).includes(WEBHOOK_ID)) {
+      return new Response(JSON.stringify({data: {orders: {nodes: [{name: '#1050', createdAt: new Date(0x6ae2c53a * 1000 + 3000).toISOString(),
+        email: null, phone: '+919876543210', shippingAddress: {phone: '+919876543210'},
+        lineItems: {nodes: [{quantity: 1, variant: {legacyResourceId: '50501821923493'}}]}}]}}}), {status: 200});
+    }
+    return inner(url, init);
+  };
+  r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: WEBHOOK_ID, inspect: '1'}});
+  check('lookup: summary-only list -> nearby record read in full and matched', r.status === 200 && String(r.body.found_by).includes('#1050') && r.body.detected.partial_cod.paid === 199, JSON.stringify(r.body).slice(0, 250));
+  check('lookup: only records placed near the order are read in full', detailsAsked.includes(LIST_ID) && !detailsAsked.includes(FAR_ID), detailsAsked.join(','));
+}
+
 mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);

@@ -463,17 +463,39 @@ export async function getShiprocketOrder(orderId) {
     const who = [last10(shopify.phone), last10(shopify.shippingAddress?.phone), String(shopify.email || '').toLowerCase()].filter(Boolean);
     const items = (shopify.lineItems?.nodes || []).map((li) => `${li.variant?.legacyResourceId}:${li.quantity}`).sort().join(',');
     const created = new Date(shopify.createdAt).getTime();
-    const twin = orders.find((item) => {
-      const candidate = normalizeOrder(item, '');
-      const fingerprint = orderFingerprint(candidate);
+    const matches = (record) => {
+      const fingerprint = orderFingerprint(normalizeOrder(record, ''));
       if (!fingerprint) return false;
       const [candidateWho, candidateItems] = fingerprint.split('|');
-      return candidateItems === items && who.includes(candidateWho) &&
-        Math.abs(recordTime(item, candidate) - created) <= SAME_ORDER_WINDOW_MS + 5 * 60 * 1000;
-    }) || null;
+      return candidateItems === items && who.includes(candidateWho);
+    };
+    // Records placed within minutes of the Shopify order. The list may hold only summaries (no
+    // customer or items), so each is read in full from Order Details by its list id.
+    const nearby = orders
+      .filter((item) => Math.abs(recordTime(item, normalizeOrder(item, '')) - created) <= SAME_ORDER_WINDOW_MS + 5 * 60 * 1000)
+      .slice(0, 10);
+    let twin = null;
+    for (const item of nearby) {
+      if (matches(item)) { twin = item; break; }
+      const listId = shiprocketOrderId(item);
+      if (!listId) continue;
+      const full = await shiprocketPost('/api/v1/custom-platform-order/details', {
+        order_id: listId, cart_id: listId, channel_order_id: listId, timestamp: new Date().toISOString(),
+      }).catch(() => null);
+      const record = full && full.ok && full.data && (full.data.result || full.data);
+      if (record && typeof record === 'object' && matches(record)) { twin = record; break; }
+    }
     return {
       order: twin,
-      lookup: { ...lookup, ...listInfo, shopify_order: shopify.name, found_by: twin ? `same customer + items as ${shopify.name}` : null },
+      lookup: {
+        ...lookup,
+        ...listInfo,
+        shopify_order: shopify.name,
+        list_nearby: nearby.length,
+        found_by: twin ? `same customer + items as ${shopify.name}` : null,
+        // Field names of a list record (no values), to see what the list holds
+        ...(!twin && orders[0] && { list_record_shape: describeShape(orders[0]) }),
+      },
     };
   } catch (error) {
     return { order: null, lookup: { ...lookup, list_error: error.message } };
