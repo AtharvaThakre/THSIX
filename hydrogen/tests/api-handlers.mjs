@@ -435,6 +435,9 @@ check('partial COD: 5% prepaid discount is not partial', paymentBreakdown({payme
 check('partial COD: flagged partial with a large advance', paymentBreakdown({payment_type: 'PARTIAL_COD', advance_amount: 1600}, 2999).paid === 1600);
 check('partial COD: plain COD and full prepaid are not partial', !paymentBreakdown({payment_type: 'COD', cod_amount: 2999}, 2999).partial && !paymentBreakdown({payment_type: 'PREPAID', paymentDetails: {amount: 2999}}, 2999).partial);
 
+// Advance taken off as a discount: total = balance (what Shiprocket's courier collects), no payment recorded
+const advanceAsDiscount = (o, amount) => o?.financial_status === 'pending' && !o.transactions &&
+  o.discount_codes?.[0]?.code === 'PARTIAL-COD-ADVANCE' && o.discount_codes[0].amount === amount && o.tags.includes('partial-cod');
 const partialOrder = (id, extra = {}) => srOrder(id, {payment_type: 'PARTIAL_COD', payment_status: 'PENDING', prepaid_amount: 199, email: 'x@y.com', ...extra});
 setServerEnv(ADMIN_ENV);
 mockStore({details: partialOrder('partial12345')});
@@ -442,20 +445,20 @@ calls.length = 0;
 r = await call(confirmHandler, {body: {order_id: 'partial12345'}});
 const pOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
 check('partial COD: created (not skipped as unpaid prepaid) from the success page', r.status === 200 && Boolean(pOrder), JSON.stringify(r.body));
-check('partial COD: Shopify order partially paid, advance recorded, never "paid"', pOrder?.financial_status === 'partially_paid' && pOrder.transactions.length === 1 && pOrder.transactions[0].amount === '199.00', JSON.stringify(pOrder?.transactions));
+check('partial COD: ₹199 taken off as a discount (total = balance), never "paid"', advanceAsDiscount(pOrder, '199.00'), JSON.stringify(pOrder?.transactions));
 check('partial COD: tagged partial-cod, balance noted', pOrder?.tags.includes('partial-cod') && pOrder.note_attributes.some((a) => a.name === 'cod_balance_to_collect' && a.value === '2800.00'));
 mockStore({details: partialOrder('partpaid1234', {payment_status: 'SUCCESS'})});
 calls.length = 0;
 await call(orderHandler, {body: {order_id: 'partpaid1234'}});
 const pOrder2 = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
-check('partial COD: advance paid successfully still not marked fully paid (#1043 case)', pOrder2?.financial_status === 'partially_paid' && pOrder2.transactions[0].amount === '199.00');
+check('partial COD: advance paid successfully still not marked fully paid (#1043 case)', advanceAsDiscount(pOrder2, '199.00'));
 
 // Shiprocket charged ₹2,799 (₹199 now + ₹2,600 on delivery) for a ₹2,999 item: offer not itemised
 mockStore({details: partialOrder('offer1234567', {total_amount_payable: 2799})});
 calls.length = 0;
 await call(orderHandler, {body: {order_id: 'offer1234567'}});
 const offerOrder = shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
-check('partial COD: Shiprocket offer becomes a ₹200 discount, so ₹2,600 shows as due', offerOrder?.discount_codes?.[0]?.amount === '200.00' && offerOrder.transactions[0].amount === '199.00' && offerOrder.note_attributes.some((a) => a.name === 'cod_balance_to_collect' && a.value === '2600.00'), JSON.stringify(offerOrder?.discount_codes));
+check('partial COD: ₹200 Shiprocket offer + ₹199 advance -> one ₹399 discount, ₹2,600 to collect', advanceAsDiscount(offerOrder, '399.00') && offerOrder.note_attributes.some((a) => a.name === 'cod_balance_to_collect' && a.value === '2600.00') && offerOrder.note_attributes.some((a) => a.name === 'other_discount' && a.value === '200.00'), JSON.stringify(offerOrder?.discount_codes));
 mockStore({details: srOrder('fullprice123')});
 calls.length = 0;
 await call(orderHandler, {body: {order_id: 'fullprice123'}});
@@ -468,7 +471,7 @@ await call(orderHandler, {body: {order_id: 'hookpay12345', payment: {mode: 'PART
   const attrs = JSON.parse(shopifyCreates()[0].init.body).order.note_attributes;
   const hook = attrs.find((a) => a.name === 'shiprocket_webhook_fields');
   const hookOrder = JSON.parse(shopifyCreates()[0].init.body).order;
-  check('advance only in the webhook (record says plain COD) -> still recorded as partial', hookOrder.financial_status === 'partially_paid' && hookOrder.transactions[0].amount === '199.00');
+  check('advance only in the webhook (record says plain COD) -> still recorded as partial', advanceAsDiscount(hookOrder, '199.00'));
   check('webhook fields kept on the order, no customer data', hook && hook.value.includes('"payment.advance_amount":199') && hook.value.includes('"payment.mode":"PARTIAL"') && !/Secret|9999999999/.test(hook.value), hook && hook.value);
 }
 
@@ -503,7 +506,7 @@ await call(orderHandler, {body: {order_id: '6ae2f020a32eb06ad6dd6ca0'}});
   calls.length = 0;
   r = await call(confirmHandler, {body: {order_id: 'advcod123456'}});
   let o = created();
-  check('advance: CASH_ON_DELIVERY order (success page) -> partially paid ₹199, ₹3300 due', r.status === 200 && o?.financial_status === 'partially_paid' && o.transactions[0].amount === '199.00' && due(o) === '3300.00' && o.tags.includes('partial-cod'), JSON.stringify(o?.tags));
+  check('advance: CASH_ON_DELIVERY order (success page) -> ₹199 discount, total ₹3300 = due', r.status === 200 && advanceAsDiscount(o, '199.00') && due(o) === '3300.00', JSON.stringify(o?.tags));
 
   mockStore({details: srOrder('advpre123456', {payment_type: 'PREPAID', payment_status: 'SUCCESS', total_amount_payable: 3499})});
   calls.length = 0;
@@ -534,14 +537,14 @@ await call(orderHandler, {body: {order_id: '6ae2f020a32eb06ad6dd6ca0'}});
   calls.length = 0;
   await call(orderHandler, {body: hookBody});
   o = created();
-  check('advance: webhook without payment type -> type read from Shiprocket (COD) -> ₹199 recorded', o?.financial_status === 'partially_paid' && o.transactions[0].amount === '199.00' && due(o) === '3300.00', JSON.stringify(o?.transactions));
+  check('advance: webhook without payment type -> type read from Shiprocket (COD) -> ₹199 off', advanceAsDiscount(o, '199.00') && due(o) === '3300.00', JSON.stringify(o?.transactions));
 
   mockStore({});
   withList(srOrder(LISTED, {payment_type: 'PREPAID', payment_status: 'SUCCESS', total_amount_payable: 3499, cart_id: WH}));
   calls.length = 0;
   await call(orderHandler, {body: hookBody});
   o = created();
-  check('advance: webhook without type, Shiprocket says PREPAID -> no ₹199 advance', o && o.financial_status !== 'partially_paid' && !o.tags.includes('partial-cod'), o && o.financial_status);
+  check('advance: webhook without type, Shiprocket says PREPAID -> no ₹199 advance', o && o.financial_status === 'paid' && !o.discount_codes && !o.tags.includes('partial-cod'), o && o.financial_status);
 
   mockStore({});
   withList(null);

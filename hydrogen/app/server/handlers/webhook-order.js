@@ -827,6 +827,9 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
   const discountAmount = Number(order.total_discount || 0) +
     (chargedTotal > 0 && itemsTotal > 0 && shopifyTotal - chargedTotal > 0.5 ? shopifyTotal - chargedTotal : 0);
 
+  // Partial COD advance (paid online at Shiprocket checkout), taken off the order total
+  const advanceAmount = order.partial_cod && order.partial_cod.partial ? Number(order.partial_cod.paid) || 0 : 0;
+
   // Calculate total amount from items if missing or zero
   let totalAmount = chargedTotal;
   if (totalAmount <= 0) {
@@ -883,16 +886,10 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
         ...(customerEmail && { email: customerEmail }),
       },
       shipping_lines: shippingLines,
-      financial_status: isPaid ? 'paid' : partial ? 'partially_paid' : 'pending',
-      // Partial COD: the advance as a payment, so Shopify shows the balance still to collect
-      ...(partial && {
-        transactions: [{
-          kind: 'sale',
-          status: 'success',
-          amount: partial.paid.toFixed(2),
-          gateway: 'Shiprocket Checkout (advance)',
-        }],
-      }),
+      // Partial COD: the advance paid online is taken off as a discount (below), so the order
+      // total is the balance the courier collects. Shiprocket Shipping imports the order from
+      // Shopify and sets the COD amount from its total; a recorded payment would be ignored.
+      financial_status: isPaid ? 'paid' : 'pending',
       // Shopify requires amount > 0 for sale transactions; omit transactions if 0 or unpaid
       ...(isPaid && totalAmount > 0 && {
         transactions: [{
@@ -902,10 +899,12 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
           gateway: (order.payments && order.payments[0] && order.payments[0].gateway) || 'Shiprocket Checkout',
         }],
       }),
-      ...(discountAmount > 0 && {
+      ...(discountAmount + advanceAmount > 0 && {
+        // Shopify takes one discount code per order: with an advance it names the advance, and the
+        // split (offer + advance) is in the note attributes
         discount_codes: [{
-          code: (order.coupon_codes && order.coupon_codes[0]) || 'SHIPROCKET',
-          amount: discountAmount.toFixed(2),
+          code: advanceAmount > 0 ? 'PARTIAL-COD-ADVANCE' : (order.coupon_codes && order.coupon_codes[0]) || 'SHIPROCKET',
+          amount: (discountAmount + advanceAmount).toFixed(2),
           type: 'fixed_amount',
         }],
       }),
@@ -920,6 +919,7 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
         ...(partial ? [
           { name: 'advance_paid_online', value: partial.paid.toFixed(2) },
           { name: 'cod_balance_to_collect', value: partial.due.toFixed(2) },
+          ...(discountAmount > 0 ? [{ name: 'other_discount', value: discountAmount.toFixed(2) }] : []),
         ] : []),
         { name: 'fastrr_order_id', value: String(order.fastrr_order_id || '') },
       ],
