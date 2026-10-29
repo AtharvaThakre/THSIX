@@ -392,7 +392,33 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
 }
 
 const ID_FIELDS = ['order_id', 'id', 'cart_id', 'channel_order_id', 'fastrr_order_id'];
-const hasId = (item, orderId) => ID_FIELDS.some((key) => item && item[key] != null && String(item[key]) === orderId);
+/** True if the record carries this id, in a known id field or any other field (Shiprocket's
+ * webhook and order list can name the same order's ids differently). */
+function hasId(item, orderId, depth = 0) {
+  if (!item || typeof item !== 'object' || depth > 2) return false;
+  if (depth === 0 && ID_FIELDS.some((key) => item[key] != null && String(item[key]) === orderId)) return true;
+  return Object.values(item).some((value) =>
+    (typeof value === 'string' && value === orderId) ||
+    (value && typeof value === 'object' && !Array.isArray(value) && hasId(value, orderId, depth + 1)));
+}
+
+/** When a list record was placed: its own date field, else the time in its ObjectId. */
+function recordTime(item, normalized) {
+  const stamp = Date.parse(item.created_at || item.createdAt || item.order_date || item.placed_at || '');
+  return Number.isFinite(stamp) ? stamp : placedAt(normalized);
+}
+
+/** The Shopify order created for a Shiprocket id: its customer, items and creation time. */
+async function shopifyOrderFor(orderId) {
+  const data = await adminGraphQL(
+    `query ($q: String!) { orders(first: 1, query: $q) { nodes {
+      name createdAt email phone shippingAddress { phone }
+      lineItems(first: 50) { nodes { quantity variant { legacyResourceId } } }
+    } } }`,
+    { q: `tag:'sr-${orderId}'` }
+  );
+  return data?.data?.orders?.nodes?.[0] || null;
+}
 
 /**
  * Shiprocket's record of one order: Order Details, or else the order list around the time the
@@ -407,7 +433,12 @@ export async function getShiprocketOrder(orderId) {
     timestamp: new Date().toISOString(),
   });
   const data = res.data && (res.data.result || res.data);
-  const lookup = { details_status: res.status, details_reply: describeShape(res.data ?? String(res.text).slice(0, 120)) };
+  const lookup = {
+    details_status: res.status,
+    details_reply: describeShape(res.data ?? String(res.text).slice(0, 120)),
+    // Shiprocket's own error text (no customer data)
+    ...(!res.ok && { details_message: String(res.data?.error?.message || res.data?.message || '').slice(0, 200) }),
+  };
   // Only a record that is this order (an error body or another order doesn't count)
   if (res.ok && data && typeof data === 'object' && !Array.isArray(data) && res.data.ok !== false && (hasId(data, orderId) || hasItems(data))) {
     return { order: data, lookup: { ...lookup, found_by: 'order details' } };
@@ -421,8 +452,29 @@ export async function getShiprocketOrder(orderId) {
   const end = new Date(placed ? Math.min(now, placed + 24 * 3600 * 1000) : now);
   try {
     const { orders } = await listShiprocketOrders(start, end, 50, 40);
-    const match = orders.find((item) => hasId(item, orderId)) || null;
-    return { order: match, lookup: { ...lookup, list_searched: orders.length, list_from: start.toISOString(), list_to: end.toISOString(), found_by: match ? 'order list' : null } };
+    const listInfo = { list_searched: orders.length, list_from: start.toISOString(), list_to: end.toISOString() };
+    const byId = orders.find((item) => hasId(item, orderId));
+    if (byId) return { order: byId, lookup: { ...lookup, ...listInfo, found_by: 'order list' } };
+
+    // Same purchase under another id: match the Shopify order made for this id by customer +
+    // items, placed within minutes of it
+    const shopify = isAdminConfigured() ? await shopifyOrderFor(orderId).catch(() => null) : null;
+    if (!shopify) return { order: null, lookup: { ...lookup, ...listInfo, found_by: null, shopify_order: null } };
+    const who = [last10(shopify.phone), last10(shopify.shippingAddress?.phone), String(shopify.email || '').toLowerCase()].filter(Boolean);
+    const items = (shopify.lineItems?.nodes || []).map((li) => `${li.variant?.legacyResourceId}:${li.quantity}`).sort().join(',');
+    const created = new Date(shopify.createdAt).getTime();
+    const twin = orders.find((item) => {
+      const candidate = normalizeOrder(item, '');
+      const fingerprint = orderFingerprint(candidate);
+      if (!fingerprint) return false;
+      const [candidateWho, candidateItems] = fingerprint.split('|');
+      return candidateItems === items && who.includes(candidateWho) &&
+        Math.abs(recordTime(item, candidate) - created) <= SAME_ORDER_WINDOW_MS + 5 * 60 * 1000;
+    }) || null;
+    return {
+      order: twin,
+      lookup: { ...lookup, ...listInfo, shopify_order: shopify.name, found_by: twin ? `same customer + items as ${shopify.name}` : null },
+    };
   } catch (error) {
     return { order: null, lookup: { ...lookup, list_error: error.message } };
   }

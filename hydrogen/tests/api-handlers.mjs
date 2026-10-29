@@ -595,6 +595,32 @@ check('reconcile: invalid order_id -> 400', r.status === 400);
   check('lookup: not found -> 404 with what Shiprocket answered', r.status === 404 && r.body.lookup.details_status === 400 && r.body.lookup.list_searched === 51, JSON.stringify(r.body.lookup));
 }
 
+// #1044 for real: the Shopify order's id (from the webhook) isn't in Shiprocket's list at all;
+// the list has the same purchase under another id, a second later
+{
+  const WEBHOOK_ID = '6adf59dc635940518bf89090';
+  const LIST_ID = '6adf59dd0000000000000001';
+  const listed = srOrder(LIST_ID, {payment_type: 'PARTIAL_COD', payment_status: 'PENDING', prepaid_amount: 199, phone: '9876543210'});
+  const other = srOrder('6adf59dd0000000000000002', {phone: '9123456789'});
+  mockStore({});
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('details/list')) return new Response(JSON.stringify({result: Math.max(1, JSON.parse(init.body).page) === 1 ? [other, listed] : []}), {status: 200});
+    if (u.includes('custom-platform-order/details')) return new Response(JSON.stringify({ok: false, error: {code: 400, status: 'BAD_REQUEST', message: 'Order not found'}}), {status: 400});
+    if (u.includes('/admin/api/') && String(init.body).includes('lineItems') && String(init.body).includes(WEBHOOK_ID)) {
+      return new Response(JSON.stringify({data: {orders: {nodes: [{name: '#1044', createdAt: new Date(0x6adf59dc * 1000 + 4000).toISOString(),
+        email: null, phone: '+919876543210', shippingAddress: {phone: '+919876543210'},
+        lineItems: {nodes: [{quantity: 1, variant: {legacyResourceId: '50501821923493'}}]}}]}}}), {status: 200});
+    }
+    return inner(url, init);
+  };
+  r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: WEBHOOK_ID, inspect: '1'}});
+  check('lookup: id only in the webhook -> found as same customer + items as the Shopify order', r.status === 200 && String(r.body.found_by).includes('same customer + items as #1044') && r.body.detected.partial_cod.paid === 199, JSON.stringify(r.body).slice(0, 250));
+  r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: '6adf59dc635940518bf8ffff', inspect: '1'}});
+  check('lookup: miss shows Shiprocket error text', r.status === 404 && r.body.lookup.details_message === 'Order not found', JSON.stringify(r.body.lookup));
+}
+
 mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);
