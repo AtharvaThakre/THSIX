@@ -482,6 +482,15 @@ check('order with no items (#1052) is not created', shopifyCreates().length === 
   check('field filter: keeps shipping_charges and unknown payment fields, drops customer details', f.shipping_charges === 0 && f['rto_shield.upfront_fee'] === 199 && f.status === 'SUCCESS' && !JSON.stringify(f).match(/9999|Pune|"x"|"A"|MH|a@b/), JSON.stringify(f));
 }
 
+// Shiprocket's two ids (#1055: order_id 6ae2f01f…, cart_id 6ae2f020… sent by the webhook)
+mockStore({details: srOrder('6ae2f01f5438455f8fc0b7b4', {cart_id: '6ae2f020a32eb06ad6dd6ca0', platform_order_id: '6ae2f01f5438455f8fc0b7b4'})});
+calls.length = 0;
+await call(orderHandler, {body: {order_id: '6ae2f020a32eb06ad6dd6ca0'}});
+{
+  const tags = JSON.parse(shopifyCreates()[0].init.body).order.tags;
+  check('both Shiprocket ids tagged on the order', tags.includes('sr-6ae2f01f5438455f8fc0b7b4') && tags.includes('sr-6ae2f020a32eb06ad6dd6ca0'), tags);
+}
+
 const cronGet = (query) => call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query});
 mockStore({details: partialOrder('partial12345', {shipping_address: {name: 'Secret Person', phone: '9999999999', line1: '1 Hidden St', city: 'Pune'}})});
 calls.length = 0;

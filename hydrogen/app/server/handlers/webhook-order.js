@@ -639,7 +639,11 @@ async function createShopifyOrder(order, rawWebhookBody = {}) {
   const fingerprint = orderFingerprint(order);
   // Search can lag behind new orders, so also look at the newest orders directly
   const at = placedAt(order);
-  const existing = (await findShopifyOrderByTag(tag)) || (await findRecentDuplicate(tag, fingerprint, at));
+  let existing = (await findShopifyOrderByTag(tag)) || (await findRecentDuplicate(tag, fingerprint, at));
+  for (const altId of order.alt_ids || []) {
+    if (existing) break;
+    existing = await findShopifyOrderByTag(`sr-${altId}`);
+  }
   if (existing) {
     console.log('[order-webhook] Already in Shopify:', existing);
     return existing;
@@ -862,7 +866,7 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
           type: 'fixed_amount',
         }],
       }),
-      tags: ['shiprocket', tag, isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
+      tags: ['shiprocket', tag, ...(order.alt_ids || []).map((id) => `sr-${id}`), isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
       note_attributes: [
         { name: 'shiprocket_order_id', value: order.order_id },
         // What Shiprocket's webhook sent (every field except customer details), so a payment the
@@ -1193,6 +1197,11 @@ function normalizeOrder(raw, fallbackId) {
     // Partial COD: advance paid online, balance in cash (lib/partial-cod.js)
     partial_cod: paymentBreakdown(raw, total),
     fastrr_order_id: raw.fastrr_order_id || raw.channel_order_id || '',
+    // Every Shiprocket order has two ids a second apart: the order id (used by its lookups) and
+    // the cart id (what the webhook sends). Both are kept so any path finds the order.
+    alt_ids: [raw.order_id, raw.platform_order_id, raw.cart_id]
+      .map((v) => String(v || '').trim())
+      .filter((v, i, all) => v && v !== orderId && /^[a-z0-9-_]{6,64}$/i.test(v) && all.indexOf(v) === i),
     status: raw.status || raw.order_status || raw.payment_status || 'SUCCESS',
     payment_type: raw.payment_type || raw.payment_method ||
       (raw.is_cod === true ? 'COD' :
