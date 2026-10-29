@@ -4,7 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
-import { paymentBreakdown, allFields, isCashOnDelivery, advanceSplit } from '../lib/partial-cod.js';
+import { paymentBreakdown, allFields, isCashOnDelivery } from '../lib/partial-cod.js';
 import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
@@ -315,22 +315,16 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     if (fromWebhook.partial) order.partial_cod = { ...fromWebhook, source: `webhook ${fromWebhook.source}` };
   }
 
-  // Every COD order pays the store's fixed advance online (PARTIAL_COD_ADVANCE). The webhook often
-  // has no payment type, so then it is read from Shiprocket's full record of the order; the
-  // advance is applied only to orders confirmed as COD, never to prepaid ones.
-  if (!order.partial_cod?.partial && config.partialCodAdvance > 0) {
-    if (!order.payment_type) {
-      const record = await findShiprocketRecord(order).catch(() => null);
-      if (record && record.payment_type) {
-        order.payment_type = record.payment_type;
-        if (record.payment_status) order.payment_status = record.payment_status;
-      }
-    }
-    if (isCashOnDelivery(order.payment_type)) {
-      const split = advanceSplit(Number(order.total_amount_payable) || 0, config.partialCodAdvance);
-      if (split) order.partial_cod = split;
-    } else if (!order.payment_type) {
-      console.error('[order-webhook] Payment type unknown for', orderId, '- partial-COD advance not applied');
+  // The webhook only shows the online payment (paymentDetails). Paying less online than the total
+  // means partial COD, but could also be a prepaid discount: Shiprocket's own record decides
+  // (payment_type PARTIAL_PAID with UPI + COD payments, or PREPAID).
+  if (order.partial_cod?.partial && order.partial_cod.source === 'online payment below order total') {
+    const record = await findShiprocketRecord(order).catch(() => null);
+    if (record) {
+      const fromRecord = paymentBreakdown(record, Number(record.total_amount_payable) || Number(order.total_amount_payable) || 0);
+      order.partial_cod = fromRecord;
+      if (record.payment_type) order.payment_type = record.payment_type;
+      if (record.payment_status) order.payment_status = record.payment_status;
     }
   }
 
@@ -1233,7 +1227,8 @@ function normalizeOrder(raw, fallbackId) {
   const orderId = String(raw.order_id || raw.id || raw.cart_id || fallbackId || '').trim();
   const rawItems = (raw.cart_data && raw.cart_data.items) || raw.items || raw.line_items || [];
   const resolvedEmail = findEmail(raw);
-  const total = Number(raw.total_amount_payable || raw.total || raw.order_total || 0);
+  // The webhook names the total total_price; Shiprocket's order record total_amount_payable
+  const total = Number(raw.total_amount_payable || raw.total || raw.order_total || raw.total_price || 0);
 
   return {
     order_id: orderId,
@@ -1257,7 +1252,7 @@ function normalizeOrder(raw, fallbackId) {
     shipping_plan: raw.shipping_plan || raw.shipping_method || 'Standard',
     shipping_charges: raw.shipping_charges || raw.shipping_fee || 0,
     cod_charges: raw.cod_charges || 0,
-    total_amount_payable: raw.total_amount_payable || raw.total || raw.order_total || 0,
+    total_amount_payable: raw.total_amount_payable || raw.total || raw.order_total || raw.total_price || 0,
     total_discount: raw.total_discount || raw.discount || 0,
     coupon_codes: raw.coupon_codes || (raw.coupon ? [raw.coupon] : []),
     email: resolvedEmail || undefined,

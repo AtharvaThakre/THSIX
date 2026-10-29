@@ -494,78 +494,85 @@ await call(orderHandler, {body: {order_id: '6ae2f020a32eb06ad6dd6ca0'}});
   check('both Shiprocket ids tagged on the order', tags.includes('sr-6ae2f01f5438455f8fc0b7b4') && tags.includes('sr-6ae2f020a32eb06ad6dd6ca0'), tags);
 }
 
-// ── Store rule: every COD order pays PARTIAL_COD_ADVANCE online (₹199) ──
+// ── Full COD vs partial COD, from the real test orders #1065 and #1066 ──
 {
-  const ADV_ENV = {...ADMIN_ENV, PARTIAL_COD_ADVANCE: '199'};
-  const codRecord = (id, extra = {}) => srOrder(id, {payment_type: 'CASH_ON_DELIVERY', payment_status: 'Pending', total_amount_payable: 3499, ...extra});
   const created = () => shopifyCreates()[0] && JSON.parse(shopifyCreates()[0].init.body).order;
   const due = (o) => o?.note_attributes.find((a) => a.name === 'cod_balance_to_collect')?.value;
+  // Shiprocket's records, as returned for the two orders
+  const fullCodRecord = (id) => srOrder(id, {payment_type: 'CASH_ON_DELIVERY', payment_status: 'Pending', payments: null, total_amount_payable: 2999, cod_charges: 0});
+  const partialRecord = (id) => srOrder(id, {payment_type: 'PARTIAL_PAID', payment_status: 'Success', total_amount_payable: 2999, cod_charges: null, payments: [
+    {payment_status: 'Success', gateway: 'AirPay', payment_method: 'UPI', amount: 199, amount_received: 199},
+    {payment_status: 'Success', gateway: 'COD', payment_method: 'COD', amount: 2800, amount_received: 0},
+  ]});
+  setServerEnv(ADMIN_ENV);
 
-  setServerEnv(ADV_ENV);
-  mockStore({details: codRecord('advcod123456')});
+  mockStore({details: partialRecord('partrec12345')});
   calls.length = 0;
-  r = await call(confirmHandler, {body: {order_id: 'advcod123456'}});
+  r = await call(confirmHandler, {body: {order_id: 'partrec12345'}});
   let o = created();
-  check('advance: CASH_ON_DELIVERY order (success page) -> ₹199 discount, total ₹3300 = due', r.status === 200 && advanceAsDiscount(o, '199.00') && due(o) === '3300.00', JSON.stringify(o?.tags));
+  check('partial COD record (PARTIAL_PAID, UPI 199 + COD 2800) -> ₹199 off, total ₹2800 = COD to collect', r.status === 200 && advanceAsDiscount(o, '199.00') && due(o) === '2800.00', JSON.stringify(o?.discount_codes));
 
-  mockStore({details: srOrder('advpre123456', {payment_type: 'PREPAID', payment_status: 'SUCCESS', total_amount_payable: 3499})});
+  mockStore({details: fullCodRecord('fullrec12345')});
   calls.length = 0;
-  await call(orderHandler, {body: {order_id: 'advpre123456'}});
+  r = await call(confirmHandler, {body: {order_id: 'fullrec12345'}});
   o = created();
-  check('advance: prepaid order untouched -> paid in full', o?.financial_status === 'paid' && o.transactions[0].amount === '3499.00' && !o.tags.includes('partial-cod'));
+  check('full COD record (CASH_ON_DELIVERY, no payments) -> full price, pending, tag cod, nothing off', r.status === 200 && o?.financial_status === 'pending' && !o.discount_codes && !o.transactions && o.tags.includes('cod') && !o.tags.includes('partial-cod'), o && o.tags);
 
-  // Webhook with items but no payment type (as for #1050-#1055): the type is read from Shiprocket
-  const WH = '6ae2f0200000000000000001';
-  const LISTED = '6ae2f01f0000000000000001';
-  const hookBody = {order_id: WH, total_amount_payable: 3499, phone: '9876543210', cart_data: {items: [{variant_id: '50501821923493', quantity: 1}]}, shipping_address: {first_name: 'A', phone: '9876543210', city: 'Pune'}};
-  const withList = (listRecord) => {
+  // Webhooks exactly as received for #1066 (partial) and #1065 (full COD)
+  const items = [{variant_id: '50501478613157', quantity: 1, price: 1000, title: 'Samba Cream Sand Gum - UK3'}];
+  const partialHook = {cart_id: '6ae3797f715fc0658b38ce1b', order_id: '6ae3797f715fc0658b38ce1b', latest_stage: 'ORDER_PLACED', items, currency: 'INR', item_count: 1, total_price: 1000, shipping_price: 0, total_discount: 0, tax: 0,
+    paymentDetails: {paymentMode: 'UPI', amount: 199, paymentGateway: 'AirPay', transactionId: '2094074914'}, phone: '9876543210', shipping_address: {phone: '9876543210', city: 'Pune'}};
+  const fullHook = {cart_id: '6ae378327a16591db86d2df6', order_id: '6ae378327a16591db86d2df6', latest_stage: 'ORDER_PLACED', items: [{...items[0], price: 10}], currency: 'INR', item_count: 1, total_price: 10, shipping_price: 0, total_discount: 0, tax: 0,
+    phone: '9876543210', shipping_address: {phone: '9876543210', city: 'Pune'}};
+  const listWith = (record) => {
     const inner = globalThis.fetch;
     globalThis.fetch = async (url, init = {}) => {
       const u = String(url);
-      if (u.includes('details/list')) return new Response(JSON.stringify({result: Math.max(1, JSON.parse(init.body).page) === 1 && listRecord ? [{order_id: LISTED, status: 'SUCCESS'}] : []}), {status: 200});
+      if (u.includes('details/list')) return new Response(JSON.stringify({result: record && Math.max(1, JSON.parse(init.body).page) === 1 ? [{order_id: record.order_id, status: 'SUCCESS'}] : []}), {status: 200});
       if (u.includes('custom-platform-order/details')) {
         const id = JSON.parse(init.body).order_id;
-        return id === LISTED && listRecord ? new Response(JSON.stringify({ok: true, result: listRecord}), {status: 200})
+        return record && id === record.order_id ? new Response(JSON.stringify({ok: true, result: record}), {status: 200})
           : new Response(JSON.stringify({ok: false, error: {message: 'Order not found'}}), {status: 400});
       }
       return inner(url, init);
     };
   };
+  const recordFor = (base) => ({...base, phone: '9876543210', cart_data: {items: [{variant_id: '50501478613157', quantity: 1}]}});
 
   mockStore({});
-  withList(codRecord(LISTED, {cart_id: WH}));
+  listWith(recordFor(srOrder('6ae3797f36a923757ab4fb13', {payment_type: 'PARTIAL_PAID', payment_status: 'Success', total_amount_payable: 1000, payments: [{payment_status: 'Success', gateway: 'AirPay', payment_method: 'UPI', amount: 199, amount_received: 199}, {payment_status: 'Success', gateway: 'COD', payment_method: 'COD', amount: 801, amount_received: 0}]})));
   calls.length = 0;
-  await call(orderHandler, {body: hookBody});
+  await call(orderHandler, {body: partialHook});
   o = created();
-  check('advance: webhook without payment type -> type read from Shiprocket (COD) -> ₹199 off', advanceAsDiscount(o, '199.00') && due(o) === '3300.00', JSON.stringify(o?.transactions));
+  check('#1066 webhook (UPI ₹199 of ₹1000), confirmed by Shiprocket record -> ₹199 off, not "Paid ₹1000"', advanceAsDiscount(o, '199.00') && due(o) === '801.00', JSON.stringify({fs: o?.financial_status, d: o?.discount_codes, t: o?.transactions}));
 
   mockStore({});
-  withList(srOrder(LISTED, {payment_type: 'PREPAID', payment_status: 'SUCCESS', total_amount_payable: 3499, cart_id: WH}));
+  listWith(null);
   calls.length = 0;
-  await call(orderHandler, {body: hookBody});
+  await call(orderHandler, {body: partialHook});
   o = created();
-  check('advance: webhook without type, Shiprocket says PREPAID -> no ₹199 advance', o && o.financial_status === 'paid' && !o.discount_codes && !o.tags.includes('partial-cod'), o && o.financial_status);
+  check('#1066 webhook, Shiprocket record not reachable -> still partial from the webhook', advanceAsDiscount(o, '199.00') && due(o) === '801.00');
 
   mockStore({});
-  withList(null);
+  listWith(recordFor(srOrder('6ae3797f36a923757ab4fb13', {payment_type: 'PREPAID', payment_status: 'Success', total_amount_payable: 199})));
   calls.length = 0;
-  await call(orderHandler, {body: hookBody});
+  await call(orderHandler, {body: partialHook});
   o = created();
-  check('advance: type cannot be confirmed -> no advance applied (never guessed)', o && o.financial_status === 'pending' && !o.transactions, o && o.financial_status);
+  check('webhook paid less than total but Shiprocket record says PREPAID (prepaid discount) -> not partial', o && !o.tags.includes('partial-cod') && !(o.discount_codes || []).some((d) => d.code === 'PARTIAL-COD-ADVANCE'), o && o.tags);
 
-  setServerEnv(ADMIN_ENV);
-  mockStore({details: codRecord('noadv1234567')});
+  mockStore({});
+  listWith(null);
   calls.length = 0;
-  r = await call(confirmHandler, {body: {order_id: 'noadv1234567'}});
+  await call(orderHandler, {body: {...partialHook, cart_id: '6ae3797f715fc0658b38ce1c', order_id: '6ae3797f715fc0658b38ce1c', paymentDetails: {...partialHook.paymentDetails, amount: 1000}}});
   o = created();
-  check('no advance setting: CASH_ON_DELIVERY is COD (created, pending, tagged cod, not skipped)', r.status === 200 && o?.financial_status === 'pending' && o.tags.includes('cod') && !o.tags.includes('prepaid-unpaid'), JSON.stringify(r.body));
+  check('prepaid webhook (online amount = total) -> paid in full', o?.financial_status === 'paid' && o.transactions[0].amount === '1000.00' && !o.tags.includes('partial-cod'));
 
-  setServerEnv(ADV_ENV);
-  mockStore({details: codRecord('cheap1234567', {total_amount_payable: 150})});
+  mockStore({});
+  listWith(null);
   calls.length = 0;
-  await call(orderHandler, {body: {order_id: 'cheap1234567'}});
+  await call(orderHandler, {body: fullHook});
   o = created();
-  check('advance: order cheaper than the advance -> left as plain COD', o?.financial_status === 'pending' && !o.transactions);
+  check('#1065 webhook (full COD, no paymentDetails) -> full ₹10, pending, nothing off', o?.financial_status === 'pending' && !o.discount_codes && !o.transactions && o.tags.includes('cod'), o && JSON.stringify({fs: o.financial_status, tags: o.tags}));
   setServerEnv(ADMIN_ENV);
 }
 

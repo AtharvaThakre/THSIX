@@ -54,6 +54,27 @@ export function paymentBreakdown(raw, total) {
   const isPartial = (paid) => paid > 0 && paid < total - 0.5 && (flagged || paid <= total / 2);
   const result = (paid, source) => ({ partial: true, paid: round(paid), due: round(total - paid), source });
 
+  // Shiprocket's order record: payment_type PARTIAL_PAID, with an online payment (e.g. UPI ₹199)
+  // and a COD payment for the rest
+  const payments = Array.isArray(raw.payments) ? raw.payments.filter(Boolean) : [];
+  const isCodPayment = (p) => isCashOnDelivery(p.gateway) || isCashOnDelivery(p.payment_method);
+  if (payments.some(isCodPayment)) {
+    const online = payments
+      .filter((p) => !isCodPayment(p) && /success/i.test(String(p.payment_status || 'success')))
+      .reduce((sum, p) => sum + (num(p.amount_received) > 0 ? num(p.amount_received) : num(p.amount) || 0), 0);
+    if (online > 0 && online < total - 0.5) return result(online, 'online + COD payments');
+  }
+
+  // Shiprocket's order webhook: paymentDetails is the online payment. Paying less online than
+  // the order's total (after its discount) means the rest is COD.
+  const details = raw.paymentDetails || raw.payment_details;
+  // (Only when no payment type is given, as in the webhook: a record that says PREPAID is final.)
+  if (details && typeof details === 'object' && (!raw.payment_type || flagged) && !isCashOnDelivery(details.paymentMode || details.payment_mode)) {
+    const amount = num(details.amount);
+    const payable = total - (num(raw.total_discount) > 0 ? num(raw.total_discount) : 0);
+    if (amount > 0 && amount < payable - 0.5) return result(amount, 'online payment below order total');
+  }
+
   const paid = firstAmount(raw, PAID_KEYS);
   if (isPartial(paid)) return result(paid, 'advance amount');
 
@@ -77,16 +98,6 @@ const PARTIAL_FLAG = /partial|advance/i;
 /** Shiprocket says "CASH_ON_DELIVERY" (other places "COD"). */
 export function isCashOnDelivery(type) {
   return /^(cod|cash[s_-]*on[s_-]*delivery|partial[s_-]*cod)$/i.test(String(type || '').trim());
-}
-
-/**
- * The store's fixed partial-COD advance (Oxygen env PARTIAL_COD_ADVANCE, e.g. 199): every COD
- * order pays it online at checkout and the rest on delivery. Shiprocket doesn't report it on
- * the order, so it is applied to every COD order. 0 = off.
- */
-export function advanceSplit(total, advance) {
-  if (!(advance > 0) || !(total > advance)) return null;
-  return { partial: true, paid: round(advance), due: round(total - advance), source: 'store partial-COD advance (PARTIAL_COD_ADVANCE)' };
 }
 
 const round = (n) => Math.round(n * 100) / 100;
