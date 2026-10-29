@@ -391,9 +391,13 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   }
 }
 
+const ID_FIELDS = ['order_id', 'id', 'cart_id', 'channel_order_id', 'fastrr_order_id'];
+const hasId = (item, orderId) => ID_FIELDS.some((key) => item && item[key] != null && String(item[key]) === orderId);
+
 /**
- * Shiprocket's record of one order: Order Details, or failing that the last 30 days of the
- * order list. Null if Shiprocket doesn't know it.
+ * Shiprocket's record of one order: Order Details, or else the order list around the time the
+ * order was placed (read from its id), all pages.
+ * @returns {Promise<{order: object|null, lookup: object}>} `lookup` says what Shiprocket answered
  */
 export async function getShiprocketOrder(orderId) {
   const res = await shiprocketPost('/api/v1/custom-platform-order/details', {
@@ -403,11 +407,25 @@ export async function getShiprocketOrder(orderId) {
     timestamp: new Date().toISOString(),
   });
   const data = res.data && (res.data.result || res.data);
-  if (res.ok && data && res.data.ok !== false && typeof data === 'object') return data;
-  const now = new Date();
-  const { orders } = await listShiprocketOrders(new Date(now.getTime() - 30 * 24 * 3600 * 1000), now);
-  return orders.find((item) => [item.order_id, item.id, item.cart_id, item.channel_order_id, item.fastrr_order_id]
-    .some((value) => value != null && String(value) === orderId)) || null;
+  const lookup = { details_status: res.status, details_reply: describeShape(res.data ?? String(res.text).slice(0, 120)) };
+  // Only a record that is this order (an error body or another order doesn't count)
+  if (res.ok && data && typeof data === 'object' && !Array.isArray(data) && res.data.ok !== false && (hasId(data, orderId) || hasItems(data))) {
+    return { order: data, lookup: { ...lookup, found_by: 'order details' } };
+  }
+
+  // Shiprocket ids are MongoDB ObjectIds starting with their creation time: search a day either
+  // side of it; for other ids, the last 30 days
+  const placed = /^[0-9a-f]{24}$/i.test(orderId) ? parseInt(orderId.slice(0, 8), 16) * 1000 : null;
+  const now = Date.now();
+  const start = new Date(placed ? placed - 24 * 3600 * 1000 : now - 30 * 24 * 3600 * 1000);
+  const end = new Date(placed ? Math.min(now, placed + 24 * 3600 * 1000) : now);
+  try {
+    const { orders } = await listShiprocketOrders(start, end, 50, 40);
+    const match = orders.find((item) => hasId(item, orderId)) || null;
+    return { order: match, lookup: { ...lookup, list_searched: orders.length, list_from: start.toISOString(), list_to: end.toISOString(), found_by: match ? 'order list' : null } };
+  } catch (error) {
+    return { order: null, lookup: { ...lookup, list_error: error.message } };
+  }
 }
 
 export { normalizeOrder };
@@ -490,8 +508,10 @@ export async function listShiprocketOrders(startDate, endDate, pageSize = 50, ma
       return true;
     });
     orders.push(...fresh);
-    // Stop at the last page, or if the API ignores `page` and repeats itself
-    if (list.length < pageSize || fresh.length === 0) break;
+    if (list.length < pageSize) break;
+    // An all-repeat page: with 1-based paging, page 1 repeats page 0, so allow that once;
+    // after that it means the API ignores `page`
+    if (fresh.length === 0 && page !== 1) break;
   }
   return { orders, shape };
 }

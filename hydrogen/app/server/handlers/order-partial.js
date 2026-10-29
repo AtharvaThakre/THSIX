@@ -7,14 +7,15 @@ import { getShiprocketOrder, normalizeOrder } from './webhook-order.js';
  * makes of them. Read-only.
  */
 export async function inspectOrder(orderId) {
-  const raw = await getShiprocketOrder(orderId);
-  if (!raw) return { status: 404, payload: { ok: false, order_id: orderId, message: 'Shiprocket has no such order' } };
+  const { order: raw, lookup } = await getShiprocketOrder(orderId);
+  if (!raw) return { status: 404, payload: { ok: false, order_id: orderId, message: 'Shiprocket has no such order', lookup } };
   const order = normalizeOrder(raw, orderId);
   return {
     status: 200,
     payload: {
       ok: true,
       order_id: orderId,
+      found_by: lookup.found_by,
       detected: {
         payment_type: order.payment_type,
         payment_status: order.payment_status,
@@ -33,8 +34,8 @@ export async function inspectOrder(orderId) {
 export async function fixPartialOrder(orderId, { apply = false } = {}) {
   const reply = (status, payload) => ({ status, payload: { order_id: orderId, applied: false, ...payload } });
 
-  const raw = await getShiprocketOrder(orderId);
-  if (!raw) return reply(404, { ok: false, message: 'Shiprocket has no such order' });
+  const { order: raw, lookup } = await getShiprocketOrder(orderId);
+  if (!raw) return reply(404, { ok: false, message: 'Shiprocket has no such order', lookup });
   const { partial_cod: partial, total_amount_payable: total } = normalizeOrder(raw, orderId);
   if (!partial.partial) {
     return reply(200, { ok: true, result: 'not partial COD according to Shiprocket — nothing to change' });

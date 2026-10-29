@@ -565,6 +565,36 @@ check('reconcile: force is ignored for the hours scan', shopifyCreates().length 
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: 'bad id!'}});
 check('reconcile: invalid order_id -> 400', r.status === 400);
 
+// Lookup of an older order (#1044 case): Order Details says not found, the list is 1-based
+// (page 0 = page 1) and the order sits behind 50 newer abandoned checkouts
+{
+  const OLD = '6adf59dc635940518bf89090';
+  const newer = Array.from({length: 50}, (_, i) => srOrder('6ae0' + String(i).padStart(20, '0'), {status: 'INITIATED'}));
+  const target = srOrder(OLD, {payment_type: 'PARTIAL_COD', payment_status: 'PENDING', prepaid_amount: 199});
+  let listBody = null;
+  mockStore({});
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('details/list')) {
+      const body = JSON.parse(init.body);
+      listBody = listBody || body;
+      const page = Math.max(1, body.page);
+      return new Response(JSON.stringify({result: page === 1 ? newer : page === 2 ? [target] : []}), {status: 200});
+    }
+    if (u.includes('custom-platform-order/details')) {
+      return new Response(JSON.stringify({ok: false, message: 'Order not found'}), {status: 400});
+    }
+    return inner(url, init);
+  };
+  r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: OLD, inspect: '1'}});
+  check('lookup: order behind 50 newer ones on a 1-based list is found', r.status === 200 && r.body.found_by === 'order list' && r.body.detected.partial_cod.paid === 199, JSON.stringify(r.body).slice(0, 200));
+  const placedAt = parseInt(OLD.slice(0, 8), 16) * 1000;
+  check('lookup: list searched around the time in the order id', listBody && Math.abs(new Date(listBody.startDate).getTime() - (placedAt - 86400000)) < 1000, listBody && listBody.startDate);
+  r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}, query: {order_id: '6adf59dc635940518bf8ffff', inspect: '1'}});
+  check('lookup: not found -> 404 with what Shiprocket answered', r.status === 404 && r.body.lookup.details_status === 400 && r.body.lookup.list_searched === 51, JSON.stringify(r.body.lookup));
+}
+
 mockFetch([['details/list', {status: 401, body: {message: 'bad'}}]]);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.status === 502);
