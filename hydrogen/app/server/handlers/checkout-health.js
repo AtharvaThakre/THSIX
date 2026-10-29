@@ -20,6 +20,8 @@ export default async function handler() {
     shopifyOrderSync: isAdminConfigured(),
     catalogSyncSecretSet: Boolean(config.cronSecret),
     webhookSecretSet: Boolean(config.webhookSecret),
+    // Partial-COD advance applied to every COD order (0 = off)
+    partialCodAdvance: config.partialCodAdvance,
     metaCapiConfigured: Boolean(config.metaPixelId && config.metaCAPIToken),
     credentialsAccepted: null,
     shiprocketStatus: null,

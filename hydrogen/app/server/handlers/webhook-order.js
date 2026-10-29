@@ -4,7 +4,7 @@ import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
-import { paymentBreakdown, allFields } from '../lib/partial-cod.js';
+import { paymentBreakdown, allFields, isCashOnDelivery, advanceSplit } from '../lib/partial-cod.js';
 import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
@@ -315,6 +315,25 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
     if (fromWebhook.partial) order.partial_cod = { ...fromWebhook, source: `webhook ${fromWebhook.source}` };
   }
 
+  // Every COD order pays the store's fixed advance online (PARTIAL_COD_ADVANCE). The webhook often
+  // has no payment type, so then it is read from Shiprocket's full record of the order; the
+  // advance is applied only to orders confirmed as COD, never to prepaid ones.
+  if (!order.partial_cod?.partial && config.partialCodAdvance > 0) {
+    if (!order.payment_type) {
+      const record = await findShiprocketRecord(order).catch(() => null);
+      if (record && record.payment_type) {
+        order.payment_type = record.payment_type;
+        if (record.payment_status) order.payment_status = record.payment_status;
+      }
+    }
+    if (isCashOnDelivery(order.payment_type)) {
+      const split = advanceSplit(Number(order.total_amount_payable) || 0, config.partialCodAdvance);
+      if (split) order.partial_cod = split;
+    } else if (!order.payment_type) {
+      console.error('[order-webhook] Payment type unknown for', orderId, '- partial-COD advance not applied');
+    }
+  }
+
   console.log('[order-webhook] Verified order:', JSON.stringify({
     order_id: order.order_id,
     status: order.status,
@@ -333,7 +352,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   console.log(`[order-webhook] Order status: "${status}" | Success statuses: ${SUCCESS_STATUSES.join(', ')}`);
 
   const paymentKnown = order.payment_type ? String(order.payment_type).toUpperCase() : null;
-  if (strict && !force && !order.partial_cod?.partial && paymentKnown && paymentKnown !== 'COD' && !/success/i.test(String(order.payment_status))) {
+  if (strict && !force && !order.partial_cod?.partial && paymentKnown && !isCashOnDelivery(paymentKnown) && !/success/i.test(String(order.payment_status))) {
     return reply(200, { ok: true, skipped: `prepaid payment is ${order.payment_status}` });
   }
 
@@ -419,6 +438,30 @@ function hasId(item, orderId, depth = 0) {
 function recordTime(item, normalized) {
   const stamp = Date.parse(item.created_at || item.createdAt || item.order_date || item.placed_at || '');
   return Number.isFinite(stamp) ? stamp : placedAt(normalized);
+}
+
+/**
+ * Shiprocket's full record for an order known only from the webhook: the record placed within
+ * minutes of it for the same customer and items (read in full from Order Details by list id).
+ */
+async function findShiprocketRecord(order) {
+  const fingerprint = orderFingerprint(order);
+  if (!fingerprint) return null;
+  const at = placedAt(order);
+  const window = SAME_ORDER_WINDOW_MS + 5 * 60 * 1000;
+  const { orders } = await listShiprocketOrders(new Date(at - window), new Date(Math.min(Date.now(), at + window)), 50, 4);
+  const sameOrder = (record) => orderFingerprint(normalizeOrder(record, '')) === fingerprint;
+  for (const item of orders.slice(0, 10)) {
+    if (sameOrder(item)) return item;
+    const listId = shiprocketOrderId(item);
+    if (!listId) continue;
+    const full = await shiprocketPost('/api/v1/custom-platform-order/details', {
+      order_id: listId, cart_id: listId, channel_order_id: listId, timestamp: new Date().toISOString(),
+    }).catch(() => null);
+    const record = full && full.ok && full.data && (full.data.result || full.data);
+    if (record && typeof record === 'object' && sameOrder(record)) return record;
+  }
+  return null;
 }
 
 /** The Shopify order created for a Shiprocket id: its customer, items and creation time. */
@@ -764,7 +807,7 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
   const partial = order.partial_cod && order.partial_cod.partial ? order.partial_cod : null;
   const webhookFields = allFields(rawWebhookBody || {});
   // Partial COD is never "paid": the advance is recorded and the balance stays to collect
-  const isPaid = !partial && paymentType !== null && paymentType !== 'COD' && /success/i.test(String(order.payment_status));
+  const isPaid = !partial && paymentType !== null && !isCashOnDelivery(paymentType) && /success/i.test(String(order.payment_status));
   const shippingLines = [{ title: order.shipping_plan || 'Standard', price: String(order.shipping_charges || 0), code: 'shiprocket' }];
   if (Number(order.cod_charges) > 0) {
     shippingLines.push({ title: 'COD charges', price: String(order.cod_charges), code: 'cod' });
@@ -866,7 +909,7 @@ async function submitShopifyOrder(order, rawWebhookBody = {}, progress = {}) {
           type: 'fixed_amount',
         }],
       }),
-      tags: ['shiprocket', tag, ...(order.alt_ids || []).map((id) => `sr-${id}`), isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && paymentType !== 'COD' ? 'prepaid-unpaid' : 'cod'].join(', '),
+      tags: ['shiprocket', tag, ...(order.alt_ids || []).map((id) => `sr-${id}`), isPaid ? 'prepaid' : partial ? 'partial-cod' : paymentType && !isCashOnDelivery(paymentType) ? 'prepaid-unpaid' : 'cod'].join(', '),
       note_attributes: [
         { name: 'shiprocket_order_id', value: order.order_id },
         // What Shiprocket's webhook sent (every field except customer details), so a payment the

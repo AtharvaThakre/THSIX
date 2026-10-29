@@ -43,6 +43,8 @@ export const config = {
   get cronSecret() { return env.CRON_SECRET || ''; },
   // Optional shared secret the Shiprocket webhooks must carry (see lib/webhook-auth.js)
   get webhookSecret() { return env.WEBHOOK_SECRET || ''; },
+  // Partial COD: fixed advance every COD order pays online (e.g. 199); 0/unset = off
+  get partialCodAdvance() { const n = Number(env.PARTIAL_COD_ADVANCE); return Number.isFinite(n) && n > 0 ? n : 0; },
   // Meta Conversions API — server-side event tracking
   get metaPixelId() { return env.META_PIXEL_ID || env.PUBLIC_META_PIXEL_ID || ''; },
   get metaCAPIToken() { return env.META_CAPI_TOKEN || ''; },

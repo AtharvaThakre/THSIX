@@ -74,6 +74,21 @@ export function paymentBreakdown(raw, total) {
 
 const PARTIAL_FLAG = /partial|advance/i;
 
+/** Shiprocket says "CASH_ON_DELIVERY" (other places "COD"). */
+export function isCashOnDelivery(type) {
+  return /^(cod|cash[s_-]*on[s_-]*delivery|partial[s_-]*cod)$/i.test(String(type || '').trim());
+}
+
+/**
+ * The store's fixed partial-COD advance (Oxygen env PARTIAL_COD_ADVANCE, e.g. 199): every COD
+ * order pays it online at checkout and the rest on delivery. Shiprocket doesn't report it on
+ * the order, so it is applied to every COD order. 0 = off.
+ */
+export function advanceSplit(total, advance) {
+  if (!(advance > 0) || !(total > advance)) return null;
+  return { partial: true, paid: round(advance), due: round(total - advance), source: 'store partial-COD advance (PARTIAL_COD_ADVANCE)' };
+}
+
 const round = (n) => Math.round(n * 100) / 100;
 
 // Never shown: customer identity, address and payment credentials. Matched on whole words of a

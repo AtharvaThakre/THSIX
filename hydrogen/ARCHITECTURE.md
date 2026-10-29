@@ -174,6 +174,7 @@ Shiprocket does not sign them.
   Shopify rejects the order, kept if the response is lost (so a retry can't make a second copy),
   and taken over after 10 minutes if its order never appeared. If the lock can't be used, the
   two checks still run.
+- Partial COD (`app/server/lib/partial-cod.js`): every COD order pays a fixed advance online at  Shiprocket checkout, which Shiprocket does not report on the order. With `PARTIAL_COD_ADVANCE`  (Oxygen env, e.g. 199) set, every order confirmed as COD (Shiprocket's `CASH_ON_DELIVERY`; when  the webhook has no payment type it is read from Shiprocket's record) is created *partially paid*:  the advance as a transaction, tag `partial-cod`, balance in note attributes. Prepaid orders and  orders whose type can't be confirmed are left alone. Shiprocket/Fastrr amounts are Shiprocket's.
 - Admin API access (`app/server/lib/admin-token.js`): Shopify's Dev Dashboard apps have no
   permanent token, so with `SHOPIFY_ADMIN_CLIENT_ID` + `SHOPIFY_ADMIN_CLIENT_SECRET` the server
   exchanges them for a ~24h token (client credentials grant), caches it per isolate and renews it
