@@ -30,19 +30,37 @@ export async function inspectOrder(orderId) {
 /**
  * Bring an existing Shopify order in line with a partial-COD payment: the advance recorded as
  * paid, the balance left to collect. Preview unless `apply`.
+ *
+ * `advance`: the amount the customer paid online, as seen in the Shiprocket dashboard. Used when
+ * Shiprocket's order data doesn't report the advance (it showed #1044 as plain COD); the order's
+ * Shopify total is then taken as what was charged.
  */
-export async function fixPartialOrder(orderId, { apply = false } = {}) {
+export async function fixPartialOrder(orderId, { apply = false, advance = 0 } = {}) {
   const reply = (status, payload) => ({ status, payload: { order_id: orderId, applied: false, ...payload } });
-
-  const { order: raw, lookup } = await getShiprocketOrder(orderId);
-  if (!raw) return reply(404, { ok: false, message: 'Shiprocket has no such order', lookup });
-  const { partial_cod: partial, total_amount_payable: total } = normalizeOrder(raw, orderId);
-  if (!partial.partial) {
-    return reply(200, { ok: true, result: 'not partial COD according to Shiprocket — nothing to change' });
-  }
 
   const found = await findOrderByTag(`sr-${orderId}`);
   if (!found) return reply(404, { ok: false, message: 'No Shopify order tagged with this Shiprocket id' });
+
+  let partial;
+  let total;
+  if (advance > 0) {
+    const data = await adminGraphQL('query ($id: ID!) { order(id: $id) { totalPriceSet { shopMoney { amount } } } }', { id: found.gid });
+    total = Number(data?.data?.order?.totalPriceSet?.shopMoney?.amount) || 0;
+    if (!(advance < total)) {
+      return reply(400, { ok: false, message: `advance ₹${advance} must be less than the order total ₹${total}` });
+    }
+    partial = { partial: true, paid: advance, due: Math.round((total - advance) * 100) / 100, source: 'advance given when running the fix' };
+  } else {
+    const { order: raw, lookup } = await getShiprocketOrder(orderId);
+    if (!raw) return reply(404, { ok: false, message: 'Shiprocket has no such order', lookup });
+    ({ partial_cod: partial, total_amount_payable: total } = normalizeOrder(raw, orderId));
+    if (!partial.partial) {
+      return reply(200, {
+        ok: true,
+        result: 'not partial COD according to Shiprocket — nothing to change. If the dashboard shows an advance was paid, run again with that amount as "advance".',
+      });
+    }
+  }
 
   const data = await adminGraphQL(
     `query ($id: ID!) { order(id: $id) {

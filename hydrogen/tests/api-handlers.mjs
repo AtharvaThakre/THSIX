@@ -258,7 +258,7 @@ function mockStore({details, list = [], inShopify = []}) {
         const cur = lockStore.get(variables.key);
         return {body: {data: {shop: {metafield: cur ? {value: cur.value, compareDigest: cur.digest} : null}}}};
       }
-      if (query.includes('displayFinancialStatus') && !query.includes('orderCreateManualPayment')) {
+      if (query.includes('order(id: $id)') && !query.includes('orderCreateManualPayment')) {
         return {body: {data: {order: shopifyOrderState}}};
       }
       if (query.includes('orderCreateManualPayment')) {
@@ -495,6 +495,25 @@ check('fix partial: running again does nothing (already correct)', r.body.result
 shopifyOrderState = {...shopifyOrderState, name: '#1043', displayFinancialStatus: 'PAID', totalReceivedSet: {shopMoney: {amount: '2999.0', currencyCode: 'INR'}}};
 r = await cronGet({order_id: 'partial12345', fix_partial: '1', apply: '1'});
 check('fix partial: wrongly "Paid" in full -> manual correction explained, nothing changed', r.body.result === 'needs a manual correction' && /refund ₹2800\.00/.test(r.body.how) && manualPayments.length === 0, JSON.stringify(r.body).slice(0, 300));
+// Shiprocket says plain COD (as for #1044) but the dashboard shows ₹199 paid: advance given
+mockStore({details: srOrder('cod1044aaaaa', {payment_type: 'CASH_ON_DELIVERY'}), inShopify: ['sr-cod1044aaaaa']});
+shopifyOrderState = {name: '#1044', displayFinancialStatus: 'PENDING', totalReceivedSet: {shopMoney: {amount: '0.0', currencyCode: 'INR'}}, totalPriceSet: {shopMoney: {amount: '2999.0'}}};
+manualPayments.length = 0;
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1'});
+check('fix partial: plain COD per Shiprocket, no advance given -> says so, suggests advance', /nothing to change/.test(r.body.result) && /advance/.test(r.body.result) && manualPayments.length === 0);
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1', advance: '199'});
+check('fix partial: advance=199 preview -> ₹199 paid, ₹2800 due, nothing changed', r.body.applied === false && r.body.advance_paid_online === 199 && r.body.balance_to_collect === 2800 && manualPayments.length === 0, JSON.stringify(r.body));
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1', apply: '1', advance: '199'});
+check('fix partial: advance=199 apply -> records ₹199 on the order', r.body.applied === true && manualPayments.length === 1 && manualPayments[0].amount === '199.00', JSON.stringify(r.body));
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1', apply: '1', advance: '5000'});
+check('fix partial: advance >= order total -> 400', r.status === 400);
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1', apply: '1', advance: 'abc'});
+check('fix partial: advance not a number -> 400', r.status === 400);
+shopifyOrderState = {...shopifyOrderState, name: '#1046', displayFinancialStatus: 'PAID', totalReceivedSet: {shopMoney: {amount: '3499.0', currencyCode: 'INR'}}, totalPriceSet: {shopMoney: {amount: '3499.0'}}};
+manualPayments.length = 0;
+r = await cronGet({order_id: 'cod1044aaaaa', fix_partial: '1', apply: '1', advance: '199'});
+check('fix partial: advance on an order marked fully Paid -> manual steps, nothing changed', r.body.result === 'needs a manual correction' && /refund ₹3300.00/.test(r.body.how) && manualPayments.length === 0, JSON.stringify(r.body).slice(0, 300));
+
 mockStore({details: srOrder('plaincod1234'), inShopify: ['sr-plaincod1234']});
 r = await cronGet({order_id: 'plaincod1234', fix_partial: '1', apply: '1'});
 check('fix partial: plain COD order left alone', /not partial COD/.test(r.body.result) && manualPayments.length === 0);

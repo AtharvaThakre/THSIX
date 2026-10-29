@@ -44,7 +44,10 @@ export default async function handler(request) {
     // &fix_partial=1: correct an existing Shopify order for a partial-COD payment
     // (a preview unless &apply=1)
     if (params.fix_partial === '1') {
-      const { status, payload } = await fixPartialOrder(singleId, { apply: params.apply === '1' });
+      // &advance=<amount>: the advance paid online, when Shiprocket's data doesn't report it
+      const advance = Number(params.advance) || 0;
+      if (params.advance && !(advance > 0)) return reply(400, { ok: false, message: 'advance must be a positive amount' });
+      const { status, payload } = await fixPartialOrder(singleId, { apply: params.apply === '1', advance });
       return reply(status, payload);
     }
     // &force=1: create it even though Shiprocket reports it unpaid/not placed (created unpaid)

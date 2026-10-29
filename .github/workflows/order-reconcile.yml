@@ -27,6 +27,9 @@ on:
           - inspect
           - fix-partial-preview
           - fix-partial-apply
+      advance:
+        description: 'With a fix-partial mode: the advance the customer paid online (e.g. 199), if Shiprocket does not report it'
+        default: ''
       force:
         description: 'With order_id: create it even if Shiprocket says unpaid/not placed (created as unpaid in Shopify)'
         type: boolean
@@ -50,6 +53,7 @@ jobs:
           ORDER_ID: ${{ inputs.order_id }}
           FORCE: ${{ inputs.force && '1' || '0' }}
           MODE: ${{ inputs.mode || 'create' }}
+          ADVANCE: ${{ inputs.advance }}
         run: |
           if [ -z "$CRON_SECRET" ]; then
             echo "::warning::THSIX_CRON_SECRET is not set; skipping order reconcile."
@@ -58,11 +62,12 @@ jobs:
           case "$ORDER_ID" in (*[!A-Za-z0-9_-]*) echo "::error::order_id has invalid characters"; exit 1;; esac
           case "$MODE" in
             inspect) EXTRA='&inspect=1';;
-            fix-partial-preview) EXTRA='&fix_partial=1';;
-            fix-partial-apply) EXTRA='&fix_partial=1&apply=1';;
+            fix-partial-preview) EXTRA="&fix_partial=1&advance=$ADVANCE";;
+            fix-partial-apply) EXTRA="&fix_partial=1&apply=1&advance=$ADVANCE";;
             *) EXTRA='';;
           esac
           if [ -n "$EXTRA" ] && [ -z "$ORDER_ID" ]; then echo "::error::mode $MODE needs an order_id"; exit 1; fi
+          case "$ADVANCE" in (*[!0-9.]*) echo "::error::advance must be a number like 199"; exit 1;; esac
           case "$HOURS" in (*[!0-9]*|'') echo "::error::hours must be a number"; exit 1;; esac
           status=$(curl -sS -o response.json -w '%{http_code}' --max-time 300 \
             -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/orders/reconcile?hours=$HOURS&order_id=$ORDER_ID&force=$FORCE$EXTRA")
