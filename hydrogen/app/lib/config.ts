@@ -18,10 +18,13 @@ export type PublicEnvKey =
   | 'PUBLIC_META_PIXEL_ID'
   | 'PUBLIC_STOREFRONT_ID';
 
+/** The store's Meta pixel (public ID). Keep in step with app/server/lib/config.js. */
+export const META_PIXEL_ID_DEFAULT = '2535420606979400';
+
 const DEFAULTS: Record<PublicEnvKey, string> = {
   PUBLIC_SHOPIFY_SHOP_ID: 'gid://shopify/Shop/78307623077',
   PUBLIC_GA4_MEASUREMENT_ID: '',
-  PUBLIC_META_PIXEL_ID: '1294973553696322',
+  PUBLIC_META_PIXEL_ID: META_PIXEL_ID_DEFAULT,
   // No default: analytics must never be attributed to a placeholder storefront
   PUBLIC_STOREFRONT_ID: '',
 };

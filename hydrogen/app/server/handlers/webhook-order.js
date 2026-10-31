@@ -3,101 +3,78 @@ import { isConfigured, shiprocketPost, safeParse } from '../lib/shiprocket.js';
 import { fetchVariantsByIds } from '../lib/data-service.js';
 import { checkWebhookSecret } from '../lib/webhook-auth.js';
 import { jsonResponder, readBody } from '../lib/http.js';
+import { hashPII, isCapiConfigured, sendCapiEvent } from '../lib/meta-capi.js';
 import { isAdminConfigured, adminAuthHeaders } from '../lib/admin-token.js';
 import { paymentBreakdown, allFields, isCashOnDelivery } from '../lib/partial-cod.js';
 import { claimOrder, markOrderCreated, releaseOrder, orderKey, fingerprintKey } from '../lib/order-lock.js';
 import { findOrderByTag as findOrderByTagShared, syncFulfillment, addOrderNote, adminGraphQL, adminREST } from '../lib/shopify-admin.js';
 
 const SHOPIFY_ADMIN_API = '2026-10';
-// Graph API versions expire ~2 years after release; v19.0 (Jan 2024) is past that
-const META_CAPI_VERSION = 'v23.0';
-
 /**
- * SHA-256 hash a string for Meta CAPI PII fields (email, phone).
- * Meta requires lowercase + trimmed input before hashing.
+ * The purchase value for Meta: what Shiprocket charged for the order (the full price, also for
+ * partial COD), else the items' prices. Always a number, as Meta drops a Purchase without one.
  */
-async function hashPII(value) {
-  if (!value) return undefined;
-  const clean = String(value).trim().toLowerCase();
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(clean));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+export function purchaseValue(order) {
+  const total = Number(order.total_amount_payable) || 0;
+  if (total > 0) return total;
+  return Number(order.items_value) || 0;
 }
 
 /**
  * Send a server-side Purchase event to Meta Conversions API.
- * This is what makes Events Manager show the setup as complete.
  * @param {object} order   - Normalised order object
  * @param {string} eventId - Same event_id used by the browser pixel Purchase call
  */
 async function sendMetaCAPIEvent(order, eventId) {
-  const pixelId = config.metaPixelId;
-  const capiToken = config.metaCAPIToken;
-
-  if (!pixelId || !capiToken) {
-    console.warn('[CAPI] META_PIXEL_ID or META_CAPI_TOKEN not set — skipping server-side event');
+  if (!isCapiConfigured()) {
+    console.warn('[CAPI] Meta pixel ID or META_CAPI_TOKEN not set — skipping server-side event');
     return;
   }
-
-  const eventTime = Math.floor(Date.now() / 1000);
-  const value = Number(order.total_amount_payable || 0);
 
   // Normalise phone: strip all non-digits, ensure 10-digit Indian number
   const rawPhone = order.phone || (order.shipping_address && order.shipping_address.phone) || '';
   const digits = String(rawPhone).replace(/\D/g, '');
   const phone = digits.length >= 10 ? digits.slice(-10) : undefined;
+  const address = order.shipping_address || {};
 
-  const [hashedEmail, hashedPhone, hashedCountry] = await Promise.all([
+  const [hashedEmail, hashedPhone, hashedCountry, hashedCity, hashedZip] = await Promise.all([
     order.email ? hashPII(order.email) : undefined,
-    phone ? hashPII(phone) : undefined,
+    // Meta expects the country code with the number
+    phone ? hashPII(`91${phone}`) : undefined,
     hashPII('in'),
+    address.city ? hashPII(String(address.city).replace(/\s+/g, '')) : undefined,
+    address.pincode || address.zip ? hashPII(String(address.pincode || address.zip).replace(/\s+/g, '')) : undefined,
   ]);
 
-  const payload = {
-    data: [{
-      event_name: 'Purchase',
-      event_time: eventTime,
-      event_id: eventId || order.order_id,          // deduplicates with browser pixel
-      action_source: 'website',
-      event_source_url: `${config.websiteBaseUrl}/checkout/success`,
-      user_data: {
-        // Hashed PII — Meta requires SHA-256 lowercase-trimmed values
-        ...(hashedEmail && { em: hashedEmail }),
-        ...(hashedPhone && { ph: hashedPhone }),
-        // Country code (India)
-        country: hashedCountry,
-      },
-      custom_data: {
-        value: value > 0 ? value : undefined,
-        currency: 'INR',
-        order_id: order.order_id,
-        content_type: 'product',
-        contents: (order.cart_data?.items || []).map(item => ({
-          id: String(item.variant_id),
-          quantity: Number(item.quantity) || 1,
-        })),
-        num_items: (order.cart_data?.items || []).reduce((s, i) => s + (Number(i.quantity) || 1), 0),
-      },
-    }],
-  };
-
-  try {
-    const res = await fetch(
-      `https://graph.facebook.com/${META_CAPI_VERSION}/${pixelId}/events?access_token=${capiToken}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }
-    );
-    const text = await res.text();
-    if (res.ok) {
-      console.log(`[CAPI] Purchase event sent successfully. event_id: ${eventId || order.order_id}`, text.slice(0, 200));
-    } else {
-      console.error('[CAPI] Purchase event failed:', res.status, text.slice(0, 400));
-    }
-  } catch (err) {
-    console.error('[CAPI] Network error sending Purchase event:', err.message);
-  }
+  const items = order.cart_data?.items || [];
+  const sent = await sendCapiEvent({
+    event_name: 'Purchase',
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: eventId || order.order_id,          // deduplicates with browser pixel
+    action_source: 'website',
+    event_source_url: `${config.websiteBaseUrl}/checkout/success`,
+    user_data: {
+      // Hashed PII — Meta requires SHA-256 lowercase-trimmed values
+      ...(hashedEmail && { em: [hashedEmail] }),
+      ...(hashedPhone && { ph: [hashedPhone] }),
+      ...(hashedCity && { ct: [hashedCity] }),
+      ...(hashedZip && { zp: [hashedZip] }),
+      country: [hashedCountry],
+    },
+    custom_data: {
+      value: purchaseValue(order),
+      currency: 'INR',
+      order_id: order.order_id,
+      content_type: 'product',
+      content_ids: items.map((item) => String(item.variant_id)),
+      contents: items.map((item) => ({
+        id: String(item.variant_id),
+        quantity: Number(item.quantity) || 1,
+      })),
+      num_items: items.reduce((s, i) => s + (Number(i.quantity) || 1), 0),
+    },
+  });
+  if (sent) console.log(`[CAPI] Purchase event sent. event_id: ${eventId || order.order_id}`);
 }
 
 /**
@@ -390,7 +367,7 @@ export async function processOrder(orderId, body = {}, { strict = false, knownOr
   const placed = async (shopifyOrder, extra = {}) => {
     // A force-created order is unpaid/not placed per Shiprocket: in Shopify, but not a purchase
     if (!force) await sendMetaCAPIEvent(order, shopifyOrder);
-    return reply(200, { ok: true, placed: true, value: Number(order.total_amount_payable) || 0, shopify_order: shopifyOrder, event_id: shopifyOrder, ...extra });
+    return reply(200, { ok: true, placed: true, value: purchaseValue(order), shopify_order: shopifyOrder, event_id: shopifyOrder, ...extra });
   };
 
   try {
@@ -1259,6 +1236,8 @@ function normalizeOrder(raw, fallbackId) {
     phone: raw.phone || raw.customer_phone || (raw.customer && raw.customer.phone) || (raw.shipping_address && raw.shipping_address.phone) || undefined,
     shipping_address: raw.shipping_address || raw.delivery_address || raw.address,
     billing_address: raw.billing_address || raw.shipping_address || raw.delivery_address || raw.address,
+    // Price of the items (for the Purchase value when no total is given)
+    items_value: rawItems.reduce((sum, item) => sum + (Number(item.price ?? item.selling_price) || 0) * (Number(item.quantity) || 1), 0),
     cart_data: {
       items: rawItems.map(item => ({
         variant_id: String(item.variant_id || item.variantId || item.id),

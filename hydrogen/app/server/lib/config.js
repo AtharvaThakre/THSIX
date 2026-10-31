@@ -11,6 +11,9 @@ export function setServerEnv(nextEnv) {
   env = nextEnv || {};
 }
 
+// The store's Meta pixel (public ID). Keep in step with app/lib/config.ts.
+export const META_PIXEL_ID_DEFAULT = '2535420606979400';
+
 const storeDomainUrl = () => {
   const domain = env.PUBLIC_STORE_DOMAIN || '19sjnp-gx.myshopify.com';
   return /^https?:\/\//.test(domain) ? domain : `https://${domain}`;
@@ -43,9 +46,14 @@ export const config = {
   get cronSecret() { return env.CRON_SECRET || ''; },
   // Optional shared secret the Shiprocket webhooks must carry (see lib/webhook-auth.js)
   get webhookSecret() { return env.WEBHOOK_SECRET || ''; },
-  // Meta Conversions API — server-side event tracking
-  get metaPixelId() { return env.META_PIXEL_ID || env.PUBLIC_META_PIXEL_ID || ''; },
+  // Meta Conversions API — server-side event tracking. The pixel is resolved in the same order
+  // as the browser's (root.tsx loader), so browser and server events always reach one dataset.
+  get metaPixelId() { return env.PUBLIC_META_PIXEL_ID || env.META_PIXEL_ID || META_PIXEL_ID_DEFAULT; },
   get metaCAPIToken() { return env.META_CAPI_TOKEN || ''; },
+  // META_PIXEL_ID set to another pixel than PUBLIC_META_PIXEL_ID (it is then ignored)
+  get metaPixelIdIgnored() { return Boolean(env.META_PIXEL_ID && env.PUBLIC_META_PIXEL_ID && env.META_PIXEL_ID !== env.PUBLIC_META_PIXEL_ID); },
+  // Optional: Events Manager > Test events code, to check server events live (remove after)
+  get metaTestEventCode() { return env.META_TEST_EVENT_CODE || ''; },
   // Contact form (Resend)
   get resendApiKey() { return env.RESEND_API_KEY || ''; },
   get supportEmail() { return env.SUPPORT_EMAIL || 'support@thsix.com'; },

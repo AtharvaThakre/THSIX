@@ -187,24 +187,36 @@ Shiprocket does not sign them.
 
 | Event | Shopify Monorail / Live View | Meta Pixel | Meta CAPI | GA4 |
 | --- | --- | --- | --- | --- |
-| Page view | `<Analytics.Provider>` (every navigation) | base code + SPA `PageView` | — | landing `page_view` + SPA `page_view` |
-| Product view | `<Analytics.ProductView>` | `ViewContent` | — | `view_item` |
-| Add to cart | `ADD_TO_CART` sent directly | `AddToCart` | — | `add_to_cart` |
-| Begin checkout | not a Monorail storefront event | `InitiateCheckout` | — | `begin_checkout` |
-| Purchase | recorded by Shopify when the webhook creates the order | `Purchase`, eventID = order id | `Purchase`, event_id = order id | `purchase` (transaction_id) |
+| Page view | `<Analytics.Provider>` (every navigation) | base code + SPA `PageView` | `PageView` (same event_id) | landing `page_view` + SPA `page_view` |
+| Product view | `<Analytics.ProductView>` | `ViewContent` | `ViewContent` (same event_id) | `view_item` |
+| Add to cart | `ADD_TO_CART` sent directly | `AddToCart` | `AddToCart` (same event_id) | `add_to_cart` |
+| Begin checkout | not a Monorail storefront event | `InitiateCheckout` | `InitiateCheckout` (same event_id) | `begin_checkout` |
+| Purchase | recorded by Shopify when the webhook creates the order | `Purchase`, eventID = Shopify order name | `Purchase`, event_id = Shopify order name | `purchase` (transaction_id) |
 
 - `PUBLIC_STOREFRONT_ID` is read from the environment only (Oxygen injects `1000182960`) and
   normalised to the numeric ID Monorail expects; a GID works too. Without it the provider gets
   no shop and nothing is sent (there is no `'0'` fallback).
 - Consent comes from Shopify's Customer Privacy API, so events carry the visitor's real
   `analytics_allowed` value (Shopify's reports skip events without analytics consent).
-- Browser and server `Purchase` share the Shiprocket order id, so Meta deduplicates them.
-  Graph API v23.0. A visit to the success page without an order id or a pending checkout does
+- Pixel: `PUBLIC_META_PIXEL_ID` (default `2535420606979400`, `lib/config.ts` and
+  `server/lib/config.js`); browser and server resolve it the same way, so both reach one dataset.
+  `/api/checkout/health` shows the pixel in use (`metaPixelId`).
+- Browser and server `Purchase` share the Shopify order name, so Meta deduplicates them. The
+  server Purchase always carries `value` (Shiprocket's total, else the items' prices) and
+  `currency`, plus hashed email, phone (with 91), city and PIN code. Graph API v23.0. A visit to the success page without an order id or a pending checkout does
   not fire Purchase.
 - GA4 is off until `PUBLIC_GA4_MEASUREMENT_ID` is set; it queues the landing `page_view` on init.
 - Meta's `fbevents.js` and GA's `gtag.js` are injected after the window `load` event + an idle
   callback (or the first interaction; 8 s cap). The `fbq` stub and the `dataLayer` queue exist
   from the first byte, so `init` and the landing PageView / page_view are queued, not lost.
+- Conversions API copies of the browser events (PageView, ViewContent, AddToCart,
+  InitiateCheckout, Lead): the head script in `root.tsx` defines `window.thsixCapi`, and
+  `utils/metaPixel.ts` calls it with each event's eventID. It beacons to `/api/meta/event`
+  (`server/handlers/meta-event.js`) once `fbevents.js` has set `_fbp`/`_fbc` (or failed to load),
+  or on page hide. The server adds IP, user agent, `_fbp`, `_fbc` (or one built from `?fbclid=`).
+  It takes only same-origin requests for pages on the site, the five events above (never
+  Purchase) and known fields, 120 events/min per IP. `META_TEST_EVENT_CODE` shows server events
+  in Events Manager > Test events.
 
 ## 7. Catalogue sync (cron)
 
@@ -298,7 +310,8 @@ each one.
 - Config: `PUBLIC_CHECKOUT_DOMAIN`, `PUBLIC_META_PIXEL_ID`, `PUBLIC_GA4_MEASUREMENT_ID`
   (optional), `WEBSITE_BASE_URL`, `SUPPORT_EMAIL`, `CONTACT_FROM_EMAIL` (a sender on a domain
   verified in Resend). Optional: `SHIPROCKET_BASE_URL`, `CHECKOUT_SUCCESS_URL`,
-  `SHIPROCKET_DEFAULT_WEIGHT_GRAMS`, `META_PIXEL_ID`, `PUBLIC_SHOPIFY_SHOP_ID`, `CSP_REPORT_ONLY`.
+  `SHIPROCKET_DEFAULT_WEIGHT_GRAMS`, `META_PIXEL_ID` (unneeded; must match `PUBLIC_META_PIXEL_ID`),
+  `META_TEST_EVENT_CODE`, `PUBLIC_SHOPIFY_SHOP_ID`, `CSP_REPORT_ONLY`.
 
 ## 12. Verification
 
