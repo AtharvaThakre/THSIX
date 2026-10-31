@@ -17,6 +17,8 @@ import {Preloader} from './components/Preloader/Preloader';
 import {CartManager} from './components/Cart/CartManager';
 import {CheckoutNotice} from './components/Cart/CheckoutNotice';
 import {initGA4, trackGA4PageView} from './utils/ga4';
+import {trackPageView} from './utils/metaPixel';
+import {META_PIXEL_ID_DEFAULT} from './lib/config';
 import {seoMeta, DEFAULT_SITE_URL} from './lib/seo';
 import {normalizeStorefrontId} from './lib/storefront-id';
 import {MENU_COLLECTIONS_QUERY} from './lib/queries';
@@ -24,7 +26,6 @@ import globalStyles from './styles/globals.css?url';
 
 export type RootLoader = typeof loader;
 
-const META_PIXEL_ID_DEFAULT = '1294973553696322';
 // Only the weights the CSS uses: Inter 700/800/900 (400-700 text renders with the 700 face) and
 // Caveat 600 (the decorative 400-weight text renders with the 600 face). Changing these changes the look.
 const FONTS_HREF =
@@ -152,8 +153,29 @@ const metaPixelScript = (pixelId: string, siteHost: string) => `!function (f, b)
 // Only the live site reports to Meta: localhost, previews and other hosts would pollute the data
 if (location.hostname === '${siteHost}') {
 fbq('init', '${pixelId}');
-fbq('track', 'PageView');
 (function () {
+  // Server (Conversions API) copy of each pixel event, same event_id, via /api/meta/event. Held
+  // until fbevents.js has set the _fbp/_fbc cookies Meta matches visitors by (or failed to load,
+  // e.g. an ad blocker), and sent anyway when the page is left before that.
+  var pending = [], ready = false;
+  function send(e) {
+    var body = JSON.stringify(e);
+    try {
+      // text/plain: a JSON-typed beacon is refused by some browsers; the server parses either
+      if (navigator.sendBeacon && navigator.sendBeacon('/api/meta/event', new Blob([body], { type: 'text/plain' }))) return;
+    } catch (err) {}
+    fetch('/api/meta/event', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: body, keepalive: true }).catch(function () {});
+  }
+  function flush() { ready = true; pending.splice(0).forEach(send); }
+  window.thsixCapi = function (name, id, data) {
+    var e = { event_name: name, event_id: id, event_source_url: location.href, custom_data: data || {} };
+    if (ready) send(e); else pending.push(e);
+  };
+  window.addEventListener('pagehide', function () { pending.splice(0).forEach(send); });
+  var pv = window.crypto && crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2);
+  fbq('track', 'PageView', {}, { eventID: pv });
+  window.thsixCapi('PageView', pv);
+
   var loaded = false;
   var events = ['pointerdown', 'keydown', 'touchstart', 'scroll'];
   function loadPixel() {
@@ -163,6 +185,8 @@ fbq('track', 'PageView');
     var t = document.createElement('script');
     t.async = true;
     t.src = 'https://connect.facebook.net/en_US/fbevents.js';
+    t.onload = function () { setTimeout(flush, 500); };
+    t.onerror = flush;
     document.head.appendChild(t);
   }
   function whenIdle() {
@@ -253,9 +277,7 @@ function ScrollToTop() {
     if (trackedPath.current === pathname) return;
     trackedPath.current = pathname;
 
-    if (typeof window.fbq === 'function') {
-      window.fbq('track', 'PageView');
-    }
+    trackPageView();
     trackGA4PageView(pathname);
   }, [pathname]);
 

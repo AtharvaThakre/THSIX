@@ -21,6 +21,10 @@ export default async function handler() {
     catalogSyncSecretSet: Boolean(config.cronSecret),
     webhookSecretSet: Boolean(config.webhookSecret),
     metaCapiConfigured: Boolean(config.metaPixelId && config.metaCAPIToken),
+    // Public ID, as in the page source; shows which pixel the site and the server report to
+    metaPixelId: config.metaPixelId,
+    ...(config.metaPixelIdIgnored && { metaPixelWarning: 'META_PIXEL_ID differs from PUBLIC_META_PIXEL_ID and is ignored; set both to the same pixel or remove META_PIXEL_ID' }),
+    metaTestEventCodeSet: Boolean(config.metaTestEventCode),
     credentialsAccepted: null,
     shiprocketStatus: null,
   };

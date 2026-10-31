@@ -24,6 +24,7 @@ interface Env {
   SHOPIFY_ADMIN_CLIENT_SECRET?: string;
   META_PIXEL_ID?: string;
   META_CAPI_TOKEN?: string;
+  META_TEST_EVENT_CODE?: string;
   WEBHOOK_SECRET?: string;
   CSP_REPORT_ONLY?: string;
 }

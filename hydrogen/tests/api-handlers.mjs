@@ -298,7 +298,7 @@ check('order webhook: Shopify order tagged sr-<id>, cod, pending', createdOrder?
   check('CAPI: sent once the Shopify order exists', Boolean(capi2), capi2?.url.replace(/access_token=[^&]+/, 'access_token=***'));
   check('CAPI: Purchase, event_id = order id (dedup with browser)', ev2?.event_name === 'Purchase' && ev2?.event_id === '#1001' && ev2?.action_source === 'website');
   check('CAPI: value/currency/contents', ev2?.custom_data.value === 2999 && ev2?.custom_data.currency === 'INR' && ev2?.custom_data.contents[0].id === '50501821923493');
-  check('CAPI: email/phone SHA-256 hashed, normalised', ev2?.user_data.em === await sha('buyer@example.com') && ev2?.user_data.ph === await sha('9876543210'));
+  check('CAPI: email/phone SHA-256 hashed, normalised (phone with country code 91)', ev2?.user_data.em[0] === await sha('buyer@example.com') && ev2?.user_data.ph[0] === await sha('919876543210'), JSON.stringify(ev2?.user_data));
   check('CAPI: Graph API version current (v23.0)', capi2?.url.includes('/v23.0/'));
 }
 
@@ -795,6 +795,85 @@ check('reconcile: Shiprocket failure -> 502 (workflow run fails visibly)', r.sta
 setServerEnv(ENV);
 r = await call(reconcileHandler, {method: 'GET', headers: {authorization: 'Bearer cron-secret'}});
 check('reconcile: no Admin API access -> 500', r.status === 500);
+
+// ── Meta: Purchase value always sent ────────────────────────────────────────
+{
+  const {purchaseValue} = await imp('handlers/webhook-order.js');
+  check('Purchase value: Shiprocket total', purchaseValue({total_amount_payable: 1000}) === 1000);
+  check('Purchase value: no total -> items value', purchaseValue({total_amount_payable: 0, items_value: 2999}) === 2999);
+  check('Purchase value: nothing known -> 0 (a number, never missing)', purchaseValue({}) === 0);
+
+  // #1066: the webhook names the total total_price; the server Purchase must carry it
+  setServerEnv(ADMIN_ENV);
+  const hook = {cart_id: '6ae3797f715fc0658b38cf01', order_id: '6ae3797f715fc0658b38cf01', latest_stage: 'ORDER_PLACED', currency: 'INR', total_price: 1000, total_discount: 0,
+    items: [{variant_id: '50501478613157', quantity: 1, price: 1000}], paymentDetails: {paymentMode: 'UPI', amount: 199, paymentGateway: 'AirPay', transactionId: '1'},
+    phone: '9876543210', shipping_address: {phone: '9876543210', city: 'Pune'}};
+  mockStore({});
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const u = String(url);
+    if (u.includes('details/list')) return new Response(JSON.stringify({result: []}), {status: 200});
+    if (u.includes('custom-platform-order/details')) return new Response(JSON.stringify({ok: false, error: {message: 'Order not found'}}), {status: 400});
+    return inner(url, init);
+  };
+  calls.length = 0;
+  r = await call(orderHandler, {body: hook});
+  const ev = calls.filter((c) => c.url.includes('graph.facebook.com')).map((c) => JSON.parse(c.init.body).data[0])[0];
+  check('#1066-style webhook (total_price only): server Purchase value 1000 INR', ev?.event_name === 'Purchase' && ev.custom_data.value === 1000 && ev.custom_data.currency === 'INR', JSON.stringify(ev?.custom_data));
+  check('#1066-style webhook: success page gets the same value', r.body?.value === 1000, JSON.stringify(r.body));
+}
+
+// ── Meta: browser events copied to the Conversions API ──────────────────────
+{
+  const metaEventHandler = (await imp('handlers/meta-event.js')).default;
+  const site = {origin: 'https://www.thsix.com', 'sec-fetch-site': 'same-origin', 'user-agent': 'Mozilla/5.0 Test', 'oxygen-buyer-ip': '203.0.113.7',
+    cookie: '_fbp=fb.1.1700000000000.123456789; other=1'};
+  const pageView = {event_name: 'PageView', event_id: '0b7c6b1e-1111-4222-8333-944445555666', event_source_url: 'https://www.thsix.com/products/samba?fbclid=AbC123', custom_data: {}};
+  setServerEnv({...ENV, PUBLIC_META_PIXEL_ID: '2535420606979400', META_PIXEL_ID: ''});
+  mockFetch([['graph.facebook.com', {body: {events_received: 1}}]]);
+  const sent = () => calls.filter((c) => c.url.includes('graph.facebook.com'));
+
+  calls.length = 0;
+  r = await call(metaEventHandler, {body: JSON.stringify(pageView), headers: {...site, 'content-type': 'text/plain'}});
+  const capiCall = sent()[0];
+  const ev = capiCall && JSON.parse(capiCall.init.body).data[0];
+  check('meta event: PageView from the site (beacon, text/plain) -> sent to CAPI (204)', r.status === 204 && sent().length === 1, String(r.status));
+  check('meta event: goes to the pixel in PUBLIC_META_PIXEL_ID', capiCall?.url.includes('/2535420606979400/events'), capiCall?.url.replace(/access_token=[^&]+/, 'access_token=***'));
+  check('meta event: same event_id as the browser (dedup), action_source website', ev?.event_id === pageView.event_id && ev.event_name === 'PageView' && ev.action_source === 'website');
+  check('meta event: IP, user agent, _fbp and fbc (from fbclid) for matching', ev?.user_data.client_ip_address === '203.0.113.7' && ev.user_data.client_user_agent === 'Mozilla/5.0 Test'
+    && ev.user_data.fbp === 'fb.1.1700000000000.123456789' && /^fb\.1\.\d+\.AbC123$/.test(ev.user_data.fbc), JSON.stringify(ev?.user_data));
+
+  calls.length = 0;
+  r = await call(metaEventHandler, {body: {...pageView, event_name: 'AddToCart', custom_data: {value: '2999', currency: 'inr', content_ids: ['50501821923493'], content_type: 'product', content_name: 'Samba', email: 'x@y.z', evil: 1}}, headers: site});
+  const atc = sent()[0] && JSON.parse(sent()[0].init.body).data[0];
+  check('meta event: AddToCart custom data checked, unknown fields dropped', atc?.custom_data.value === 2999 && atc.custom_data.currency === 'INR' && atc.custom_data.content_ids[0] === '50501821923493' && !('email' in atc.custom_data) && !('evil' in atc.custom_data), JSON.stringify(atc?.custom_data));
+
+  calls.length = 0;
+  r = await call(metaEventHandler, {body: {...pageView, event_name: 'Purchase', custom_data: {value: 99999}}, headers: site});
+  check('meta event: Purchase refused (only the server reports purchases)', r.status === 400 && sent().length === 0);
+  r = await call(metaEventHandler, {body: pageView, headers: {...site, origin: 'https://evil.example', 'sec-fetch-site': 'cross-site'}});
+  check('meta event: other sites refused (403)', r.status === 403 && sent().length === 0);
+  r = await call(metaEventHandler, {body: pageView, headers: {'user-agent': 'curl/8'}});
+  check('meta event: no origin information refused (403)', r.status === 403 && sent().length === 0);
+  r = await call(metaEventHandler, {body: {...pageView, event_source_url: 'https://evil.example/x'}, headers: site});
+  check('meta event: page on another host refused (400)', r.status === 400 && sent().length === 0);
+  r = await call(metaEventHandler, {body: {...pageView, event_id: 'x'}, headers: site});
+  check('meta event: bad event_id refused (400)', r.status === 400);
+  r = await call(metaEventHandler, {method: 'GET', headers: site});
+  check('meta event: GET -> 405', r.status === 405);
+
+  setServerEnv({...ENV, META_CAPI_TOKEN: ''});
+  calls.length = 0;
+  r = await call(metaEventHandler, {body: pageView, headers: site});
+  check('meta event: no CAPI token -> accepted quietly, nothing sent', r.status === 204 && sent().length === 0);
+
+  setServerEnv({...ENV, PUBLIC_META_PIXEL_ID: '2535420606979400', META_PIXEL_ID: '1294973553696322'});
+  r = await call(healthHandler, {method: 'GET'});
+  check('health: shows the pixel in use and warns when META_PIXEL_ID differs', r.body?.metaPixelId === '2535420606979400' && /ignored/.test(r.body.metaPixelWarning || ''), JSON.stringify({id: r.body?.metaPixelId, w: r.body?.metaPixelWarning}));
+  setServerEnv({SHIPROCKET_API_KEY: ''});
+  r = await call(healthHandler, {method: 'GET'});
+  check('health: no pixel env set -> the store pixel 2535420606979400', r.body?.metaPixelId === '2535420606979400', r.body?.metaPixelId);
+}
 
 console.log(`\n${pass}/${pass + fail} server checks passed`);
 process.exit(fail ? 1 : 0);

@@ -47,10 +47,20 @@ const fire = (
     } else {
       console.warn(`[Meta Pixel] window.fbq is not defined. An ad blocker (uBlock, Brave Shields, AdBlock) might be blocking Meta Pixel.`);
     }
+    // Server (Conversions API) copy with the same event_id; defined by the pixel script in
+    // root.tsx on the live site only. Purchase is sent by the server itself.
+    if (type === 'track' && SERVER_EVENTS.has(event)) {
+      window.thsixCapi?.(event, eid, params);
+    }
   }
 };
 
+const SERVER_EVENTS = new Set(['PageView', 'ViewContent', 'AddToCart', 'InitiateCheckout', 'Lead']);
+
 // ── Standard Events ──────────────────────────────────────────────────────────
+
+/** Fires on each client-side navigation (the landing page view is sent by root.tsx). */
+export const trackPageView = () => fire('track', 'PageView');
 
 /** Fires when a product page is viewed. */
 export const trackViewContent = (params: {
